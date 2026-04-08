@@ -8,7 +8,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 interface Investigation {
   id: string;
   query: string;
-  status: 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'COMPLETE' | 'FAILED';
+  status: 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'RESOLVING' | 'COMPLETE' | 'FAILED';
   progress?: {
     entitiesDiscovered: number;
     edgesCreated: number;
@@ -17,6 +17,7 @@ interface Investigation {
   };
   counts?: { companies: number; people: number; addresses: number; edges: number };
   entities?: { company: any[]; person: any[]; address: any[] };
+  matches?: any[];
   error?: string;
 }
 
@@ -73,7 +74,7 @@ export default function InvestigatePage() {
   if (err) return <main className="p-10 text-red-600">{err}</main>;
   if (!data) return <main className="p-10 text-slate-500">Loading...</main>;
 
-  const isExpanding = data.status === 'QUEUED' || data.status === 'FETCHING' || data.status === 'EXPANDING';
+  const isExpanding = data.status === 'QUEUED' || data.status === 'FETCHING' || data.status === 'EXPANDING' || data.status === 'RESOLVING';
 
   return (
     <main className="max-w-5xl mx-auto px-6 py-10">
@@ -118,8 +119,71 @@ export default function InvestigatePage() {
           <EntityList title="Addresses" items={data.entities?.address || []} color="text-slate-700" />
         </section>
       )}
+
+      {data.status === 'COMPLETE' && data.matches && data.matches.length > 0 && (
+        <section className="mt-6 bg-white border border-slate-200 rounded-xl p-6">
+          <h2 className="text-xl font-semibold mb-4">Cross-source matches ({data.matches.length})</h2>
+          <ul className="space-y-3">
+            {data.matches.map((m: any) => (
+              <li key={m.id} className="border-b border-slate-100 last:border-b-0 pb-3 last:pb-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm">{m.reasons?.matchedName || m.matchedEntityId}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {m.sourceEntityType} · {m.sourceEntityId}
+                    </div>
+                    {m.reasons && (
+                      <div className="text-xs text-slate-600 mt-1">
+                        {m.reasons.exactName && <span className="mr-2">✓ exact name</span>}
+                        {m.reasons.phoneticMatch && <span className="mr-2">✓ phonetic</span>}
+                        {m.reasons.jaroWinkler && <span className="mr-2">JW {m.reasons.jaroWinkler}</span>}
+                        {m.reasons.dobMatch && <span className="mr-2">DOB {m.reasons.dobMatch}</span>}
+                        {m.reasons.nationality && <span className="mr-2">nat {m.reasons.nationality}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <SourceBadge source={m.source} />
+                    <ConfidencePill score={m.confidence} />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   );
+}
+
+function SourceBadge({ source }: { source: string }) {
+  const map: Record<string, string> = {
+    opensanctions: 'bg-red-50 text-red-700 border-red-200',
+    offshore_leaks: 'bg-amber-50 text-amber-700 border-amber-200',
+  };
+  const label = source === 'opensanctions' ? 'OpenSanctions' : 'ICIJ';
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded border ${map[source] || ''}`}>{label}</span>
+  );
+}
+
+function ConfidencePill({ score }: { score: number }) {
+  const color =
+    score >= 75 ? 'bg-red-600' : score >= 50 ? 'bg-amber-500' : 'bg-slate-400';
+  return (
+    <span className={`text-xs text-white px-2 py-0.5 rounded ${color}`}>{score}%</span>
+  );
+}
+
+function ProximityDot({ score }: { score?: string }) {
+  const map: Record<string, string> = {
+    CRITICAL: 'bg-red-600',
+    HIGH: 'bg-orange-500',
+    MEDIUM: 'bg-amber-400',
+    LOW: 'bg-yellow-200',
+    CLEAR: 'bg-green-300',
+  };
+  return <span className={`inline-block w-2 h-2 rounded-full mr-2 ${map[score || 'CLEAR']}`} />;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -127,6 +191,7 @@ function StatusBadge({ status }: { status: string }) {
     QUEUED: 'bg-slate-100 text-slate-700',
     FETCHING: 'bg-blue-100 text-blue-700',
     EXPANDING: 'bg-blue-100 text-blue-700',
+    RESOLVING: 'bg-purple-100 text-purple-700',
     COMPLETE: 'bg-green-100 text-green-700',
     FAILED: 'bg-red-100 text-red-700',
   };
@@ -153,9 +218,17 @@ function EntityList({ title, items, color }: { title: string; items: any[]; colo
       <h3 className={`text-sm font-semibold mb-2 ${color}`}>{title} ({items.length})</h3>
       <ul className="space-y-1 text-sm">
         {items.slice(0, 50).map((it) => (
-          <li key={it.id} className="flex justify-between border-b border-slate-100 py-1">
-            <span>{it.label}</span>
-            <span className="text-slate-400 text-xs">
+          <li key={it.id} className="flex justify-between items-center border-b border-slate-100 py-1">
+            <span className="flex items-center min-w-0">
+              <ProximityDot score={it.proximityScore} />
+              <span className="truncate">{it.label}</span>
+              {it.matches && it.matches.length > 0 && (
+                <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 shrink-0">
+                  {it.matches.length} match{it.matches.length > 1 ? 'es' : ''}
+                </span>
+              )}
+            </span>
+            <span className="text-slate-400 text-xs shrink-0 ml-2">
               {it.metadata?.companyCount ? `${it.metadata.companyCount} cos` : it.entityId}
             </span>
           </li>
