@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-export type InvestigationStatus = 'QUEUED' | 'FETCHING' | 'COMPLETE' | 'FAILED';
+export type InvestigationStatus = 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'COMPLETE' | 'FAILED';
 
 @Entity('investigations')
 export class Investigation {
@@ -10,4 +10,5 @@ export class Investigation {
   @CreateDateColumn() createdAt: Date;
   @Column({ type: 'timestamptz', nullable: true }) completedAt: Date;
   @Column({ type: 'jsonb', nullable: true }) metadata: Record<string, any>;
+  @Column({ type: 'jsonb', nullable: true }) progress: Record<string, any>;
 }
