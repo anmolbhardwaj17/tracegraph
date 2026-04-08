@@ -5,6 +5,7 @@ import { dataSourceOptions } from './data-source';
 import { CompaniesHouseModule } from './modules/companies-house/companies-house.module';
 import { InvestigationModule } from './modules/investigation/investigation.module';
 import { GraphModule } from './modules/graph/graph.module';
+import { OpenSanctionsModule } from './modules/open-sanctions/open-sanctions.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { GraphModule } from './modules/graph/graph.module';
     TypeOrmModule.forRoot(dataSourceOptions),
     CompaniesHouseModule,
     GraphModule,
+    OpenSanctionsModule,
     InvestigationModule,
   ],
 })

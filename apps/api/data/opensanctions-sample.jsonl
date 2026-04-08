@@ -1,0 +1,20 @@
+{"id":"NK-sample-001","schema":"Person","datasets":["sanctions"],"properties":{"name":["Vladimir Petrov"],"alias":["V. Petrov","Vlad Petrov"],"birthDate":["1965-04-12"],"nationality":["ru"],"country":["ru"],"topics":["sanction"]}}
+{"id":"NK-sample-002","schema":"Person","datasets":["pep"],"properties":{"name":["Maria Santos"],"birthDate":["1972-09-03"],"nationality":["br"],"country":["br"],"topics":["role.pep"]}}
+{"id":"NK-sample-003","schema":"Person","datasets":["sanctions","ofac"],"properties":{"name":["Ahmed Al-Rashid"],"alias":["Ahmad Alrashid","A. Al Rashid"],"birthDate":["1958-01-20"],"nationality":["sy"],"country":["sy"],"topics":["sanction","crime.terror"]}}
+{"id":"NK-sample-004","schema":"Person","datasets":["pep"],"properties":{"name":["Jane Smith"],"birthDate":["1980-06-15"],"nationality":["gb"],"country":["gb"],"topics":["role.pep"]}}
+{"id":"NK-sample-005","schema":"Company","datasets":["sanctions"],"properties":{"name":["Petrov Holdings Ltd"],"country":["cy"],"topics":["sanction"]}}
+{"id":"NK-sample-006","schema":"Person","datasets":["sanctions"],"properties":{"name":["Sergei Volkov"],"birthDate":["1970-11-30"],"nationality":["ru"],"country":["ru"],"topics":["sanction"]}}
+{"id":"NK-sample-007","schema":"Person","datasets":["pep"],"properties":{"name":["John Williams"],"birthDate":["1965-03-22"],"nationality":["us"],"country":["us"],"topics":["role.pep"]}}
+{"id":"NK-sample-008","schema":"Company","datasets":["sanctions"],"properties":{"name":["Volkov Trading Co"],"country":["ru"],"topics":["sanction"]}}
+{"id":"NK-sample-009","schema":"Person","datasets":["crime"],"properties":{"name":["Carlos Mendoza"],"birthDate":["1978-07-18"],"nationality":["co"],"country":["co"],"topics":["crime"]}}
+{"id":"NK-sample-010","schema":"Person","datasets":["pep"],"properties":{"name":["Anna Kowalski"],"birthDate":["1969-02-14"],"nationality":["pl"],"country":["pl"],"topics":["role.pep"]}}
+{"id":"NK-sample-011","schema":"Person","datasets":["sanctions"],"properties":{"name":["Dmitri Sokolov"],"alias":["D. Sokolov"],"birthDate":["1962-08-08"],"nationality":["ru"],"country":["ru"],"topics":["sanction"]}}
+{"id":"NK-sample-012","schema":"Person","datasets":["pep"],"properties":{"name":["Robert Johnson"],"birthDate":["1955-12-01"],"nationality":["us"],"country":["us"],"topics":["role.pep"]}}
+{"id":"NK-sample-013","schema":"Person","datasets":["sanctions"],"properties":{"name":["Hassan Mohammed"],"birthDate":["1971-05-25"],"nationality":["ir"],"country":["ir"],"topics":["sanction"]}}
+{"id":"NK-sample-014","schema":"Company","datasets":["sanctions"],"properties":{"name":["Sokolov Industries"],"country":["ru"],"topics":["sanction"]}}
+{"id":"NK-sample-015","schema":"Person","datasets":["pep"],"properties":{"name":["Elena Rodriguez"],"birthDate":["1974-10-09"],"nationality":["mx"],"country":["mx"],"topics":["role.pep"]}}
+{"id":"NK-sample-016","schema":"Person","datasets":["sanctions"],"properties":{"name":["Igor Pavlov"],"birthDate":["1968-04-17"],"nationality":["ru"],"country":["ru"],"topics":["sanction"]}}
+{"id":"NK-sample-017","schema":"Person","datasets":["pep"],"properties":{"name":["David Chen"],"birthDate":["1973-08-12"],"nationality":["sg"],"country":["sg"],"topics":["role.pep"]}}
+{"id":"NK-sample-018","schema":"Person","datasets":["sanctions"],"properties":{"name":["Yuri Belov"],"birthDate":["1960-06-30"],"nationality":["by"],"country":["by"],"topics":["sanction"]}}
+{"id":"NK-sample-019","schema":"Company","datasets":["sanctions"],"properties":{"name":["Belov Energy Holdings"],"country":["by"],"topics":["sanction"]}}
+{"id":"NK-sample-020","schema":"Person","datasets":["pep"],"properties":{"name":["Sophia Müller"],"birthDate":["1981-11-04"],"nationality":["de"],"country":["de"],"topics":["role.pep"]}}

@@ -7,6 +7,7 @@ import { PSC } from './modules/companies-house/entities/psc.entity';
 import { Investigation } from './modules/investigation/entities/investigation.entity';
 import { GraphNode } from './modules/graph/entities/graph-node.entity';
 import { GraphEdge } from './modules/graph/entities/graph-edge.entity';
+import { SanctionsEntity } from './modules/open-sanctions/entities/sanctions-entity.entity';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -15,7 +16,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.POSTGRES_USER || 'tracegraph',
   password: process.env.POSTGRES_PASSWORD || 'tracegraph',
   database: process.env.POSTGRES_DB || 'tracegraph',
-  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge],
+  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,
