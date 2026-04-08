@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-export type InvestigationStatus = 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'COMPLETE' | 'FAILED';
+export type InvestigationStatus = 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'RESOLVING' | 'COMPLETE' | 'FAILED';
 
 @Entity('investigations')
 export class Investigation {

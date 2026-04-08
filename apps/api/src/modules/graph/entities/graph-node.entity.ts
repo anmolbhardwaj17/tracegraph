@@ -17,4 +17,7 @@ export class GraphNode {
   @Column() label: string;
 
   @Column({ type: 'jsonb', nullable: true }) metadata: Record<string, any>;
+
+  @Column({ nullable: true }) proximityScore: string;
+  @Column({ type: 'int', nullable: true }) proximityHops: number;
 }

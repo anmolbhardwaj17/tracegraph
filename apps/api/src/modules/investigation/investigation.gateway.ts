@@ -29,4 +29,16 @@ export class InvestigationGateway {
   emitComplete(investigationId: string, payload: any) {
     this.server?.to(`inv:${investigationId}`).emit('expansion_complete', payload);
   }
+
+  emitEntityMatched(investigationId: string, payload: any) {
+    this.server?.to(`inv:${investigationId}`).emit('entity_matched', payload);
+  }
+
+  emitResolutionProgress(investigationId: string, payload: any) {
+    this.server?.to(`inv:${investigationId}`).emit('resolution_progress', payload);
+  }
+
+  emitResolutionComplete(investigationId: string, payload: any) {
+    this.server?.to(`inv:${investigationId}`).emit('resolution_complete', payload);
+  }
 }

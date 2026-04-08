@@ -8,12 +8,14 @@ import { InvestigationGateway } from './investigation.gateway';
 import { InvestigationProcessor, INVESTIGATION_QUEUE } from './investigation.processor';
 import { CompaniesHouseModule } from '../companies-house/companies-house.module';
 import { GraphModule } from '../graph/graph.module';
+import { EntityResolutionModule } from '../entity-resolution/entity-resolution.module';
+import { EntityMatch } from '../entity-resolution/entities/entity-match.entity';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Investigation, GraphNode, GraphEdge]),
+    TypeOrmModule.forFeature([Investigation, GraphNode, GraphEdge, EntityMatch]),
     BullModule.forRootAsync({
       useFactory: () => ({
         connection: {
@@ -25,6 +27,7 @@ import { GraphEdge } from '../graph/entities/graph-edge.entity';
     BullModule.registerQueue({ name: INVESTIGATION_QUEUE }),
     CompaniesHouseModule,
     GraphModule,
+    EntityResolutionModule,
   ],
   providers: [InvestigationService, InvestigationGateway, InvestigationProcessor],
   controllers: [InvestigationController],

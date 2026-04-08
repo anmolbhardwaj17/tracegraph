@@ -6,6 +6,8 @@ import { Repository } from 'typeorm';
 import { Investigation } from './entities/investigation.entity';
 import { GraphExpansionService } from '../graph/graph-expansion.service';
 import { AddressService } from '../graph/address.service';
+import { EntityResolutionService } from '../entity-resolution/entity-resolution.service';
+import { SanctionsProximityService } from '../entity-resolution/proximity.service';
 import { CompaniesHouseService } from '../companies-house/companies-house.service';
 import { InvestigationGateway } from './investigation.gateway';
 
@@ -24,6 +26,8 @@ export class InvestigationProcessor extends WorkerHost {
     @InjectRepository(Investigation) private readonly investigations: Repository<Investigation>,
     private readonly expansion: GraphExpansionService,
     private readonly addressService: AddressService,
+    private readonly resolution: EntityResolutionService,
+    private readonly proximity: SanctionsProximityService,
     private readonly ch: CompaniesHouseService,
     private readonly gateway: InvestigationGateway,
   ) {
@@ -74,10 +78,30 @@ export class InvestigationProcessor extends WorkerHost {
 
       const addressClusters = await this.addressService.clusterAddresses(investigationId);
 
+      // Resolution stage
+      await this.investigations.update(investigationId, { status: 'RESOLVING' });
+      const resolutionResult = await this.resolution.resolveInvestigation(investigationId, {
+        onEntityMatched: (m) =>
+          this.gateway.emitEntityMatched(investigationId, {
+            id: m.id,
+            sourceEntityType: m.sourceEntityType,
+            sourceEntityId: m.sourceEntityId,
+            matchedSource: m.matchedSource,
+            matchedEntityId: m.matchedEntityId,
+            confidenceScore: m.confidenceScore,
+            matchReasons: m.matchReasons,
+          }),
+        onProgress: (p) => this.gateway.emitResolutionProgress(investigationId, p),
+      });
+      this.gateway.emitResolutionComplete(investigationId, resolutionResult);
+
+      // Proximity scoring
+      const proximityResult = await this.proximity.compute(investigationId);
+
       await this.investigations.update(investigationId, {
         status: 'COMPLETE',
         completedAt: new Date(),
-        progress: { ...result, addressClusters } as any,
+        progress: { ...result, addressClusters, resolution: resolutionResult, proximity: proximityResult } as any,
       });
       this.gateway.emitComplete(investigationId, result);
     } catch (err: any) {
