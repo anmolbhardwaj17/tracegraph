@@ -8,6 +8,10 @@ import { Investigation } from './modules/investigation/entities/investigation.en
 import { GraphNode } from './modules/graph/entities/graph-node.entity';
 import { GraphEdge } from './modules/graph/entities/graph-edge.entity';
 import { SanctionsEntity } from './modules/open-sanctions/entities/sanctions-entity.entity';
+import { OffshoreEntity } from './modules/offshore-leaks/entities/offshore-entity.entity';
+import { OffshoreOfficer } from './modules/offshore-leaks/entities/offshore-officer.entity';
+import { OffshoreIntermediary } from './modules/offshore-leaks/entities/offshore-intermediary.entity';
+import { OffshoreRelationship } from './modules/offshore-leaks/entities/offshore-relationship.entity';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -16,7 +20,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.POSTGRES_USER || 'tracegraph',
   password: process.env.POSTGRES_PASSWORD || 'tracegraph',
   database: process.env.POSTGRES_DB || 'tracegraph',
-  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity],
+  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,

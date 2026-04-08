@@ -6,6 +6,7 @@ import { CompaniesHouseModule } from './modules/companies-house/companies-house.
 import { InvestigationModule } from './modules/investigation/investigation.module';
 import { GraphModule } from './modules/graph/graph.module';
 import { OpenSanctionsModule } from './modules/open-sanctions/open-sanctions.module';
+import { OffshoreLeaksModule } from './modules/offshore-leaks/offshore-leaks.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { OpenSanctionsModule } from './modules/open-sanctions/open-sanctions.mod
     CompaniesHouseModule,
     GraphModule,
     OpenSanctionsModule,
+    OffshoreLeaksModule,
     InvestigationModule,
   ],
 })

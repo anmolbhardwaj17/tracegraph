@@ -1,0 +1,11 @@
+node_id_start,node_id_end,rel_type,start_date,end_date,sourceID
+90001,80001,shareholder of,2010-03-15,,Panama Papers
+90002,80002,director of,2008-07-22,,Paradise Papers
+90003,80003,beneficial owner of,2012-01-10,,Panama Papers
+90004,80004,shareholder of,2014-09-30,,Panama Papers
+90005,80005,director of,2011-05-18,,Bahamas Leaks
+90006,80006,beneficial owner of,2009-11-22,,Paradise Papers
+90007,80007,shareholder of,2013-04-08,,Pandora Papers
+90008,80008,director of,2015-08-14,,Pandora Papers
+90009,80009,shareholder of,2010-12-01,,Panama Papers
+90010,80010,director of,2012-06-25,,Paradise Papers

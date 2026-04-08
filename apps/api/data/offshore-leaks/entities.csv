@@ -1,0 +1,11 @@
+node_id,name,jurisdiction,country_codes,incorporation_date,inactivation_date,status,sourceID
+80001,Petrov Holdings Ltd,BVI,VG,2010-03-15,,Active,Panama Papers
+80002,Volkov Trading Co,Cayman Islands,KY,2008-07-22,2018-12-01,Inactive,Paradise Papers
+80003,Sokolov Industries,Panama,PA,2012-01-10,,Active,Panama Papers
+80004,Belov Energy Holdings,BVI,VG,2014-09-30,,Active,Panama Papers
+80005,Mendoza Investments SA,Bahamas,BS,2011-05-18,,Active,Bahamas Leaks
+80006,Smith Family Trust,Jersey,JE,2009-11-22,,Active,Paradise Papers
+80007,Chen Pacific Ltd,Hong Kong,HK,2013-04-08,,Active,Pandora Papers
+80008,Müller Capital GmbH,Liechtenstein,LI,2015-08-14,,Active,Pandora Papers
+80009,Kowalski Holdings,Cyprus,CY,2010-12-01,2020-06-15,Inactive,Panama Papers
+80010,Pavlov Investments,Switzerland,CH,2012-06-25,,Active,Paradise Papers
