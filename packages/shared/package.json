@@ -1,0 +1,14 @@
+{
+  "name": "@tracegraph/shared",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "echo 'no lint'",
+    "test": "echo 'no tests'"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
