@@ -1,0 +1,207 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { EntityMatch, MatchedSource } from './entities/entity-match.entity';
+import { GraphNode } from '../graph/entities/graph-node.entity';
+import { OpenSanctionsService } from '../open-sanctions/open-sanctions.service';
+import { OffshoreLeaksService } from '../offshore-leaks/offshore-leaks.service';
+import { jaroWinkler, metaphone, normalizeName } from './algorithms';
+
+export interface MatchCandidate {
+  id: string;
+  names: string[];
+  birthYear?: number;
+  nationality?: string;
+}
+
+export interface ScoreResult {
+  score: number;
+  reasons: Record<string, any>;
+}
+
+export interface ResolutionEvents {
+  onEntityMatched?: (match: EntityMatch) => void;
+  onProgress?: (p: { processed: number; total: number; matches: number }) => void;
+}
+
+@Injectable()
+export class EntityResolutionService {
+  private readonly logger = new Logger(EntityResolutionService.name);
+
+  constructor(
+    @InjectRepository(EntityMatch) private readonly matches: Repository<EntityMatch>,
+    @InjectRepository(GraphNode) private readonly nodes: Repository<GraphNode>,
+    private readonly sanctions: OpenSanctionsService,
+    private readonly offshore: OffshoreLeaksService,
+  ) {}
+
+  /**
+   * Score a source entity against a candidate. Weights:
+   *   exact name = 40, phonetic = 20, jaro-winkler > 0.85 = 15
+   *   DOB year = 30, nationality = 10
+   * Threshold: >75 match, 50-75 possible, <50 reject.
+   */
+  score(source: MatchCandidate, candidate: MatchCandidate): ScoreResult {
+    const reasons: Record<string, any> = {};
+    let score = 0;
+
+    const sourceNames = source.names.map(normalizeName).filter(Boolean);
+    const candNames = candidate.names.map(normalizeName).filter(Boolean);
+
+    let bestExact = false;
+    let bestPhonetic = false;
+    let bestJW = 0;
+    for (const sn of sourceNames) {
+      for (const cn of candNames) {
+        if (sn === cn) bestExact = true;
+        if (metaphone(sn) && metaphone(sn) === metaphone(cn)) bestPhonetic = true;
+        const jw = jaroWinkler(sn, cn);
+        if (jw > bestJW) bestJW = jw;
+      }
+    }
+
+    if (bestExact) { score += 40; reasons.exactName = true; }
+    if (bestPhonetic) { score += 20; reasons.phoneticMatch = true; }
+    if (bestJW > 0.85) { score += 15; reasons.jaroWinkler = bestJW.toFixed(3); }
+
+    if (source.birthYear && candidate.birthYear && source.birthYear === candidate.birthYear) {
+      score += 30;
+      reasons.dobMatch = source.birthYear;
+    }
+
+    if (
+      source.nationality &&
+      candidate.nationality &&
+      source.nationality.toLowerCase() === candidate.nationality.toLowerCase()
+    ) {
+      score += 10;
+      reasons.nationality = source.nationality;
+    }
+
+    return { score: Math.min(100, score), reasons };
+  }
+
+  classify(score: number): 'match' | 'possible' | 'none' {
+    if (score > 75) return 'match';
+    if (score >= 50) return 'possible';
+    return 'none';
+  }
+
+  async resolveInvestigation(
+    investigationId: string,
+    events: ResolutionEvents = {},
+  ): Promise<{ processed: number; matches: number }> {
+    const nodes = await this.nodes.find({ where: { investigationId } });
+    const personNodes = nodes.filter((n) => n.entityType === 'person');
+    const companyNodes = nodes.filter((n) => n.entityType === 'company');
+
+    let processed = 0;
+    let totalMatches = 0;
+    const total = personNodes.length + companyNodes.length;
+
+    for (const node of personNodes) {
+      const source: MatchCandidate = {
+        id: node.entityId,
+        names: [node.label],
+        birthYear: node.metadata?.dateOfBirth?.year,
+        nationality: node.metadata?.nationality,
+      };
+
+      // Sanctions
+      const sanctionsHits = await this.sanctions.searchByName(node.label, 5);
+      for (const hit of sanctionsHits) {
+        const cand: MatchCandidate = {
+          id: hit.entity.id,
+          names: hit.entity.names || [],
+          birthYear: parseBirthYear(hit.entity.birthDates?.[0]),
+          nationality: hit.entity.nationalities?.[0],
+        };
+        const { score, reasons } = this.score(source, cand);
+        if (this.classify(score) !== 'none') {
+          await this.persistMatch(investigationId, 'person', node.entityId, 'opensanctions', hit.entity.id, score, {
+            ...reasons,
+            trigramSimilarity: hit.similarity,
+            matchedName: hit.entity.names?.[0],
+            topics: hit.entity.topics,
+          }, events);
+          totalMatches++;
+        }
+      }
+
+      // OffshoreLeaks officers
+      const offshoreHits = await this.offshore.searchOfficersByName(node.label, 5);
+      for (const hit of offshoreHits) {
+        const cand: MatchCandidate = {
+          id: hit.entity.id,
+          names: [hit.entity.name],
+          nationality: hit.entity.country,
+        };
+        const { score, reasons } = this.score(source, cand);
+        if (this.classify(score) !== 'none') {
+          await this.persistMatch(investigationId, 'person', node.entityId, 'offshore_leaks', hit.entity.id, score, {
+            ...reasons,
+            matchedName: hit.entity.name,
+            sourceid: hit.entity.sourceid,
+          }, events);
+          totalMatches++;
+        }
+      }
+
+      processed++;
+      events.onProgress?.({ processed, total, matches: totalMatches });
+    }
+
+    for (const node of companyNodes) {
+      const source: MatchCandidate = { id: node.entityId, names: [node.label] };
+      const offshoreHits = await this.offshore.searchEntitiesByName(node.label, 5);
+      for (const hit of offshoreHits) {
+        const cand: MatchCandidate = { id: hit.entity.id, names: [hit.entity.name] };
+        const { score, reasons } = this.score(source, cand);
+        if (this.classify(score) !== 'none') {
+          await this.persistMatch(investigationId, 'company', node.entityId, 'offshore_leaks', hit.entity.id, score, {
+            ...reasons,
+            matchedName: hit.entity.name,
+            jurisdiction: hit.entity.jurisdiction,
+            sourceid: hit.entity.sourceid,
+          }, events);
+          totalMatches++;
+        }
+      }
+      processed++;
+      events.onProgress?.({ processed, total, matches: totalMatches });
+    }
+
+    this.logger.log(`Resolution for ${investigationId}: ${processed} nodes, ${totalMatches} matches`);
+    return { processed, matches: totalMatches };
+  }
+
+  private async persistMatch(
+    investigationId: string,
+    sourceType: string,
+    sourceId: string,
+    matchedSource: MatchedSource,
+    matchedId: string,
+    score: number,
+    reasons: Record<string, any>,
+    events: ResolutionEvents,
+  ): Promise<void> {
+    const match = await this.matches.save(
+      this.matches.create({
+        investigationId,
+        sourceEntityType: sourceType,
+        sourceEntityId: sourceId,
+        matchedSource,
+        matchedEntityId: matchedId,
+        confidenceScore: score,
+        matchReasons: reasons,
+      }),
+    );
+    events.onEntityMatched?.(match);
+  }
+}
+
+function parseBirthYear(s?: string): number | undefined {
+  if (!s) return undefined;
+  const m = s.match(/^(\d{4})/);
+  return m ? parseInt(m[1], 10) : undefined;
+}

@@ -12,6 +12,7 @@ import { OffshoreEntity } from './modules/offshore-leaks/entities/offshore-entit
 import { OffshoreOfficer } from './modules/offshore-leaks/entities/offshore-officer.entity';
 import { OffshoreIntermediary } from './modules/offshore-leaks/entities/offshore-intermediary.entity';
 import { OffshoreRelationship } from './modules/offshore-leaks/entities/offshore-relationship.entity';
+import { EntityMatch } from './modules/entity-resolution/entities/entity-match.entity';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -20,7 +21,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.POSTGRES_USER || 'tracegraph',
   password: process.env.POSTGRES_PASSWORD || 'tracegraph',
   database: process.env.POSTGRES_DB || 'tracegraph',
-  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship],
+  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,
