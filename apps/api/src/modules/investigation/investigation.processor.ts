@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Investigation } from './entities/investigation.entity';
 import { GraphExpansionService } from '../graph/graph-expansion.service';
+import { AddressService } from '../graph/address.service';
 import { CompaniesHouseService } from '../companies-house/companies-house.service';
 import { InvestigationGateway } from './investigation.gateway';
 
@@ -22,6 +23,7 @@ export class InvestigationProcessor extends WorkerHost {
   constructor(
     @InjectRepository(Investigation) private readonly investigations: Repository<Investigation>,
     private readonly expansion: GraphExpansionService,
+    private readonly addressService: AddressService,
     private readonly ch: CompaniesHouseService,
     private readonly gateway: InvestigationGateway,
   ) {
@@ -70,10 +72,12 @@ export class InvestigationProcessor extends WorkerHost {
         },
       );
 
+      const addressClusters = await this.addressService.clusterAddresses(investigationId);
+
       await this.investigations.update(investigationId, {
         status: 'COMPLETE',
         completedAt: new Date(),
-        progress: result as any,
+        progress: { ...result, addressClusters } as any,
       });
       this.gateway.emitComplete(investigationId, result);
     } catch (err: any) {
