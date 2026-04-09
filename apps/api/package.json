@@ -7,6 +7,7 @@
     "start": "node dist/main.js",
     "lint": "echo 'no lint'",
     "test": "jest",
+    "seed:demo": "ts-node src/seeds/demo-seed.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/data-source.ts",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts"
   },
