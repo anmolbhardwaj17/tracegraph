@@ -30,6 +30,63 @@ export class InvestigationService {
     return inv;
   }
 
+  async list(): Promise<any[]> {
+    const items = await this.investigations.find({
+      order: { createdAt: 'DESC' },
+      take: 25,
+    });
+    return items.map((i) => ({
+      id: i.id,
+      query: i.query,
+      status: i.status,
+      createdAt: i.createdAt,
+      completedAt: i.completedAt,
+      riskScore: i.progress?.riskScore,
+      counts: i.progress
+        ? {
+            entities: i.progress.entitiesDiscovered,
+            edges: i.progress.edgesCreated,
+          }
+        : undefined,
+    }));
+  }
+
+  async graphFor(id: string): Promise<any> {
+    const nodes = await this.nodes.find({ where: { investigationId: id } });
+    const edges = await this.edges.find({ where: { investigationId: id } });
+    const matches = await this.matchesRepo.find({ where: { investigationId: id } });
+    const matchedEntityIds = new Set(matches.map((m) => m.sourceEntityId));
+
+    // Connection counts (degree)
+    const degree = new Map<string, number>();
+    for (const e of edges) {
+      degree.set(e.sourceNodeId, (degree.get(e.sourceNodeId) || 0) + 1);
+      degree.set(e.targetNodeId, (degree.get(e.targetNodeId) || 0) + 1);
+    }
+
+    return {
+      nodes: nodes.map((n) => ({
+        id: n.id,
+        entityType: n.entityType,
+        label: n.label,
+        degree: degree.get(n.id) || 0,
+        proximityScore: n.proximityScore,
+        proximityHops: n.proximityHops,
+        shellRisk: n.metadata?.shellCompanyScore?.risk,
+        shellScore: n.metadata?.shellCompanyScore?.score,
+        addressFlag: n.metadata?.addressAnalysis?.flag,
+        hasMatch: matchedEntityIds.has(n.entityId),
+        metadata: n.metadata,
+      })),
+      links: edges.map((e) => ({
+        id: e.id,
+        source: e.sourceNodeId,
+        target: e.targetNodeId,
+        type: e.relationshipType,
+      })),
+    };
+  }
+
   async findOne(id: string): Promise<any> {
     const inv = await this.investigations.findOne({ where: { id } });
     if (!inv) throw new NotFoundException('Investigation not found');

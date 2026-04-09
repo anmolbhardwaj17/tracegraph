@@ -12,8 +12,18 @@ export class InvestigationController {
     return { id: inv.id, status: inv.status };
   }
 
+  @Get()
+  async list() {
+    return this.service.list();
+  }
+
   @Get(':id')
   async get(@Param('id') id: string) {
     return this.service.findOne(id);
+  }
+
+  @Get(':id/graph')
+  async graph(@Param('id') id: string) {
+    return this.service.graphFor(id);
   }
 }
