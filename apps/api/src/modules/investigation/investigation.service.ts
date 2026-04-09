@@ -73,6 +73,8 @@ export class InvestigationService {
       createdAt: inv.createdAt,
       completedAt: inv.completedAt,
       progress: inv.progress,
+      riskScore: inv.progress?.riskScore,
+      findings: inv.progress?.findings || [],
       error: inv.metadata?.error,
       rootCompanyNumber: inv.metadata?.companyNumber,
       counts: {

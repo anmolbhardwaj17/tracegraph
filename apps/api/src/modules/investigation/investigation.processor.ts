@@ -8,6 +8,7 @@ import { GraphExpansionService } from '../graph/graph-expansion.service';
 import { AddressService } from '../graph/address.service';
 import { EntityResolutionService } from '../entity-resolution/entity-resolution.service';
 import { SanctionsProximityService } from '../entity-resolution/proximity.service';
+import { RiskScoringService } from '../risk-scoring/risk-scoring.service';
 import { CompaniesHouseService } from '../companies-house/companies-house.service';
 import { InvestigationGateway } from './investigation.gateway';
 
@@ -28,6 +29,7 @@ export class InvestigationProcessor extends WorkerHost {
     private readonly addressService: AddressService,
     private readonly resolution: EntityResolutionService,
     private readonly proximity: SanctionsProximityService,
+    private readonly riskScoring: RiskScoringService,
     private readonly ch: CompaniesHouseService,
     private readonly gateway: InvestigationGateway,
   ) {
@@ -98,10 +100,20 @@ export class InvestigationProcessor extends WorkerHost {
       // Proximity scoring
       const proximityResult = await this.proximity.compute(investigationId);
 
+      // Risk scoring (runs anomaly detection + aggregates findings)
+      const riskResult = await this.riskScoring.run(investigationId);
+
       await this.investigations.update(investigationId, {
         status: 'COMPLETE',
         completedAt: new Date(),
-        progress: { ...result, addressClusters, resolution: resolutionResult, proximity: proximityResult } as any,
+        progress: {
+          ...result,
+          addressClusters,
+          resolution: resolutionResult,
+          proximity: proximityResult,
+          riskScore: riskResult.score,
+          findings: riskResult.findings,
+        } as any,
       });
       this.gateway.emitComplete(investigationId, result);
     } catch (err: any) {
