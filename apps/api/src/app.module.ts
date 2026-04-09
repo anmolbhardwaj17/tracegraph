@@ -8,6 +8,7 @@ import { GraphModule } from './modules/graph/graph.module';
 import { OpenSanctionsModule } from './modules/open-sanctions/open-sanctions.module';
 import { OffshoreLeaksModule } from './modules/offshore-leaks/offshore-leaks.module';
 import { EntityResolutionModule } from './modules/entity-resolution/entity-resolution.module';
+import { AnomalyModule } from './modules/anomaly/anomaly.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { EntityResolutionModule } from './modules/entity-resolution/entity-resol
     OpenSanctionsModule,
     OffshoreLeaksModule,
     EntityResolutionModule,
+    AnomalyModule,
     InvestigationModule,
   ],
 })
