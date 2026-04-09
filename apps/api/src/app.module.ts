@@ -9,6 +9,7 @@ import { OpenSanctionsModule } from './modules/open-sanctions/open-sanctions.mod
 import { OffshoreLeaksModule } from './modules/offshore-leaks/offshore-leaks.module';
 import { EntityResolutionModule } from './modules/entity-resolution/entity-resolution.module';
 import { AnomalyModule } from './modules/anomaly/anomaly.module';
+import { ReportModule } from './modules/report/report.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AnomalyModule } from './modules/anomaly/anomaly.module';
     OffshoreLeaksModule,
     EntityResolutionModule,
     AnomalyModule,
+    ReportModule,
     InvestigationModule,
   ],
 })

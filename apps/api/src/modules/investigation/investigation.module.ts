@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { Investigation } from './entities/investigation.entity';
@@ -10,6 +10,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
 import { GraphModule } from '../graph/graph.module';
 import { EntityResolutionModule } from '../entity-resolution/entity-resolution.module';
 import { RiskScoringModule } from '../risk-scoring/risk-scoring.module';
+import { ReportModule } from '../report/report.module';
 import { EntityMatch } from '../entity-resolution/entities/entity-match.entity';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
@@ -30,7 +31,9 @@ import { GraphEdge } from '../graph/entities/graph-edge.entity';
     GraphModule,
     EntityResolutionModule,
     RiskScoringModule,
+    forwardRef(() => ReportModule),
   ],
+  exports: [InvestigationService],
   providers: [InvestigationService, InvestigationGateway, InvestigationProcessor],
   controllers: [InvestigationController],
 })
