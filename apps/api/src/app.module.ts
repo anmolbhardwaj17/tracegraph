@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { dataSourceOptions } from './data-source';
 import { CompaniesHouseModule } from './modules/companies-house/companies-house.module';
 import { InvestigationModule } from './modules/investigation/investigation.module';
@@ -14,6 +16,7 @@ import { ReportModule } from './modules/report/report.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRoot(dataSourceOptions),
     CompaniesHouseModule,
     GraphModule,
@@ -24,5 +27,6 @@ import { ReportModule } from './modules/report/report.module';
     ReportModule,
     InvestigationModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

@@ -1,9 +1,15 @@
-import { WebSocketGateway, WebSocketServer, SubscribeMessage, MessageBody, ConnectedSocket } from '@nestjs/websockets';
+import { WebSocketGateway, WebSocketServer, SubscribeMessage, MessageBody, ConnectedSocket, OnGatewayDisconnect } from '@nestjs/websockets';
+import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({ cors: { origin: true } })
-export class InvestigationGateway {
+export class InvestigationGateway implements OnGatewayDisconnect {
+  private readonly logger = new Logger(InvestigationGateway.name);
   @WebSocketServer() server: Server;
+
+  handleDisconnect(client: Socket) {
+    this.logger.debug(`socket ${client.id} disconnected`);
+  }
 
   @SubscribeMessage('subscribe')
   handleSubscribe(@MessageBody() data: { investigationId: string }, @ConnectedSocket() client: Socket) {
