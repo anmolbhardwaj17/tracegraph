@@ -10,6 +10,7 @@ import { EntityResolutionService } from '../entity-resolution/entity-resolution.
 import { SanctionsProximityService } from '../entity-resolution/proximity.service';
 import { RiskScoringService } from '../risk-scoring/risk-scoring.service';
 import { CompaniesHouseService } from '../companies-house/companies-house.service';
+import { UboChainService } from '../ubo-chain/ubo-chain.service';
 import { InvestigationGateway } from './investigation.gateway';
 
 export const INVESTIGATION_QUEUE = 'investigation';
@@ -17,7 +18,14 @@ export const INVESTIGATION_QUEUE = 'investigation';
 export interface InvestigationJobData {
   investigationId: string;
   query: string;
+  tier?: 'QUICK' | 'STANDARD' | 'DEEP';
 }
+
+const TIER_OPTIONS: Record<string, { maxCompanyDepth: number; softNodeCap: number; skipDepth2Filtering: boolean; runResolution: boolean; runScoring: boolean }> = {
+  QUICK:    { maxCompanyDepth: 1, softNodeCap: 200,  skipDepth2Filtering: false, runResolution: false, runScoring: false },
+  STANDARD: { maxCompanyDepth: 2, softNodeCap: 1000, skipDepth2Filtering: false, runResolution: true,  runScoring: true  },
+  DEEP:     { maxCompanyDepth: 3, softNodeCap: 5000, skipDepth2Filtering: true,  runResolution: true,  runScoring: true  },
+};
 
 @Processor(INVESTIGATION_QUEUE)
 export class InvestigationProcessor extends WorkerHost {
@@ -31,14 +39,16 @@ export class InvestigationProcessor extends WorkerHost {
     private readonly proximity: SanctionsProximityService,
     private readonly riskScoring: RiskScoringService,
     private readonly ch: CompaniesHouseService,
+    private readonly uboChains: UboChainService,
     private readonly gateway: InvestigationGateway,
   ) {
     super();
   }
 
   async process(job: Job<InvestigationJobData>): Promise<void> {
-    const { investigationId, query } = job.data;
-    this.logger.log(`Processing investigation ${investigationId} (${query})`);
+    const { investigationId, query, tier = 'STANDARD' } = job.data;
+    const opts = TIER_OPTIONS[tier] || TIER_OPTIONS.STANDARD;
+    this.logger.log(`Processing investigation ${investigationId} (${query}) tier=${tier}`);
 
     try {
       await this.investigations.update(investigationId, { status: 'FETCHING' });
@@ -46,15 +56,26 @@ export class InvestigationProcessor extends WorkerHost {
       const companyNumber = await this.resolveCompanyNumber(query);
       if (!companyNumber) throw new Error('Company not found');
 
+      // Resolve company name for the header
+      let companyName = query;
+      try {
+        const profile = await this.ch.getCompany(companyNumber);
+        if (profile?.company_name) companyName = profile.company_name;
+      } catch { /* fallback to query */ }
+
       await this.investigations.update(investigationId, {
         status: 'EXPANDING',
-        metadata: { companyNumber } as any,
+        metadata: { companyNumber, companyName, tier } as any,
       });
 
       const result = await this.expansion.expand(
         investigationId,
         companyNumber,
-        {},
+        {
+          maxCompanyDepth: opts.maxCompanyDepth,
+          softNodeCap: opts.softNodeCap,
+          skipDepth2Filtering: opts.skipDepth2Filtering,
+        },
         {
           onEntityDiscovered: (n) =>
             this.gateway.emitEntityDiscovered(investigationId, {
@@ -80,35 +101,55 @@ export class InvestigationProcessor extends WorkerHost {
 
       const addressClusters = await this.addressService.clusterAddresses(investigationId);
 
-      // Resolution stage
-      await this.investigations.update(investigationId, { status: 'RESOLVING' });
-      const resolutionResult = await this.resolution.resolveInvestigation(investigationId, {
-        onEntityMatched: (m) =>
-          this.gateway.emitEntityMatched(investigationId, {
-            id: m.id,
-            sourceEntityType: m.sourceEntityType,
-            sourceEntityId: m.sourceEntityId,
-            matchedSource: m.matchedSource,
-            matchedEntityId: m.matchedEntityId,
-            confidenceScore: m.confidenceScore,
-            matchReasons: m.matchReasons,
-          }),
-        onProgress: (p) => this.gateway.emitResolutionProgress(investigationId, p),
-      });
-      this.gateway.emitResolutionComplete(investigationId, resolutionResult);
+      // UBO chain build — walks PSC tree from the root company up to humans
+      let uboChainResult: any[] = [];
+      try {
+        uboChainResult = await this.uboChains.buildChains(companyNumber, companyName);
+        this.logger.log(`UBO chains built for ${investigationId}: ${uboChainResult.length} chain(s)`);
+      } catch (e: any) {
+        this.logger.warn(`UBO chain build failed: ${e?.message}`);
+      }
 
-      // Proximity scoring
-      const proximityResult = await this.proximity.compute(investigationId);
+      let resolutionResult: any = { processed: 0, matches: 0 };
+      let proximityResult: any = { scored: 0, flagged: 0 };
+      let riskResult: any = { score: 0, findings: [] };
 
-      // Risk scoring (runs anomaly detection + aggregates findings)
-      const riskResult = await this.riskScoring.run(investigationId);
+      if (opts.runResolution) {
+        await this.investigations.update(investigationId, { status: 'RESOLVING' });
+        await new Promise((r) => setTimeout(r, 400));
+        resolutionResult = await this.resolution.resolveInvestigation(investigationId, {
+          onEntityMatched: (m) =>
+            this.gateway.emitEntityMatched(investigationId, {
+              id: m.id,
+              sourceEntityType: m.sourceEntityType,
+              sourceEntityId: m.sourceEntityId,
+              matchedSource: m.matchedSource,
+              matchedEntityId: m.matchedEntityId,
+              confidenceScore: m.confidenceScore,
+              matchReasons: m.matchReasons,
+            }),
+          onProgress: (p) => this.gateway.emitResolutionProgress(investigationId, p),
+        });
+        this.gateway.emitResolutionComplete(investigationId, resolutionResult);
+
+        proximityResult = await this.proximity.compute(investigationId);
+      }
+
+      if (opts.runScoring) {
+        await this.investigations.update(investigationId, { status: 'SCORING' });
+        // Brief breath so the UI can render the stage transition even on tiny graphs
+        await new Promise((r) => setTimeout(r, 400));
+        riskResult = await this.riskScoring.run(investigationId);
+      }
 
       await this.investigations.update(investigationId, {
         status: 'COMPLETE',
         completedAt: new Date(),
         progress: {
           ...result,
+          tier,
           addressClusters,
+          uboChains: uboChainResult,
           resolution: resolutionResult,
           proximity: proximityResult,
           riskScore: riskResult.score,

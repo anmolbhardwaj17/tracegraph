@@ -19,11 +19,11 @@ export class InvestigationService {
     @InjectQueue(INVESTIGATION_QUEUE) private readonly queue: Queue<InvestigationJobData>,
   ) {}
 
-  async create(query: string): Promise<Investigation> {
+  async create(query: string, tier: 'QUICK' | 'STANDARD' | 'DEEP' = 'STANDARD'): Promise<Investigation> {
     const inv = await this.investigations.save(
-      this.investigations.create({ query, status: 'QUEUED' }),
+      this.investigations.create({ query, status: 'QUEUED', tier }),
     );
-    await this.queue.add('expand', { investigationId: inv.id, query }, {
+    await this.queue.add('expand', { investigationId: inv.id, query, tier } as any, {
       removeOnComplete: 100,
       removeOnFail: 100,
     });
@@ -38,7 +38,9 @@ export class InvestigationService {
     return items.map((i) => ({
       id: i.id,
       query: i.query,
+      companyName: i.metadata?.companyName,
       status: i.status,
+      tier: i.tier,
       createdAt: i.createdAt,
       completedAt: i.completedAt,
       riskScore: i.progress?.riskScore,
@@ -110,6 +112,13 @@ export class InvestigationService {
       matchesByEntity.set(m.sourceEntityId, list);
     }
 
+    // Compute degree per node from edges
+    const degree = new Map<string, number>();
+    for (const e of edges) {
+      degree.set(e.sourceNodeId, (degree.get(e.sourceNodeId) || 0) + 1);
+      degree.set(e.targetNodeId, (degree.get(e.targetNodeId) || 0) + 1);
+    }
+
     const grouped: Record<string, any[]> = { company: [], person: [], address: [] };
     for (const n of nodes) {
       (grouped[n.entityType] ||= []).push({
@@ -119,6 +128,7 @@ export class InvestigationService {
         metadata: n.metadata,
         proximityScore: n.proximityScore,
         proximityHops: n.proximityHops,
+        degree: degree.get(n.id) || 0,
         matches: matchesByEntity.get(n.entityId) || [],
       });
     }
@@ -127,11 +137,14 @@ export class InvestigationService {
       id: inv.id,
       query: inv.query,
       status: inv.status,
+      tier: inv.tier,
+      companyName: inv.metadata?.companyName,
       createdAt: inv.createdAt,
       completedAt: inv.completedAt,
       progress: inv.progress,
       riskScore: inv.progress?.riskScore,
       findings: inv.progress?.findings || [],
+      uboChains: inv.progress?.uboChains || [],
       error: inv.metadata?.error,
       rootCompanyNumber: inv.metadata?.companyNumber,
       counts: {
