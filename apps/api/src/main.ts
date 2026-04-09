@@ -11,5 +11,11 @@ async function bootstrap() {
   const port = process.env.PORT || 4000;
   await app.listen(port);
   console.log(`API listening on http://localhost:${port}`);
+  if (!process.env.COMPANIES_HOUSE_API_KEY) {
+    console.warn(
+      '[tracegraph] COMPANIES_HOUSE_API_KEY is not set — live investigations will fail. ' +
+        'Run `npm run seed:demo` to populate a demo investigation that works without a key.',
+    );
+  }
 }
 bootstrap();
