@@ -18,7 +18,19 @@ interface Investigation {
   counts?: { companies: number; people: number; addresses: number; edges: number };
   entities?: { company: any[]; person: any[]; address: any[] };
   matches?: any[];
+  riskScore?: number;
+  findings?: Finding[];
   error?: string;
+}
+
+interface Finding {
+  type: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  title: string;
+  description: string;
+  evidence: string[];
+  affectedEntities: string[];
+  recommendation: string;
 }
 
 export default function InvestigatePage() {
@@ -104,6 +116,14 @@ export default function InvestigatePage() {
         </div>
       )}
 
+      {data.status === 'COMPLETE' && data.riskScore !== undefined && (
+        <RiskReport
+          score={data.riskScore}
+          findings={data.findings || []}
+          counts={data.counts}
+        />
+      )}
+
       {data.counts && data.status === 'COMPLETE' && (
         <section className="mt-6 bg-white border border-slate-200 rounded-xl p-6">
           <h2 className="text-xl font-semibold mb-4">Results</h2>
@@ -172,6 +192,103 @@ function ConfidencePill({ score }: { score: number }) {
     score >= 75 ? 'bg-red-600' : score >= 50 ? 'bg-amber-500' : 'bg-slate-400';
   return (
     <span className={`text-xs text-white px-2 py-0.5 rounded ${color}`}>{score}%</span>
+  );
+}
+
+function RiskReport({ score, findings, counts }: { score: number; findings: Finding[]; counts?: any }) {
+  const color = score >= 60 ? 'bg-red-600' : score >= 30 ? 'bg-amber-500' : 'bg-green-600';
+  const label = score >= 60 ? 'HIGH RISK' : score >= 30 ? 'ELEVATED' : 'LOW RISK';
+  const bySev = {
+    CRITICAL: findings.filter((f) => f.severity === 'CRITICAL').length,
+    HIGH: findings.filter((f) => f.severity === 'HIGH').length,
+    MEDIUM: findings.filter((f) => f.severity === 'MEDIUM').length,
+    LOW: findings.filter((f) => f.severity === 'LOW').length,
+  };
+  return (
+    <section className="mt-6 bg-white border border-slate-200 rounded-xl p-6">
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <h2 className="text-xl font-semibold mb-1">Risk report</h2>
+          <p className="text-sm text-slate-500">
+            {findings.length} findings across {counts?.companies || 0} companies, {counts?.people || 0} people, {counts?.addresses || 0} addresses
+          </p>
+        </div>
+        <div className={`flex flex-col items-center justify-center w-32 h-32 rounded-full text-white ${color}`}>
+          <div className="text-4xl font-bold">{score}</div>
+          <div className="text-[10px] tracking-wider mt-1">{label}</div>
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-4 gap-3 text-center text-sm">
+        <SevCount label="Critical" count={bySev.CRITICAL} color="bg-red-600 text-white" />
+        <SevCount label="High" count={bySev.HIGH} color="bg-orange-500 text-white" />
+        <SevCount label="Medium" count={bySev.MEDIUM} color="bg-amber-400 text-slate-900" />
+        <SevCount label="Low" count={bySev.LOW} color="bg-slate-200 text-slate-700" />
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {findings.map((f, i) => <FindingRow key={i} finding={f} />)}
+        {findings.length === 0 && (
+          <p className="text-sm text-slate-500">No findings — entity appears clean against current data sources.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SevCount({ label, count, color }: { label: string; count: number; color: string }) {
+  return (
+    <div className={`rounded-lg px-3 py-2 ${color}`}>
+      <div className="text-2xl font-bold">{count}</div>
+      <div className="text-[10px] uppercase tracking-wider">{label}</div>
+    </div>
+  );
+}
+
+function FindingRow({ finding }: { finding: Finding }) {
+  const [open, setOpen] = useState(false);
+  const sevColors: Record<string, string> = {
+    CRITICAL: 'bg-red-600 text-white',
+    HIGH: 'bg-orange-500 text-white',
+    MEDIUM: 'bg-amber-400 text-slate-900',
+    LOW: 'bg-slate-200 text-slate-700',
+  };
+  return (
+    <div className="border border-slate-200 rounded-lg">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`text-xs px-2 py-0.5 rounded ${sevColors[finding.severity]}`}>{finding.severity}</span>
+          <span className="font-medium text-sm truncate">{finding.title}</span>
+        </div>
+        <span className="text-slate-400 text-xs">{open ? '−' : '+'}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 pt-1 text-sm space-y-3">
+          <p className="text-slate-700">{finding.description}</p>
+          {finding.evidence.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Evidence</div>
+              <ul className="list-disc list-inside text-slate-700 space-y-0.5">
+                {finding.evidence.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </div>
+          )}
+          {finding.affectedEntities.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Affected entities</div>
+              <div className="text-slate-700 text-xs font-mono">{finding.affectedEntities.join(', ')}</div>
+            </div>
+          )}
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Recommendation</div>
+            <p className="text-slate-700">{finding.recommendation}</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
