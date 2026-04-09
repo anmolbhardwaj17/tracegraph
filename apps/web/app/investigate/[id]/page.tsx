@@ -2,26 +2,11 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
+import { GraphVisualization, GraphNode } from '../../../components/GraphVisualization';
+import { ProgressView } from '../../../components/ProgressView';
+import { RiskGauge, FindingRow } from '../../../components/RiskReport';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-interface Investigation {
-  id: string;
-  query: string;
-  status: 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'RESOLVING' | 'COMPLETE' | 'FAILED';
-  progress?: {
-    entitiesDiscovered: number;
-    edgesCreated: number;
-    apiCallsMade: number;
-    currentDepth: number;
-  };
-  counts?: { companies: number; people: number; addresses: number; edges: number };
-  entities?: { company: any[]; person: any[]; address: any[] };
-  matches?: any[];
-  riskScore?: number;
-  findings?: Finding[];
-  error?: string;
-}
 
 interface Finding {
   type: string;
@@ -33,25 +18,45 @@ interface Finding {
   recommendation: string;
 }
 
+interface Investigation {
+  id: string;
+  query: string;
+  status: 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'RESOLVING' | 'COMPLETE' | 'FAILED';
+  progress?: any;
+  counts?: { companies: number; people: number; addresses: number; edges: number };
+  entities?: { company: any[]; person: any[]; address: any[] };
+  matches?: any[];
+  riskScore?: number;
+  findings?: Finding[];
+  error?: string;
+}
+
+type Tab = 'overview' | 'graph' | 'findings' | 'entities' | 'matches';
+
 export default function InvestigatePage() {
   const params = useParams();
   const id = params?.id as string;
   const [data, setData] = useState<Investigation | null>(null);
-  const [live, setLive] = useState({ entities: 0, edges: 0, depth: 0, apiCalls: 0 });
+  const [graph, setGraph] = useState<{ nodes: any[]; links: any[] } | null>(null);
+  const [tab, setTab] = useState<Tab>('overview');
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [live, setLive] = useState({ entities: 0, edges: 0, depth: 0, apiCalls: 0, matches: 0 });
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const socket: Socket = io(API, { transports: ['websocket', 'polling'] });
     socket.on('connect', () => socket.emit('subscribe', { investigationId: id }));
-    socket.on('progress_update', (p: any) => {
-      setLive({
-        entities: p.entitiesDiscovered,
-        edges: p.edgesCreated,
-        depth: p.currentDepth,
-        apiCalls: p.apiCallsMade,
-      });
-    });
+    socket.on('progress_update', (p: any) =>
+      setLive((prev) => ({
+        ...prev,
+        entities: p.entitiesDiscovered || prev.entities,
+        edges: p.edgesCreated || prev.edges,
+        depth: p.currentDepth || prev.depth,
+        apiCalls: p.apiCallsMade || prev.apiCalls,
+      })),
+    );
+    socket.on('entity_matched', () => setLive((p) => ({ ...p, matches: p.matches + 1 })));
     socket.on('expansion_complete', () => fetchData());
 
     async function fetchData() {
@@ -61,13 +66,10 @@ export default function InvestigatePage() {
         const json = await res.json();
         if (cancelled) return;
         setData(json);
-        if (json.progress) {
-          setLive({
-            entities: json.progress.entitiesDiscovered || 0,
-            edges: json.progress.edgesCreated || 0,
-            depth: json.progress.currentDepth || 0,
-            apiCalls: json.progress.apiCallsMade || 0,
-          });
+        if (json.status === 'COMPLETE') {
+          // Fetch graph
+          const gr = await fetch(`${API}/api/investigations/${id}/graph`);
+          if (gr.ok) setGraph(await gr.json());
         }
         if (json.status !== 'COMPLETE' && json.status !== 'FAILED') {
           setTimeout(fetchData, 2000);
@@ -77,218 +79,328 @@ export default function InvestigatePage() {
       }
     }
     fetchData();
-    return () => {
-      cancelled = true;
-      socket.disconnect();
-    };
+    return () => { cancelled = true; socket.disconnect(); };
   }, [id]);
 
-  if (err) return <main className="p-10 text-red-600">{err}</main>;
-  if (!data) return <main className="p-10 text-slate-500">Loading...</main>;
+  if (err) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-lg font-medium">Error loading investigation</div>
+          <div className="text-slate-500 mt-1 text-sm">{err}</div>
+          <a href="/" className="inline-block mt-4 text-blue-600 hover:underline">Back to search</a>
+        </div>
+      </main>
+    );
+  }
+  if (!data) return <LoadingSkeleton />;
 
-  const isExpanding = data.status === 'QUEUED' || data.status === 'FETCHING' || data.status === 'EXPANDING' || data.status === 'RESOLVING';
+  const isRunning = data.status !== 'COMPLETE' && data.status !== 'FAILED';
+
+  if (isRunning) {
+    return (
+      <main className="min-h-screen px-6 py-8 max-w-4xl mx-auto">
+        <a href="/" className="text-sm text-slate-500 hover:text-slate-900">← New search</a>
+        <h1 className="text-2xl font-semibold mt-2 mb-1">{data.query}</h1>
+        <p className="text-sm text-slate-500 mb-8">Investigation in progress</p>
+        <ProgressView status={data.status} live={live} />
+      </main>
+    );
+  }
+
+  if (data.status === 'FAILED') {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-600 text-lg font-medium">Investigation failed</div>
+          <div className="text-slate-600 mt-2 text-sm">{data.error || 'Unknown error'}</div>
+          <a href="/" className="inline-block mt-6 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm">New search</a>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-10">
-      <a href="/" className="text-sm text-blue-600 hover:underline">← New search</a>
-      <h1 className="text-3xl font-bold mt-2">Investigation</h1>
-      <p className="text-slate-500 mt-1">Query: {data.query}</p>
-      <StatusBadge status={data.status} />
-
-      {isExpanding && (
-        <section className="mt-6 bg-white border border-slate-200 rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
-            <h2 className="text-lg font-semibold">Expanding network…</h2>
+    <main className="min-h-screen">
+      {/* Header */}
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="min-w-0">
+            <a href="/" className="text-xs text-slate-500 hover:text-slate-900">TraceGraph</a>
+            <h1 className="text-lg font-semibold truncate">{data.query}</h1>
           </div>
-          <div className="grid grid-cols-4 gap-4 text-center">
-            <Stat label="Entities" value={live.entities} />
-            <Stat label="Connections" value={live.edges} />
-            <Stat label="Depth" value={live.depth} />
-            <Stat label="API calls" value={live.apiCalls} />
+          <div className="flex items-center gap-3">
+            <ExportButton investigationId={id} />
+            <a href="/" className="text-sm text-slate-600 hover:text-slate-900">New search</a>
           </div>
-        </section>
-      )}
-
-      {data.status === 'FAILED' && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {data.error || 'Investigation failed'}
         </div>
-      )}
-
-      {data.status === 'COMPLETE' && data.riskScore !== undefined && (
-        <RiskReport
-          score={data.riskScore}
-          findings={data.findings || []}
-          counts={data.counts}
-        />
-      )}
-
-      {data.counts && data.status === 'COMPLETE' && (
-        <section className="mt-6 bg-white border border-slate-200 rounded-xl p-6">
-          <h2 className="text-xl font-semibold mb-4">Results</h2>
-          <div className="grid grid-cols-4 gap-4 text-center mb-6">
-            <Stat label="Companies" value={data.counts.companies} />
-            <Stat label="People" value={data.counts.people} />
-            <Stat label="Addresses" value={data.counts.addresses} />
-            <Stat label="Connections" value={data.counts.edges} />
-          </div>
-
-          <EntityList title="Companies" items={data.entities?.company || []} color="text-blue-700" />
-          <EntityList title="People" items={data.entities?.person || []} color="text-green-700" />
-          <EntityList title="Addresses" items={data.entities?.address || []} color="text-slate-700" />
-        </section>
-      )}
-
-      {data.status === 'COMPLETE' && data.matches && data.matches.length > 0 && (
-        <section className="mt-6 bg-white border border-slate-200 rounded-xl p-6">
-          <h2 className="text-xl font-semibold mb-4">Cross-source matches ({data.matches.length})</h2>
-          <ul className="space-y-3">
-            {data.matches.map((m: any) => (
-              <li key={m.id} className="border-b border-slate-100 last:border-b-0 pb-3 last:pb-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-medium text-sm">{m.reasons?.matchedName || m.matchedEntityId}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      {m.sourceEntityType} · {m.sourceEntityId}
-                    </div>
-                    {m.reasons && (
-                      <div className="text-xs text-slate-600 mt-1">
-                        {m.reasons.exactName && <span className="mr-2">✓ exact name</span>}
-                        {m.reasons.phoneticMatch && <span className="mr-2">✓ phonetic</span>}
-                        {m.reasons.jaroWinkler && <span className="mr-2">JW {m.reasons.jaroWinkler}</span>}
-                        {m.reasons.dobMatch && <span className="mr-2">DOB {m.reasons.dobMatch}</span>}
-                        {m.reasons.nationality && <span className="mr-2">nat {m.reasons.nationality}</span>}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <SourceBadge source={m.source} />
-                    <ConfidencePill score={m.confidence} />
-                  </div>
-                </div>
-              </li>
+        {/* Tabs */}
+        <div className="max-w-7xl mx-auto px-6">
+          <nav className="flex gap-1">
+            {(['overview', 'graph', 'findings', 'entities', 'matches'] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  tab === t
+                    ? 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {t === 'findings' && data.findings && data.findings.length > 0 && (
+                  <span className="ml-1.5 text-xs text-slate-400">{data.findings.length}</span>
+                )}
+                {t === 'matches' && data.matches && data.matches.length > 0 && (
+                  <span className="ml-1.5 text-xs text-slate-400">{data.matches.length}</span>
+                )}
+              </button>
             ))}
-          </ul>
-        </section>
-      )}
+          </nav>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {tab === 'overview' && <OverviewTab data={data} />}
+        {tab === 'graph' && <GraphTab graph={graph} onSelect={setSelectedNode} selected={selectedNode} />}
+        {tab === 'findings' && <FindingsTab findings={data.findings || []} />}
+        {tab === 'entities' && <EntitiesTab entities={data.entities} />}
+        {tab === 'matches' && <MatchesTab matches={data.matches || []} />}
+      </div>
     </main>
   );
 }
 
-function SourceBadge({ source }: { source: string }) {
-  const map: Record<string, string> = {
-    opensanctions: 'bg-red-50 text-red-700 border-red-200',
-    offshore_leaks: 'bg-amber-50 text-amber-700 border-amber-200',
-  };
-  const label = source === 'opensanctions' ? 'OpenSanctions' : 'ICIJ';
+function OverviewTab({ data }: { data: Investigation }) {
+  const top3 = (data.findings || []).filter((f) => f.severity === 'CRITICAL' || f.severity === 'HIGH').slice(0, 3);
   return (
-    <span className={`text-xs px-2 py-0.5 rounded border ${map[source] || ''}`}>{label}</span>
-  );
-}
-
-function ConfidencePill({ score }: { score: number }) {
-  const color =
-    score >= 75 ? 'bg-red-600' : score >= 50 ? 'bg-amber-500' : 'bg-slate-400';
-  return (
-    <span className={`text-xs text-white px-2 py-0.5 rounded ${color}`}>{score}%</span>
-  );
-}
-
-function RiskReport({ score, findings, counts }: { score: number; findings: Finding[]; counts?: any }) {
-  const color = score >= 60 ? 'bg-red-600' : score >= 30 ? 'bg-amber-500' : 'bg-green-600';
-  const label = score >= 60 ? 'HIGH RISK' : score >= 30 ? 'ELEVATED' : 'LOW RISK';
-  const bySev = {
-    CRITICAL: findings.filter((f) => f.severity === 'CRITICAL').length,
-    HIGH: findings.filter((f) => f.severity === 'HIGH').length,
-    MEDIUM: findings.filter((f) => f.severity === 'MEDIUM').length,
-    LOW: findings.filter((f) => f.severity === 'LOW').length,
-  };
-  return (
-    <section className="mt-6 bg-white border border-slate-200 rounded-xl p-6">
-      <div className="flex items-start justify-between gap-6">
-        <div>
-          <h2 className="text-xl font-semibold mb-1">Risk report</h2>
-          <p className="text-sm text-slate-500">
-            {findings.length} findings across {counts?.companies || 0} companies, {counts?.people || 0} people, {counts?.addresses || 0} addresses
-          </p>
+    <div className="space-y-6">
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-1 bg-white border border-slate-200 rounded-xl p-6 flex items-center justify-center">
+          <RiskGauge score={data.riskScore || 0} />
         </div>
-        <div className={`flex flex-col items-center justify-center w-32 h-32 rounded-full text-white ${color}`}>
-          <div className="text-4xl font-bold">{score}</div>
-          <div className="text-[10px] tracking-wider mt-1">{label}</div>
+        <div className="md:col-span-2 grid grid-cols-2 gap-4">
+          <StatCard label="Companies" value={data.counts?.companies || 0} />
+          <StatCard label="People" value={data.counts?.people || 0} />
+          <StatCard label="Addresses" value={data.counts?.addresses || 0} />
+          <StatCard label="Connections" value={data.counts?.edges || 0} />
+          <StatCard label="Findings" value={data.findings?.length || 0} accent />
+          <StatCard label="Cross-source matches" value={data.matches?.length || 0} accent />
         </div>
-      </div>
+      </section>
 
-      <div className="mt-5 grid grid-cols-4 gap-3 text-center text-sm">
-        <SevCount label="Critical" count={bySev.CRITICAL} color="bg-red-600 text-white" />
-        <SevCount label="High" count={bySev.HIGH} color="bg-orange-500 text-white" />
-        <SevCount label="Medium" count={bySev.MEDIUM} color="bg-amber-400 text-slate-900" />
-        <SevCount label="Low" count={bySev.LOW} color="bg-slate-200 text-slate-700" />
-      </div>
-
-      <div className="mt-6 space-y-3">
-        {findings.map((f, i) => <FindingRow key={i} finding={f} />)}
-        {findings.length === 0 && (
-          <p className="text-sm text-slate-500">No findings — entity appears clean against current data sources.</p>
+      <section className="bg-white border border-slate-200 rounded-xl p-6">
+        <h2 className="text-sm font-semibold text-slate-900 mb-4">Top critical findings</h2>
+        {top3.length === 0 ? (
+          <EmptyState message="No critical findings detected." />
+        ) : (
+          <div className="space-y-3">
+            {top3.map((f, i) => <FindingRow key={i} finding={f} />)}
+          </div>
         )}
-      </div>
-    </section>
-  );
-}
-
-function SevCount({ label, count, color }: { label: string; count: number; color: string }) {
-  return (
-    <div className={`rounded-lg px-3 py-2 ${color}`}>
-      <div className="text-2xl font-bold">{count}</div>
-      <div className="text-[10px] uppercase tracking-wider">{label}</div>
+      </section>
     </div>
   );
 }
 
-function FindingRow({ finding }: { finding: Finding }) {
-  const [open, setOpen] = useState(false);
-  const sevColors: Record<string, string> = {
-    CRITICAL: 'bg-red-600 text-white',
-    HIGH: 'bg-orange-500 text-white',
-    MEDIUM: 'bg-amber-400 text-slate-900',
-    LOW: 'bg-slate-200 text-slate-700',
-  };
+function StatCard({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
-    <div className="border border-slate-200 rounded-lg">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <span className={`text-xs px-2 py-0.5 rounded ${sevColors[finding.severity]}`}>{finding.severity}</span>
-          <span className="font-medium text-sm truncate">{finding.title}</span>
-        </div>
-        <span className="text-slate-400 text-xs">{open ? '−' : '+'}</span>
-      </button>
-      {open && (
-        <div className="px-4 pb-4 pt-1 text-sm space-y-3">
-          <p className="text-slate-700">{finding.description}</p>
-          {finding.evidence.length > 0 && (
-            <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Evidence</div>
-              <ul className="list-disc list-inside text-slate-700 space-y-0.5">
-                {finding.evidence.map((e, i) => <li key={i}>{e}</li>)}
-              </ul>
-            </div>
+    <div className={`bg-white border rounded-xl p-5 ${accent ? 'border-slate-900' : 'border-slate-200'}`}>
+      <div className="text-3xl font-semibold text-slate-900">{value}</div>
+      <div className="text-xs uppercase tracking-wider text-slate-500 mt-1">{label}</div>
+    </div>
+  );
+}
+
+function GraphTab({ graph, onSelect, selected }: { graph: any; onSelect: (n: GraphNode) => void; selected: GraphNode | null }) {
+  if (!graph) return <LoadingSkeleton />;
+  if (graph.nodes.length === 0) return <EmptyState message="No graph data available." />;
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className={selected ? 'lg:col-span-3' : 'lg:col-span-4'}>
+        <GraphVisualization
+          nodes={graph.nodes}
+          links={graph.links}
+          height={680}
+          onNodeClick={onSelect}
+        />
+      </div>
+      {selected && (
+        <aside className="bg-white border border-slate-200 rounded-xl p-5 h-fit sticky top-32">
+          <button onClick={() => onSelect(null as any)} className="text-xs text-slate-400 hover:text-slate-900 float-right">×</button>
+          <div className="text-xs uppercase tracking-wider text-slate-500">{selected.entityType}</div>
+          <h3 className="font-semibold text-slate-900 mt-1 break-words">{selected.label}</h3>
+
+          <dl className="mt-4 space-y-2 text-sm">
+            <Field label="Connections" value={String(selected.degree)} />
+            {selected.proximityScore && selected.proximityScore !== 'CLEAR' && (
+              <Field label="Proximity" value={selected.proximityScore} />
+            )}
+            {selected.shellRisk && <Field label="Shell risk" value={selected.shellRisk} />}
+            {selected.addressFlag && <Field label="Address flag" value={selected.addressFlag} />}
+            {selected.hasMatch && <Field label="Sanctions" value="Match found" />}
+          </dl>
+
+          {selected.metadata && Object.keys(selected.metadata).length > 0 && (
+            <details className="mt-4">
+              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-900">Raw metadata</summary>
+              <pre className="text-[10px] text-slate-600 mt-2 overflow-auto max-h-64 bg-slate-50 p-2 rounded">
+                {JSON.stringify(selected.metadata, null, 2)}
+              </pre>
+            </details>
           )}
-          {finding.affectedEntities.length > 0 && (
-            <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Affected entities</div>
-              <div className="text-slate-700 text-xs font-mono">{finding.affectedEntities.join(', ')}</div>
-            </div>
-          )}
-          <div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Recommendation</div>
-            <p className="text-slate-700">{finding.recommendation}</p>
-          </div>
-        </div>
+        </aside>
       )}
     </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="text-slate-900 font-medium text-right">{value}</dd>
+    </div>
+  );
+}
+
+function FindingsTab({ findings }: { findings: Finding[] }) {
+  if (findings.length === 0) return <EmptyState message="No risk signals detected." />;
+  return (
+    <div className="space-y-3">
+      {findings.map((f, i) => <FindingRow key={i} finding={f} />)}
+    </div>
+  );
+}
+
+function EntitiesTab({ entities }: { entities?: { company: any[]; person: any[]; address: any[] } }) {
+  const [search, setSearch] = useState('');
+  const [type, setType] = useState<'all' | 'company' | 'person' | 'address'>('all');
+  if (!entities) return <EmptyState message="No entities found." />;
+
+  const lists: Array<[string, any[]]> = [
+    ['company', entities.company || []],
+    ['person', entities.person || []],
+    ['address', entities.address || []],
+  ];
+  const filtered = lists
+    .filter(([t]) => type === 'all' || t === type)
+    .map(([t, arr]) => [t, arr.filter((e) => e.label?.toLowerCase().includes(search.toLowerCase()))] as const);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-3">
+        <input
+          type="text"
+          placeholder="Search entities..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+        />
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value as any)}
+          className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+        >
+          <option value="all">All types</option>
+          <option value="company">Companies</option>
+          <option value="person">People</option>
+          <option value="address">Addresses</option>
+        </select>
+      </div>
+      {filtered.map(([t, items]) => (
+        items.length > 0 && (
+          <section key={t} className="bg-white border border-slate-200 rounded-xl p-5">
+            <h3 className="text-xs uppercase tracking-wider text-slate-500 mb-3">{t}s ({items.length})</h3>
+            <ul className="divide-y divide-slate-100">
+              {items.slice(0, 100).map((it) => (
+                <li key={it.id} className="py-2 flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <ProximityDot score={it.proximityScore} />
+                    <span className="truncate">{it.label}</span>
+                    {it.matches?.length > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">
+                        {it.matches.length} match
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono shrink-0 ml-3 truncate max-w-[200px]">{it.entityId}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      ))}
+    </div>
+  );
+}
+
+function MatchesTab({ matches }: { matches: any[] }) {
+  if (matches.length === 0) return <EmptyState message="No cross-source matches found." />;
+  return (
+    <div className="space-y-3">
+      {matches.map((m: any) => (
+        <div key={m.id} className="bg-white border border-slate-200 rounded-xl p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold">{m.reasons?.matchedName || m.matchedEntityId}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{m.sourceEntityType} · {m.sourceEntityId}</div>
+              {m.reasons && (
+                <div className="text-xs text-slate-600 mt-2 flex flex-wrap gap-2">
+                  {m.reasons.exactName && <span className="px-1.5 py-0.5 rounded bg-slate-100">exact name</span>}
+                  {m.reasons.phoneticMatch && <span className="px-1.5 py-0.5 rounded bg-slate-100">phonetic</span>}
+                  {m.reasons.jaroWinkler && <span className="px-1.5 py-0.5 rounded bg-slate-100">JW {m.reasons.jaroWinkler}</span>}
+                  {m.reasons.dobMatch && <span className="px-1.5 py-0.5 rounded bg-slate-100">DOB {m.reasons.dobMatch}</span>}
+                  {m.reasons.nationality && <span className="px-1.5 py-0.5 rounded bg-slate-100">{m.reasons.nationality}</span>}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`text-xs px-2 py-0.5 rounded border ${
+                m.source === 'opensanctions'
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {m.source === 'opensanctions' ? 'OpenSanctions' : 'ICIJ'}
+              </span>
+              <span className={`text-xs text-white px-2 py-0.5 rounded ${
+                m.confidence >= 75 ? 'bg-red-600' : m.confidence >= 50 ? 'bg-amber-500' : 'bg-slate-400'
+              }`}>{m.confidence}%</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ExportButton({ investigationId }: { investigationId: string }) {
+  const [busy, setBusy] = useState(false);
+  async function handleExport() {
+    setBusy(true);
+    try {
+      const res = await fetch(`${API}/api/investigations/${investigationId}/export`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `tracegraph-${investigationId}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Export failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      onClick={handleExport}
+      disabled={busy}
+      className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+    >
+      {busy ? 'Exporting...' : 'Export PDF'}
+    </button>
   );
 }
 
@@ -300,58 +412,27 @@ function ProximityDot({ score }: { score?: string }) {
     LOW: 'bg-yellow-200',
     CLEAR: 'bg-green-300',
   };
-  return <span className={`inline-block w-2 h-2 rounded-full mr-2 ${map[score || 'CLEAR']}`} />;
+  return <span className={`inline-block w-2 h-2 rounded-full ${map[score || 'CLEAR']}`} />;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    QUEUED: 'bg-slate-100 text-slate-700',
-    FETCHING: 'bg-blue-100 text-blue-700',
-    EXPANDING: 'bg-blue-100 text-blue-700',
-    RESOLVING: 'bg-purple-100 text-purple-700',
-    COMPLETE: 'bg-green-100 text-green-700',
-    FAILED: 'bg-red-100 text-red-700',
-  };
+function EmptyState({ message }: { message: string }) {
   return (
-    <span className={`inline-block mt-3 px-3 py-1 rounded-full text-xs font-medium ${colors[status] || ''}`}>
-      {status}
-    </span>
+    <div className="text-center py-12 text-slate-500 text-sm">{message}</div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function LoadingSkeleton() {
   return (
-    <div>
-      <div className="text-3xl font-bold text-slate-900">{value}</div>
-      <div className="text-xs uppercase tracking-wide text-slate-500 mt-1">{label}</div>
-    </div>
-  );
-}
-
-function EntityList({ title, items, color }: { title: string; items: any[]; color: string }) {
-  if (items.length === 0) return null;
-  return (
-    <div className="mt-6">
-      <h3 className={`text-sm font-semibold mb-2 ${color}`}>{title} ({items.length})</h3>
-      <ul className="space-y-1 text-sm">
-        {items.slice(0, 50).map((it) => (
-          <li key={it.id} className="flex justify-between items-center border-b border-slate-100 py-1">
-            <span className="flex items-center min-w-0">
-              <ProximityDot score={it.proximityScore} />
-              <span className="truncate">{it.label}</span>
-              {it.matches && it.matches.length > 0 && (
-                <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 shrink-0">
-                  {it.matches.length} match{it.matches.length > 1 ? 'es' : ''}
-                </span>
-              )}
-            </span>
-            <span className="text-slate-400 text-xs shrink-0 ml-2">
-              {it.metadata?.companyCount ? `${it.metadata.companyCount} cos` : it.entityId}
-            </span>
-          </li>
-        ))}
-        {items.length > 50 && <li className="text-slate-400 text-xs">…and {items.length - 50} more</li>}
-      </ul>
-    </div>
+    <main className="min-h-screen px-6 py-12 max-w-5xl mx-auto">
+      <div className="animate-pulse space-y-4">
+        <div className="h-6 w-48 bg-slate-200 rounded" />
+        <div className="h-32 bg-slate-200 rounded-xl" />
+        <div className="grid grid-cols-3 gap-4">
+          <div className="h-24 bg-slate-200 rounded-xl" />
+          <div className="h-24 bg-slate-200 rounded-xl" />
+          <div className="h-24 bg-slate-200 rounded-xl" />
+        </div>
+      </div>
+    </main>
   );
 }
