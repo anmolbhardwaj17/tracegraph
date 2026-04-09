@@ -12,6 +12,10 @@ import { OffshoreLeaksModule } from './modules/offshore-leaks/offshore-leaks.mod
 import { EntityResolutionModule } from './modules/entity-resolution/entity-resolution.module';
 import { AnomalyModule } from './modules/anomaly/anomaly.module';
 import { ReportModule } from './modules/report/report.module';
+import { InsightsModule } from './modules/insights/insights.module';
+import { GeocodingModule } from './modules/geocoding/geocoding.module';
+import { DatasetsModule } from './modules/datasets/datasets.module';
+import { LogosModule } from './modules/logos/logos.module';
 
 @Module({
   imports: [
@@ -25,6 +29,10 @@ import { ReportModule } from './modules/report/report.module';
     EntityResolutionModule,
     AnomalyModule,
     ReportModule,
+    InsightsModule,
+    GeocodingModule,
+    DatasetsModule,
+    LogosModule,
     InvestigationModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

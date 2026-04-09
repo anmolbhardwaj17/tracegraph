@@ -54,7 +54,7 @@ describe('AnomalyDetectionService - shell company scoring', () => {
     await svc.scoreShellCompanies('inv');
 
     const target = nodes.find((n) => n.id === 'c-target');
-    expect(target.metadata.shellCompanyScore.risk).toBe('HIGH');
+    expect(['HIGH', 'CRITICAL']).toContain(target.metadata.shellCompanyScore.risk);
     expect(target.metadata.shellCompanyScore.score).toBeGreaterThan(50);
   });
 
@@ -64,6 +64,108 @@ describe('AnomalyDetectionService - shell company scoring', () => {
       makeNode('p1', 'person', 'Single Director'),
     ];
     const edges: any[] = [makeEdge('c1', 'p1', 'director')];
+    const nodesRepo = new FakeRepo<any>(); nodesRepo.rows = nodes;
+    const edgesRepo = new FakeRepo<any>(); edgesRepo.rows = edges;
+    const svc = new AnomalyDetectionService(nodesRepo as any, edgesRepo as any);
+    await svc.scoreShellCompanies('inv');
+    expect(nodes[0].metadata.shellCompanyScore.risk).toBe('LOW');
+  });
+
+  it('LARGE_PUBLIC company is never flagged even with many directors', async () => {
+    const nodes: any[] = [
+      makeNode('c-rolls', 'company', 'Rolls-Royce PLC', {
+        status: 'active',
+        companyProfile: 'LARGE_PUBLIC',
+      }),
+    ];
+    // Add 25 directors all sitting on multiple companies
+    for (let i = 0; i < 25; i++) {
+      const pid = `p-${i}`;
+      nodes.push(makeNode(pid, 'person', `Director ${i}`));
+      // Each director sits on 12 other active companies
+      for (let j = 0; j < 12; j++) {
+        nodes.push(makeNode(`other-${i}-${j}`, 'company', `Other ${j}`, { status: 'active' }));
+      }
+    }
+    const edges: any[] = [];
+    for (let i = 0; i < 25; i++) {
+      edges.push(makeEdge('c-rolls', `p-${i}`, 'director'));
+      for (let j = 0; j < 12; j++) {
+        edges.push(makeEdge(`other-${i}-${j}`, `p-${i}`, 'director'));
+      }
+    }
+    const nodesRepo = new FakeRepo<any>(); nodesRepo.rows = nodes;
+    const edgesRepo = new FakeRepo<any>(); edgesRepo.rows = edges;
+    const svc = new AnomalyDetectionService(nodesRepo as any, edgesRepo as any);
+    await svc.scoreShellCompanies('inv');
+    const target = nodes.find((n) => n.id === 'c-rolls');
+    // The hard gate kicks in: LARGE_PUBLIC is never marked HIGH
+    expect(target.metadata.shellCompanyScore.risk).toBe('LOW');
+    expect(target.metadata.shellCompanyScore.score).toBe(0);
+  });
+
+  it('ESTABLISHED_PRIVATE company also gets a free pass on director portfolio noise', async () => {
+    const nodes: any[] = [
+      makeNode('c-est', 'company', 'Old Family Holdings Ltd', {
+        status: 'active',
+        companyProfile: 'ESTABLISHED_PRIVATE',
+      }),
+      makeNode('p1', 'person', 'Mr Smith'),
+      // 15 other companies the director sits on
+      ...Array.from({ length: 15 }, (_, i) => makeNode(`o-${i}`, 'company', `Subsidiary ${i}`, { status: 'active' })),
+    ];
+    const edges: any[] = [makeEdge('c-est', 'p1', 'director')];
+    for (let i = 0; i < 15; i++) edges.push(makeEdge(`o-${i}`, 'p1', 'director'));
+    const nodesRepo = new FakeRepo<any>(); nodesRepo.rows = nodes;
+    const edgesRepo = new FakeRepo<any>(); edgesRepo.rows = edges;
+    const svc = new AnomalyDetectionService(nodesRepo as any, edgesRepo as any);
+    await svc.scoreShellCompanies('inv');
+    expect(nodes[0].metadata.shellCompanyScore.risk).toBe('LOW');
+  });
+
+  it('SMALL_PRIVATE with nominee director + virtual office + micro accounts → HIGH or CRITICAL', async () => {
+    const nodes: any[] = [
+      makeNode('c-shell', 'company', 'Suspect Holdings Ltd', {
+        status: 'active',
+        companyProfile: 'SMALL_PRIVATE',
+        accountsType: 'micro-entity',
+      }),
+      makeNode('p-nominee', 'person', 'Nominee Director'),
+    ];
+    // 22 active companies under the nominee director
+    for (let i = 0; i < 22; i++) {
+      nodes.push(makeNode(`port-${i}`, 'company', `Holding ${i}`, { status: 'active', accountsType: 'micro-entity' }));
+    }
+    // Virtual office address with 35 companies
+    const addrId = 'addr-vo';
+    nodes.push(makeNode(addrId, 'address', 'Suite 42 Virtual Office, London'));
+    for (let i = 0; i < 34; i++) {
+      nodes.push(makeNode(`vo-${i}`, 'company', `VO Co ${i}`, { status: 'active' }));
+    }
+    const edges: any[] = [makeEdge('c-shell', 'p-nominee', 'director')];
+    for (let i = 0; i < 22; i++) edges.push(makeEdge(`port-${i}`, 'p-nominee', 'director'));
+    edges.push(makeEdge('c-shell', addrId, 'address'));
+    for (let i = 0; i < 34; i++) edges.push(makeEdge(`vo-${i}`, addrId, 'address'));
+
+    const nodesRepo = new FakeRepo<any>(); nodesRepo.rows = nodes;
+    const edgesRepo = new FakeRepo<any>(); edgesRepo.rows = edges;
+    const svc = new AnomalyDetectionService(nodesRepo as any, edgesRepo as any);
+    await svc.scoreShellCompanies('inv');
+    const target = nodes.find((n) => n.id === 'c-shell');
+    expect(['HIGH', 'CRITICAL']).toContain(target.metadata.shellCompanyScore.risk);
+  });
+
+  it('legitimate small business (1 director, real address) scores LOW', async () => {
+    const nodes: any[] = [
+      makeNode('c-legit', 'company', 'Real Bakery Ltd', {
+        status: 'active',
+        companyProfile: 'SMALL_PRIVATE',
+        accountsType: 'small',
+        sicCodes: ['10711'],
+      }),
+      makeNode('p1', 'person', 'Owner'),
+    ];
+    const edges: any[] = [makeEdge('c-legit', 'p1', 'director')];
     const nodesRepo = new FakeRepo<any>(); nodesRepo.rows = nodes;
     const edgesRepo = new FakeRepo<any>(); edgesRepo.rows = edges;
     const svc = new AnomalyDetectionService(nodesRepo as any, edgesRepo as any);

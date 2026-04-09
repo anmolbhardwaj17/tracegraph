@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { Company } from './modules/companies-house/entities/company.entity';
 import { Officer } from './modules/companies-house/entities/officer.entity';
@@ -13,6 +16,8 @@ import { OffshoreOfficer } from './modules/offshore-leaks/entities/offshore-offi
 import { OffshoreIntermediary } from './modules/offshore-leaks/entities/offshore-intermediary.entity';
 import { OffshoreRelationship } from './modules/offshore-leaks/entities/offshore-relationship.entity';
 import { EntityMatch } from './modules/entity-resolution/entities/entity-match.entity';
+import { GeocodeCache } from './modules/geocoding/entities/geocode-cache.entity';
+import { LogoCache } from './modules/logos/entities/logo-cache.entity';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -21,7 +26,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.POSTGRES_USER || 'tracegraph',
   password: process.env.POSTGRES_PASSWORD || 'tracegraph',
   database: process.env.POSTGRES_DB || 'tracegraph',
-  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch],
+  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,

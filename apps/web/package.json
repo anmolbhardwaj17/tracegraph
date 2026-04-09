@@ -9,18 +9,29 @@
     "test": "echo 'no tests'"
   },
   "dependencies": {
+    "@next/font": "^14.2.15",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@tracegraph/shared": "*",
     "@types/d3": "^7.4.3",
+    "@types/leaflet": "^1.9.21",
+    "clsx": "^2.1.1",
+    "cobe": "^2.0.1",
     "d3": "^7.9.0",
+    "leaflet": "^1.9.4",
     "next": "^14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "socket.io-client": "^4.8.3"
+    "react-globe.gl": "^2.37.1",
+    "socket.io-client": "^4.8.3",
+    "tailwind-merge": "^3.5.0",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",
     "@types/react": "^18.3.4",
     "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.183.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.41",
     "tailwindcss": "^3.4.10",

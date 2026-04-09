@@ -5,11 +5,14 @@ import { GraphNode, GraphEntityType } from './entities/graph-node.entity';
 import { GraphEdge, RelationshipType } from './entities/graph-edge.entity';
 import { CompaniesHouseService } from '../companies-house/companies-house.service';
 import { normalizeAddress } from './address-normalizer';
+import { GeocodingService } from '../geocoding/geocoding.service';
 
 export interface ExpansionOptions {
   maxCompanyDepth?: number; // default 2
   maxAddressDepth?: number; // default 1
   largeCompanyOfficerThreshold?: number; // default 100
+  softNodeCap?: number; // default 3000
+  skipDepth2Filtering?: boolean; // DEEP tier: don't prune at depth 2
 }
 
 export interface ExpansionProgress {
@@ -18,6 +21,27 @@ export interface ExpansionProgress {
   apiCallsMade: number;
   currentDepth: number;
   status: 'running' | 'complete' | 'failed';
+  capped?: boolean;
+  note?: string;
+}
+
+/**
+ * Heuristic: at depth 2 we only expand a company if it looks like a small
+ * private limited that's worth investigating. Skip PLCs, dissolved entities,
+ * and anything with a director swarm.
+ */
+function isWorthDeepExpanding(profile: any, totalOfficers: number): boolean {
+  if (!profile) return false;
+  if (totalOfficers >= 50) return false;
+  const status = (profile.company_status || '').toLowerCase();
+  if (status.includes('dissolved')) return false;
+  const type = (profile.type || '').toLowerCase();
+  // Skip large public structures
+  if (type === 'plc' || type === 'public-limited-company' || type.includes('public')) return false;
+  // Heuristic: name-based PLC detection
+  const name = (profile.company_name || '').toLowerCase();
+  if (name.endsWith(' plc') || name.endsWith(' p.l.c.')) return false;
+  return true;
 }
 
 export interface ExpansionEvents {
@@ -43,6 +67,7 @@ export class GraphExpansionService {
     @InjectRepository(GraphNode) private readonly nodes: Repository<GraphNode>,
     @InjectRepository(GraphEdge) private readonly edges: Repository<GraphEdge>,
     private readonly ch: CompaniesHouseService,
+    private readonly geocoding: GeocodingService,
   ) {}
 
   async expand(
@@ -54,6 +79,8 @@ export class GraphExpansionService {
     const maxCompanyDepth = options.maxCompanyDepth ?? 2;
     const maxAddressDepth = options.maxAddressDepth ?? 1;
     const largeThreshold = options.largeCompanyOfficerThreshold ?? 100;
+    const softCap = options.softNodeCap ?? 3000;
+    const skipDepth2Filtering = options.skipDepth2Filtering ?? false;
 
     const visitedCompanies = new Set<string>();
     const visitedOfficers = new Set<string>();
@@ -82,7 +109,8 @@ export class GraphExpansionService {
         where: { investigationId, entityType, entityId },
       });
       if (!node) {
-        node = this.nodes.create({ investigationId, entityType, entityId, label, metadata });
+        const safeLabel = label && label.trim() ? label : entityId || 'Unknown';
+        node = this.nodes.create({ investigationId, entityType, entityId, label: safeLabel, metadata });
         node = await this.nodes.save(node);
         progress.entitiesDiscovered++;
         events.onEntityDiscovered?.(node);
@@ -141,7 +169,15 @@ export class GraphExpansionService {
         const companyNode = await upsertNode('company', profile.company_number, profile.company_name, {
           status: profile.company_status,
           incorporationDate: profile.date_of_creation,
+          dissolutionDate: profile.date_of_cessation,
           companyType: profile.type,
+          jurisdiction: profile.jurisdiction,
+          sicCodes: profile.sic_codes || [],
+          accountsType: profile.accounts?.last_accounts?.type,
+          accountsMadeUpTo: profile.accounts?.last_accounts?.made_up_to,
+          hasBeenLiquidated: profile.has_been_liquidated || false,
+          hasInsolvencyHistory: profile.has_insolvency_history || false,
+          confirmationStatementOverdue: profile.confirmation_statement?.overdue || false,
         });
 
         if (item.parentNodeId && item.edgeType) {
@@ -160,8 +196,11 @@ export class GraphExpansionService {
           if (normalized) {
             let addrNodeId = addressNodeCache.get(normalized);
             if (!addrNodeId) {
+              // Geocode now (cached: hits DB cache instantly on repeats)
+              const geo = await this.geocoding.geocode(normalized).catch(() => null);
               const addrNode = await upsertNode('address', normalized, normalized, {
                 raw: profile.registered_office_address,
+                geo: geo ? { lat: geo.lat, lng: geo.lng, displayName: geo.displayName } : null,
               });
               addrNodeId = addrNode.id;
               addressNodeCache.set(normalized, addrNodeId);
@@ -181,9 +220,28 @@ export class GraphExpansionService {
         }
 
         const totalOfficers = officersResp.total_results ?? officersResp.items?.length ?? 0;
-        const skipExpansion = totalOfficers > largeThreshold;
-        if (skipExpansion) {
+
+        // Tiered expansion:
+        //   depth 0 (root)         → always full expand
+        //   depth 1 (1-hop)        → always full expand
+        //   depth 2 (2-hop)        → only if "interesting" small private ltd
+        //   depth >= 3             → never (enforced by maxCompanyDepth gate below)
+        let skipExpansion = totalOfficers > largeThreshold;
+        if (item.depth >= 2 && !skipDepth2Filtering && !isWorthDeepExpanding(profile, totalOfficers)) {
+          skipExpansion = true;
+          this.logger.log(`Pruning depth-${item.depth} expansion for ${item.id} (${profile.company_name}) — not interesting`);
+        } else if (skipExpansion) {
           this.logger.log(`Skipping officer expansion for ${item.id} (${totalOfficers} officers)`);
+        }
+
+        // Soft cap: stop opening NEW branches once we hit the cap.
+        if (progress.entitiesDiscovered >= softCap) {
+          if (!progress.capped) {
+            progress.capped = true;
+            progress.note = `Expansion capped at ${softCap} entities to maintain performance. Core network fully mapped.`;
+            this.logger.warn(progress.note);
+          }
+          skipExpansion = true;
         }
 
         for (const o of officersResp.items || []) {
@@ -255,6 +313,15 @@ export class GraphExpansionService {
                 role: a.officer_role,
                 appointedOn: a.appointed_on,
               });
+            }
+            continue;
+          }
+          // Soft cap: stop opening new branches once we hit the cap
+          if (progress.entitiesDiscovered >= softCap) {
+            if (!progress.capped) {
+              progress.capped = true;
+              progress.note = `Expansion capped at ${softCap} entities to maintain performance. Core network fully mapped.`;
+              this.logger.warn(progress.note);
             }
             continue;
           }

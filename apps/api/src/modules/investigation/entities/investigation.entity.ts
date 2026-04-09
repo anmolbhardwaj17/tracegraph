@@ -1,12 +1,14 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-export type InvestigationStatus = 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'RESOLVING' | 'COMPLETE' | 'FAILED';
+export type InvestigationStatus = 'QUEUED' | 'FETCHING' | 'EXPANDING' | 'RESOLVING' | 'SCORING' | 'COMPLETE' | 'FAILED';
+export type InvestigationTier = 'QUICK' | 'STANDARD' | 'DEEP';
 
 @Entity('investigations')
 export class Investigation {
   @PrimaryGeneratedColumn('uuid') id: string;
   @Column() query: string;
   @Column({ default: 'QUEUED' }) status: InvestigationStatus;
+  @Column({ default: 'STANDARD' }) tier: InvestigationTier;
   @CreateDateColumn() createdAt: Date;
   @Column({ type: 'timestamptz', nullable: true }) completedAt: Date;
   @Column({ type: 'jsonb', nullable: true }) metadata: Record<string, any>;

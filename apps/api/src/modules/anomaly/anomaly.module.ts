@@ -7,6 +7,8 @@ import { AddressAnalysisService } from './address-analysis.service';
 import { OwnershipCycleService } from './ownership-cycle.service';
 import { CommunityDetectionService } from './community-detection.service';
 import { TemporalAnomalyService } from './temporal-anomaly.service';
+import { CompanyClassifierService } from './company-classifier.service';
+import { DirectorRiskService } from './director-risk.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([GraphNode, GraphEdge])],
@@ -16,6 +18,8 @@ import { TemporalAnomalyService } from './temporal-anomaly.service';
     OwnershipCycleService,
     CommunityDetectionService,
     TemporalAnomalyService,
+    CompanyClassifierService,
+    DirectorRiskService,
   ],
   exports: [
     AnomalyDetectionService,
@@ -23,6 +27,8 @@ import { TemporalAnomalyService } from './temporal-anomaly.service';
     OwnershipCycleService,
     CommunityDetectionService,
     TemporalAnomalyService,
+    CompanyClassifierService,
+    DirectorRiskService,
   ],
 })
 export class AnomalyModule {}

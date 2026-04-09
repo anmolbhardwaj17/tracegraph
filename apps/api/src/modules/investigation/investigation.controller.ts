@@ -12,8 +12,8 @@ export class InvestigationController {
 
   @Post()
   async create(@Body() dto: CreateInvestigationDto) {
-    const inv = await this.service.create(dto.query);
-    return { id: inv.id, status: inv.status };
+    const inv = await this.service.create(dto.query, dto.tier || 'STANDARD');
+    return { id: inv.id, status: inv.status, tier: inv.tier };
   }
 
   @Get()

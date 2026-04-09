@@ -1,15 +1,22 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: 'TraceGraph',
-  description: 'Corporate intelligence engine',
+  title: 'TraceGraph · Corporate intelligence engine',
+  description: 'Autonomous corporate intelligence from public data sources.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-slate-50 text-slate-900 antialiased">{children}</body>
+    <html lang="en" className={inter.variable}>
+      <body className="bg-ink-900 text-ink-50 antialiased font-sans grain">{children}</body>
     </html>
   );
 }

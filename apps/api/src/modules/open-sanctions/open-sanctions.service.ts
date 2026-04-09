@@ -74,6 +74,10 @@ export class OpenSanctionsService {
     const q = name.toLowerCase().trim();
     if (!q) return [];
     try {
+      // Loosen the pg_trgm pre-filter so the scoring stage (which has its
+      // own threshold) sees more candidates. The actual match decision
+      // happens in EntityResolutionService.classify, not here.
+      await this.repo.query(`SET LOCAL pg_trgm.similarity_threshold = 0.15`);
       const rows = await this.repo.query(
         `SELECT *, similarity("searchText", $1) AS sim
          FROM sanctions_entities

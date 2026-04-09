@@ -1,14 +1,14 @@
 import { RiskScoringService } from './risk-scoring.service';
-import { Finding } from './finding.types';
+import { Finding, classifyOverall } from './finding.types';
 
-describe('RiskScoringService.aggregateScore', () => {
+describe('RiskScoringService.aggregateScore (legacy weight sum)', () => {
   const svc = new RiskScoringService(
     {} as any, {} as any, {} as any, {} as any,
-    {} as any, {} as any, {} as any, {} as any, {} as any,
+    {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any,
   );
 
   const f = (severity: Finding['severity']): Finding => ({
-    type: 't', severity, title: '', description: '', evidence: [],
+    type: 't', severity, confidence: 'MEDIUM', title: '', description: '', evidence: [],
     affectedEntities: [], recommendation: '',
   });
 
@@ -30,5 +30,75 @@ describe('RiskScoringService.aggregateScore', () => {
 
   it('sums mixed severities', () => {
     expect(svc.aggregateScore([f('CRITICAL'), f('HIGH'), f('MEDIUM')])).toBe(48);
+  });
+});
+
+describe('classifyOverall', () => {
+  it('maps score ranges to severities', () => {
+    expect(classifyOverall(0)).toBe('LOW');
+    expect(classifyOverall(24)).toBe('LOW');
+    expect(classifyOverall(25)).toBe('MEDIUM');
+    expect(classifyOverall(49)).toBe('MEDIUM');
+    expect(classifyOverall(50)).toBe('HIGH');
+    expect(classifyOverall(74)).toBe('HIGH');
+    expect(classifyOverall(75)).toBe('CRITICAL');
+    expect(classifyOverall(100)).toBe('CRITICAL');
+  });
+});
+
+describe('RiskScoringService.calculateScore (component model)', () => {
+  const svc = new RiskScoringService(
+    {} as any, {} as any, {} as any, {} as any,
+    {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any,
+  );
+
+  function profile(p: string) {
+    return { metadata: { companyProfile: p } } as any;
+  }
+
+  it('LARGE_PUBLIC with no signals scores LOW', () => {
+    const score = svc.calculateScore({
+      matches: [],
+      nodes: [profile('LARGE_PUBLIC')],
+      cycles: [],
+      temporal: { massIncorporation: [], rapidDissolution: [] },
+    });
+    expect(score).toBe(0);
+    expect(classifyOverall(score)).toBe('LOW');
+  });
+
+  it('Direct OpenSanctions match (>80%) maxes the sanctions component', () => {
+    const score = svc.calculateScore({
+      matches: [{ matchedSource: 'opensanctions', confidenceScore: 92 } as any],
+      nodes: [],
+      cycles: [],
+      temporal: { massIncorporation: [], rapidDissolution: [] },
+    });
+    expect(score).toBeGreaterThanOrEqual(40);
+  });
+
+  it('Circular ownership + shell network + nominee director → HIGH or CRITICAL', () => {
+    const nodes: any[] = [
+      { entityType: 'company', metadata: { companyProfile: 'SMALL_PRIVATE', shellCompanyScore: { risk: 'HIGH' } } },
+      { entityType: 'person', metadata: { directorProfile: { risk: 'NOMINEE_PATTERN' } } },
+    ];
+    const score = svc.calculateScore({
+      matches: [],
+      nodes,
+      cycles: [{ nodeIds: ['a', 'b', 'c'] }],
+      temporal: { massIncorporation: [], rapidDissolution: [] },
+    });
+    expect(score).toBeGreaterThanOrEqual(50);
+    expect(['HIGH', 'CRITICAL']).toContain(classifyOverall(score));
+  });
+
+  it('FORMATION_AGENT director alone contributes 25 to director component', () => {
+    const score = svc.calculateScore({
+      matches: [],
+      nodes: [{ entityType: 'person', metadata: { directorProfile: { risk: 'FORMATION_AGENT' } } } as any],
+      cycles: [],
+      temporal: { massIncorporation: [], rapidDissolution: [] },
+    });
+    expect(score).toBe(25);
   });
 });

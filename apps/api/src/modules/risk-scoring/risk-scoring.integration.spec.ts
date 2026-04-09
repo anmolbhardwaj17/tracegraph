@@ -26,12 +26,13 @@ describe('RiskScoringService integration', () => {
       {
         id: 'n1', investigationId: 'inv', entityType: 'company', entityId: 'C1', label: 'Shell Co',
         metadata: {
+          companyProfile: 'SMALL_PRIVATE',
           shellCompanyScore: { score: 65, risk: 'HIGH', reasons: ['Director has 15 active companies'] },
         },
       },
       {
         id: 'n2', investigationId: 'inv', entityType: 'address', entityId: 'A1', label: '1 Suite, EC1',
-        metadata: { addressAnalysis: { density: 27, dissolved: 9, dissolutionRate: 0.33, flag: 'VIRTUAL_OFFICE' } },
+        metadata: { addressAnalysis: { density: 27, dissolved: 9, dissolutionRate: 0.5, classification: 'VIRTUAL_OFFICE', flag: 'VIRTUAL_OFFICE' } },
       },
       {
         id: 'n3', investigationId: 'inv', entityType: 'person', entityId: 'P1', label: 'Bridge Person',
@@ -61,16 +62,20 @@ describe('RiskScoringService integration', () => {
       preEventResignations: [],
     }) };
 
+    const stubClassifier = { classifyAll: jest.fn().mockResolvedValue({ classified: 1, byProfile: {} }) };
+    const stubDirector = { profileAll: jest.fn().mockResolvedValue({ profiled: 0, flagged: 0 }) };
     const svc = new RiskScoringService(
       nodesRepo as any,
       edgesRepo as any,
       invRepo as any,
       matchRepo as any,
+      stubClassifier as any,
       stubAnomaly as any,
       stubAddr as any,
       stubCycle as any,
       stubComm as any,
       stubTemporal as any,
+      stubDirector as any,
     );
 
     const result = await svc.run('inv');
@@ -84,13 +89,12 @@ describe('RiskScoringService integration', () => {
 
     // Findings produced
     const types = result.findings.map((f) => f.type);
-    expect(types).toContain('shell_company');
-    expect(types).toContain('virtual_office');
-    expect(types).toContain('circular_ownership');
-    expect(types).toContain('bridge_node');
-    expect(types).toContain('mass_incorporation');
-    expect(types).toContain('sanctions_match');
-    expect(types).toContain('sanctions_proximity');
+    expect(types).toContain('SHELL_NETWORK');
+    expect(types).toContain('VIRTUAL_OFFICE_CLUSTER');
+    expect(types).toContain('CIRCULAR_OWNERSHIP');
+    expect(types).toContain('BRIDGE_PERSON');
+    expect(types).toContain('MASS_INCORPORATION');
+    expect(types).toContain('SANCTIONS_PROXIMITY');
 
     // Score capped at 100
     expect(result.score).toBeGreaterThan(0);

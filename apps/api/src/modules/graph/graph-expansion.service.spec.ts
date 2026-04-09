@@ -62,7 +62,8 @@ function makeFakeCH(graph: {
 function makeService(ch: any) {
   const nodes = new FakeRepo<any>();
   const edges = new FakeRepo<any>();
-  const svc = new GraphExpansionService(nodes as any, edges as any, ch);
+  const fakeGeocoder = { geocode: async () => null } as any;
+  const svc = new GraphExpansionService(nodes as any, edges as any, ch, fakeGeocoder);
   return { svc, nodes, edges };
 }
 

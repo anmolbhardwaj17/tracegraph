@@ -8,6 +8,8 @@
     "lint": "echo 'no lint'",
     "test": "jest",
     "seed:demo": "ts-node src/seeds/demo-seed.ts",
+    "ingest:opensanctions": "ts-node src/seeds/ingest-opensanctions-full.ts",
+    "ingest:offshore": "ts-node src/seeds/ingest-offshore-leaks-full.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/data-source.ts",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts"
   },
