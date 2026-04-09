@@ -66,6 +66,7 @@ describe('RiskScoringService integration', () => {
     const stubDirector = { profileAll: jest.fn().mockResolvedValue({ profiled: 0, flagged: 0 }) };
     const stubFilingHealth = { analyze: jest.fn().mockResolvedValue({ healthCount: 0, regressedCount: 0, cyclingCount: 0, phoenixPairs: [] }) };
     const stubDisqualified = { checkAll: jest.fn().mockResolvedValue([]) };
+    const stubJurisdiction = { tagAll: jest.fn().mockResolvedValue({ tagged: 0, high: 0, medium: 0, chainsBoosted: 0 }) };
     const svc = new RiskScoringService(
       nodesRepo as any,
       edgesRepo as any,
@@ -80,6 +81,7 @@ describe('RiskScoringService integration', () => {
       stubDirector as any,
       stubFilingHealth as any,
       stubDisqualified as any,
+      stubJurisdiction as any,
     );
 
     const result = await svc.run('inv');

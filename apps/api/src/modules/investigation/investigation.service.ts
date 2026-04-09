@@ -77,6 +77,8 @@ export class InvestigationService {
         shellRisk: n.metadata?.shellCompanyScore?.risk,
         shellScore: n.metadata?.shellCompanyScore?.score,
         addressFlag: n.metadata?.addressAnalysis?.flag,
+        jurisdictionRisk: n.metadata?.jurisdictionRisk?.risk,
+        jurisdictionName: n.metadata?.jurisdictionRisk?.matched || n.metadata?.jurisdictionRisk?.raw,
         hasMatch: matchedEntityIds.has(n.entityId),
         metadata: n.metadata,
       })),

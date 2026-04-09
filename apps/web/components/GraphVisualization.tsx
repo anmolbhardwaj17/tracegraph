@@ -11,6 +11,8 @@ export interface GraphNode extends d3.SimulationNodeDatum {
   shellRisk?: string;
   hasMatch?: boolean;
   addressFlag?: string;
+  jurisdictionRisk?: 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+  jurisdictionName?: string;
   metadata?: any;
 }
 export interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
@@ -514,6 +516,19 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
         .attr('stroke-dasharray', '3,2');
     }
 
+    // Jurisdiction risk tag — small colored pill above HIGH / MEDIUM nodes
+    nodeGroup
+      .filter((d) => d.jurisdictionRisk === 'HIGH' || d.jurisdictionRisk === 'MEDIUM')
+      .append('text')
+      .text((d) => `⌖ ${(d.jurisdictionName || d.jurisdictionRisk || '').toString().slice(0, 14)}`)
+      .attr('font-size', 7)
+      .attr('text-anchor', 'middle')
+      .attr('dy', (d) => -nodeRadius(d, d.id === rootId) - 18)
+      .attr('fill', (d) => (d.jurisdictionRisk === 'HIGH' ? '#FF4D4D' : '#FF8A3D'))
+      .attr('font-family', 'ui-monospace, monospace')
+      .attr('letter-spacing', '0.03em')
+      .attr('pointer-events', 'none');
+
     // Auto-label badges (small mono text above the node)
     nodeGroup
       .filter((d) => autoLabels.has(d.id))
@@ -779,6 +794,15 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
             )}
             {tooltip.node.hasMatch && (
               <div className="mt-1 text-signal-critical font-mono text-[10px]">⚑ SANCTIONS MATCH</div>
+            )}
+            {(tooltip.node.jurisdictionRisk === 'HIGH' || tooltip.node.jurisdictionRisk === 'MEDIUM') && (
+              <div
+                className={`mt-1 font-mono text-[10px] ${
+                  tooltip.node.jurisdictionRisk === 'HIGH' ? 'text-signal-critical' : 'text-signal-medium'
+                }`}
+              >
+                ⌖ {tooltip.node.jurisdictionName || tooltip.node.jurisdictionRisk} ({tooltip.node.jurisdictionRisk})
+              </div>
             )}
           </div>
         )}

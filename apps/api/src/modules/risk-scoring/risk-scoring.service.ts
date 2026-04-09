@@ -14,6 +14,7 @@ import { CompanyClassifierService } from '../anomaly/company-classifier.service'
 import { DirectorRiskService } from '../anomaly/director-risk.service';
 import { FilingHealthService } from '../anomaly/filing-health.service';
 import { DisqualifiedDirectorService } from '../anomaly/disqualified-director.service';
+import { JurisdictionRiskService } from '../anomaly/jurisdiction-risk.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -34,6 +35,7 @@ export class RiskScoringService {
     private readonly directorRisk: DirectorRiskService,
     private readonly filingHealth: FilingHealthService,
     private readonly disqualifiedDirectors: DisqualifiedDirectorService,
+    private readonly jurisdictionRisk: JurisdictionRiskService,
   ) {}
 
   async run(investigationId: string): Promise<{ score: number; findings: Finding[] }> {
@@ -44,6 +46,11 @@ export class RiskScoringService {
     await this.anomaly.scoreShellCompanies(investigationId);
     const filingHealthResult = await this.filingHealth.analyze(investigationId);
     const disqualifiedResult = await this.disqualifiedDirectors.checkAll(investigationId);
+    // Tag jurisdictions and (if UBO chains were already built) flag those that
+    // cross HIGH-risk territories
+    const existingProgress = await this.getProgress(investigationId);
+    const uboChains: any[] = (existingProgress as any).uboChains || [];
+    const jurisdictionResult = await this.jurisdictionRisk.tagAll(investigationId, uboChains);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -297,6 +304,22 @@ export class RiskScoringService {
       });
     }
 
+    // ---- HIGH-RISK JURISDICTIONS ----
+    for (const n of nodes) {
+      const jr = n.metadata?.jurisdictionRisk;
+      if (!jr || jr.risk !== 'HIGH') continue;
+      findings.push({
+        type: 'HIGH_RISK_JURISDICTION',
+        severity: n.entityType === 'company' ? 'HIGH' : 'MEDIUM',
+        confidence: 'HIGH',
+        title: `${n.label} sits in ${jr.matched || jr.raw} (high-risk jurisdiction)`,
+        description: `${n.label} is registered in ${jr.matched || jr.raw}, a jurisdiction known for opaque ownership, weak beneficial-owner disclosure, or historical use in concealment structures.`,
+        evidence: [`Jurisdiction: ${jr.matched || jr.raw}`, `Risk band: HIGH`],
+        affectedEntities: [n.entityId],
+        recommendation: 'Apply enhanced due-diligence; demand evidence of economic substance, real-world activity, and identifiable beneficial owners.',
+      });
+    }
+
     // ---- DISQUALIFIED DIRECTORS ----
     for (const m of disqualifiedResult) {
       const top = m.matches[0];
@@ -364,6 +387,10 @@ export class RiskScoringService {
         findings,
         communities: communities.length,
         bridges: bridges.length,
+        // Persist (possibly mutated) UBO chains so jurisdictionRisk's
+        // crossesHighRisk + appended OFFSHORE flag survive the write
+        uboChains,
+        jurisdictionRiskSummary: jurisdictionResult,
       } as any,
     });
 

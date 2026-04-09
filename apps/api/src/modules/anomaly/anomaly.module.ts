@@ -11,6 +11,7 @@ import { CompanyClassifierService } from './company-classifier.service';
 import { DirectorRiskService } from './director-risk.service';
 import { FilingHealthService } from './filing-health.service';
 import { DisqualifiedDirectorService } from './disqualified-director.service';
+import { JurisdictionRiskService } from './jurisdiction-risk.service';
 import { CompaniesHouseModule } from '../companies-house/companies-house.module';
 
 @Module({
@@ -25,6 +26,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
     DirectorRiskService,
     FilingHealthService,
     DisqualifiedDirectorService,
+    JurisdictionRiskService,
   ],
   exports: [
     AnomalyDetectionService,
@@ -36,6 +38,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
     DirectorRiskService,
     FilingHealthService,
     DisqualifiedDirectorService,
+    JurisdictionRiskService,
   ],
 })
 export class AnomalyModule {}
