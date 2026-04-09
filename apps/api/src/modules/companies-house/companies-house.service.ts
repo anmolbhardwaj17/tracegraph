@@ -62,6 +62,14 @@ export class CompaniesHouseService {
     return this.request(`/officers/${encodeURIComponent(officerId)}/appointments`);
   }
 
+  async searchDisqualifiedOfficers(query: string): Promise<any> {
+    return this.request(`/disqualified-officers/search?q=${encodeURIComponent(query)}`);
+  }
+
+  async getDisqualifiedOfficer(officerId: string): Promise<any> {
+    return this.request(`/disqualified-officers/natural/${encodeURIComponent(officerId)}`);
+  }
+
   private async request(path: string): Promise<any> {
     const cacheKey = `ch:${path}`;
     const cached = await this.redis.get(cacheKey);

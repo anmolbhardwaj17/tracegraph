@@ -13,6 +13,7 @@ import { TemporalAnomalyService } from '../anomaly/temporal-anomaly.service';
 import { CompanyClassifierService } from '../anomaly/company-classifier.service';
 import { DirectorRiskService } from '../anomaly/director-risk.service';
 import { FilingHealthService } from '../anomaly/filing-health.service';
+import { DisqualifiedDirectorService } from '../anomaly/disqualified-director.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -32,6 +33,7 @@ export class RiskScoringService {
     private readonly temporal: TemporalAnomalyService,
     private readonly directorRisk: DirectorRiskService,
     private readonly filingHealth: FilingHealthService,
+    private readonly disqualifiedDirectors: DisqualifiedDirectorService,
   ) {}
 
   async run(investigationId: string): Promise<{ score: number; findings: Finding[] }> {
@@ -41,6 +43,7 @@ export class RiskScoringService {
     await this.directorRisk.profileAll(investigationId);
     await this.anomaly.scoreShellCompanies(investigationId);
     const filingHealthResult = await this.filingHealth.analyze(investigationId);
+    const disqualifiedResult = await this.disqualifiedDirectors.checkAll(investigationId);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -291,6 +294,30 @@ export class RiskScoringService {
         evidence: dc.history.map((h: any) => `${h.date}: ${h.type}`),
         affectedEntities: [n.entityId],
         recommendation: 'Examine activity windows; align with known transactions or asset movements.',
+      });
+    }
+
+    // ---- DISQUALIFIED DIRECTORS ----
+    for (const m of disqualifiedResult) {
+      const top = m.matches[0];
+      findings.push({
+        type: 'DISQUALIFIED_DIRECTOR',
+        severity: 'CRITICAL',
+        confidence: top.confidence >= 90 ? 'HIGH' : top.confidence >= 80 ? 'MEDIUM' : 'LOW',
+        title: `${m.personName} matches a disqualified UK director (${top.confidence}%)`,
+        description: `${m.personName} fuzzy-matches "${top.matchedName}" on the Companies House disqualified-officers register${top.fromDate ? `, disqualified from ${top.fromDate}${top.toDate ? ` to ${top.toDate}` : ''}` : ''}.${top.reason ? ` Reason: ${top.reason}.` : ''}${top.isUndertaking ? ' (undertaking)' : ''}`,
+        evidence: [
+          `Confidence: ${top.confidence}%`,
+          `Matched name: ${top.matchedName}`,
+          ...(top.fromDate ? [`Disqualified from: ${top.fromDate}`] : []),
+          ...(top.toDate ? [`Disqualified until: ${top.toDate}`] : []),
+          ...(top.reason ? [`Reason: ${top.reason}`] : []),
+          ...(top.caseRef ? [`Case ref: ${top.caseRef}`] : []),
+          ...(top.addressLine ? [`Address on register: ${top.addressLine}`] : []),
+          ...(m.matches.length > 1 ? [`+${m.matches.length - 1} other potential match(es)`] : []),
+        ],
+        affectedEntities: [m.personNodeId],
+        recommendation: 'Verify identity against CH disqualification record before relying on this person as a director or controller. Disqualified persons cannot lawfully act in the management of a UK company.',
       });
     }
 
