@@ -12,6 +12,7 @@ import { CommunityDetectionService } from '../anomaly/community-detection.servic
 import { TemporalAnomalyService } from '../anomaly/temporal-anomaly.service';
 import { CompanyClassifierService } from '../anomaly/company-classifier.service';
 import { DirectorRiskService } from '../anomaly/director-risk.service';
+import { FilingHealthService } from '../anomaly/filing-health.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -30,6 +31,7 @@ export class RiskScoringService {
     private readonly community: CommunityDetectionService,
     private readonly temporal: TemporalAnomalyService,
     private readonly directorRisk: DirectorRiskService,
+    private readonly filingHealth: FilingHealthService,
   ) {}
 
   async run(investigationId: string): Promise<{ score: number; findings: Finding[] }> {
@@ -38,6 +40,7 @@ export class RiskScoringService {
     await this.addressAnalysis.analyze(investigationId);
     await this.directorRisk.profileAll(investigationId);
     await this.anomaly.scoreShellCompanies(investigationId);
+    const filingHealthResult = await this.filingHealth.analyze(investigationId);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -235,6 +238,79 @@ export class RiskScoringService {
           recommendation: 'Review the nature of the connection; one-hop proximity is a meaningful exposure.',
         });
       }
+    }
+
+    // ---- FILING HEALTH FINDINGS ----
+    for (const n of nodes) {
+      if (n.entityType !== 'company') continue;
+      const fh = n.metadata?.filingHealth;
+      if (!fh) continue;
+      if (fh.band === 'POOR' || fh.band === 'WEAK') {
+        const sev = fh.band === 'POOR' ? 'HIGH' : 'MEDIUM';
+        findings.push({
+          type: 'FILING_HEALTH',
+          severity: sev,
+          confidence: fh.totalAccountsFilings >= 3 ? 'HIGH' : 'MEDIUM',
+          title: `${n.label} has ${fh.band.toLowerCase()} filing discipline (score ${fh.score})`,
+          description: `Filing health analysis flagged ${n.label} with a ${fh.score}/100 score. ${fh.reasons.join('; ') || 'Multiple late or overdue filings.'}`,
+          evidence: fh.reasons,
+          affectedEntities: [n.entityId],
+          recommendation: 'Persistent late filings often precede insolvency, restoration applications, or enforcement.',
+        });
+      }
+    }
+
+    // ---- ACCOUNT TYPE REGRESSION ----
+    for (const n of nodes) {
+      if (n.entityType !== 'company') continue;
+      const reg = n.metadata?.accountRegression;
+      if (!reg?.regressed) continue;
+      findings.push({
+        type: 'ACCOUNT_REGRESSION',
+        severity: 'MEDIUM',
+        confidence: 'MEDIUM',
+        title: `${n.label} regressed from ${reg.startType} to ${reg.endType} accounts`,
+        description: `${n.label}'s filed accounts type has stepped down over time (${reg.history.map((h: any) => h.type).join(' → ')}). Possible revenue suppression or downsizing for filing-exemption thresholds.`,
+        evidence: reg.history.map((h: any) => `${h.date}: ${h.type}`),
+        affectedEntities: [n.entityId],
+        recommendation: 'Compare turnover/employee disclosures to filed exemption thresholds; investigate causes.',
+      });
+    }
+
+    // ---- DORMANT CYCLING ----
+    for (const n of nodes) {
+      if (n.entityType !== 'company') continue;
+      const dc = n.metadata?.dormantCycle;
+      if (!dc?.oscillating) continue;
+      findings.push({
+        type: 'DORMANT_CYCLING',
+        severity: 'HIGH',
+        confidence: 'MEDIUM',
+        title: `${n.label} oscillates between dormant and active`,
+        description: `${n.label} has filed dormant accounts then active accounts then dormant again ${dc.transitions} times. This pattern is consistent with intermittent activation for transaction-specific use.`,
+        evidence: dc.history.map((h: any) => `${h.date}: ${h.type}`),
+        affectedEntities: [n.entityId],
+        recommendation: 'Examine activity windows; align with known transactions or asset movements.',
+      });
+    }
+
+    // ---- PHOENIX PATTERN ----
+    for (const p of filingHealthResult.phoenixPairs) {
+      findings.push({
+        type: 'PHOENIX_COMPANY',
+        severity: 'HIGH',
+        confidence: p.sharedAddress && p.similarSic ? 'HIGH' : 'MEDIUM',
+        title: `Phoenix pattern: ${p.successorLabel} replaced ${p.predecessorLabel}`,
+        description: `${p.predecessorLabel} dissolved and ${p.successorLabel} incorporated within ${p.daysBetween} days, sharing ${p.sharedDirectors.length} director(s)${p.sharedAddress ? ', the registered address' : ''}${p.similarSic ? ', and SIC codes' : ''}.`,
+        evidence: [
+          `Days between: ${p.daysBetween}`,
+          `Shared directors: ${p.sharedDirectors.join(', ')}`,
+          `Shared address: ${p.sharedAddress ? 'yes' : 'no'}`,
+          `Similar SIC: ${p.similarSic ? 'yes' : 'no'}`,
+        ],
+        affectedEntities: [p.predecessorCompanyId, p.successorCompanyId],
+        recommendation: 'Phoenix patterns are commonly used to shed liabilities and restart trading; review motive.',
+      });
     }
 
     // ---- SORT findings ----

@@ -9,9 +9,11 @@ import { CommunityDetectionService } from './community-detection.service';
 import { TemporalAnomalyService } from './temporal-anomaly.service';
 import { CompanyClassifierService } from './company-classifier.service';
 import { DirectorRiskService } from './director-risk.service';
+import { FilingHealthService } from './filing-health.service';
+import { CompaniesHouseModule } from '../companies-house/companies-house.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([GraphNode, GraphEdge])],
+  imports: [TypeOrmModule.forFeature([GraphNode, GraphEdge]), CompaniesHouseModule],
   providers: [
     AnomalyDetectionService,
     AddressAnalysisService,
@@ -20,6 +22,7 @@ import { DirectorRiskService } from './director-risk.service';
     TemporalAnomalyService,
     CompanyClassifierService,
     DirectorRiskService,
+    FilingHealthService,
   ],
   exports: [
     AnomalyDetectionService,
@@ -29,6 +32,7 @@ import { DirectorRiskService } from './director-risk.service';
     TemporalAnomalyService,
     CompanyClassifierService,
     DirectorRiskService,
+    FilingHealthService,
   ],
 })
 export class AnomalyModule {}
