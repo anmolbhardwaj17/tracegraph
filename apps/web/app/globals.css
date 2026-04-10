@@ -78,16 +78,6 @@ html, body {
   box-shadow: 0 0 20px rgba(255,255,255,0.03);
 }
 
-/* Swipe-up number animation */
-@keyframes slideOutUp {
-  from { transform: translateY(0); opacity: 1; }
-  to   { transform: translateY(-100%); opacity: 0; }
-}
-@keyframes slideInUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
-}
-
 /* Hide scrollbar for horizontal scroll strips */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
