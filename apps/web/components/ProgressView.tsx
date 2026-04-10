@@ -8,8 +8,8 @@ function LiveNumber({ value }: { value: number }) {
     <FlipNumbers
       numbers={value.toLocaleString()}
       play
-      height={28}
-      width={18}
+      height={24}
+      width={14}
       color="#F5F5F5"
       background="transparent"
       duration={0.5}
