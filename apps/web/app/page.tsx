@@ -468,11 +468,47 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Beyond the report — feature strip */}
+      <section className="border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-24">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
+            / 003 · Beyond the report
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 snap-x snap-mandatory scrollbar-hide stagger-grid">
+            <FeatureStrip
+              label="Live expansion"
+              description="Watch your network grow in real time"
+              placeholder="sonar animation"
+            />
+            <FeatureStrip
+              label="Graph explorer"
+              description="Filter by type, search entities, trace paths"
+              placeholder="interactive graph"
+            />
+            <FeatureStrip
+              label="Ownership chains"
+              description="Trace UBO through corporate layers"
+              placeholder="chain diagram"
+            />
+            <FeatureStrip
+              label="Compare"
+              description="Find shared directors between any two companies"
+              placeholder="comparison view"
+            />
+            <FeatureStrip
+              label="Monitor"
+              description="Add to watchlist. Re-investigate anytime."
+              placeholder="watchlist view"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* What it detects — merged capabilities */}
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
-            / 003 · What it detects
+            / 004 · What it detects
           </div>
           <p className="text-sm text-ink-400 mb-12 max-w-2xl">
             20+ automated risk signals from three data sources — UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
@@ -492,7 +528,7 @@ export default function Home() {
       <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 004 · Built for due diligence
+            / 005 · Built for due diligence
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Approach
@@ -820,6 +856,27 @@ function CountUp({ end, suffix = '', label, decimals = 0 }: { end: number; suffi
       <span className="text-ink-300 tabular-nums">{decimals > 0 ? value.toFixed(decimals) : Math.round(value)}{suffix}</span>
       {' '}{label}
     </span>
+  );
+}
+
+function FeatureStrip({ label, description, placeholder }: { label: string; description: string; placeholder: string }) {
+  return (
+    <div className="min-w-[220px] max-w-[260px] flex-shrink-0 snap-start border border-white/5 bg-ink-900 overflow-hidden card-glow border-transparent">
+      {/* Image placeholder */}
+      <div className="aspect-[4/3] bg-ink-950/50 border-b border-white/5 flex items-center justify-center">
+        <div className="text-center px-4">
+          <div className="w-10 h-10 rounded-sm bg-ink-850 border border-white/10 flex items-center justify-center mx-auto mb-3">
+            <div className="w-4 h-4 border border-white/15 rounded-sm" />
+          </div>
+          <div className="text-[9px] font-mono text-ink-600 uppercase tracking-wider">{placeholder}</div>
+        </div>
+      </div>
+      {/* Text */}
+      <div className="p-5">
+        <div className="text-sm font-medium text-ink-50 mb-1">{label}</div>
+        <div className="text-xs text-ink-400 leading-relaxed">{description}</div>
+      </div>
+    </div>
   );
 }
 

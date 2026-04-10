@@ -78,6 +78,10 @@ html, body {
   box-shadow: 0 0 20px rgba(255,255,255,0.03);
 }
 
+/* Hide scrollbar for horizontal scroll strips */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* A faint grain overlay for richness on the dark surface */
 .grain::before {
   content: '';
