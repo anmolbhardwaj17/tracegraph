@@ -463,10 +463,16 @@ export default function Home() {
           </p>
 
           {/* Links */}
-          <div className="flex items-center justify-center gap-8 text-xs font-mono text-ink-500 mb-8">
+          <div className="flex items-center justify-center gap-8 text-xs font-mono text-ink-500 mb-6">
             <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
             <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
             <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
+          </div>
+
+          {/* Legal + external */}
+          <div className="flex items-center justify-center gap-6 text-xs font-mono text-ink-500 mb-8">
+            <a href="/privacy" className="hover:text-ink-50 transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-ink-50 transition-colors">Terms</a>
             <span className="text-ink-700">|</span>
             <a href="#" className="hover:text-ink-50 transition-colors">GitHub</a>
             <a href="https://anmolbhardwaj.in" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">
@@ -475,13 +481,13 @@ export default function Home() {
           </div>
 
           {/* Data sources */}
-          <div className="text-center text-[10px] font-mono text-ink-600 tracking-[0.15em] uppercase mb-6">
+          <div className="text-center text-[10px] font-mono text-ink-500 tracking-[0.15em] uppercase mb-4">
             UK Companies House · OpenSanctions · ICIJ OffshoreLeaks
           </div>
 
-          {/* Copyright + subtle easter egg */}
-          <div className="text-center text-[10px] font-mono text-ink-700">
-            © 2026 TraceGraph · Every company tells a story - we read between the filings.
+          {/* Copyright */}
+          <div className="text-center text-[10px] font-mono text-ink-500">
+            © 2026 TraceGraph
           </div>
         </div>
       </footer>
