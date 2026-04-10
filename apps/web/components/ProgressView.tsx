@@ -8,12 +8,13 @@ function LiveNumber({ value }: { value: number }) {
     <FlipNumbers
       numbers={value.toLocaleString()}
       play
-      height={24}
-      width={14}
+      height={28}
+      width={18}
       color="#F5F5F5"
       background="transparent"
       duration={0.5}
-      nonNumberStyle={{ color: '#525252' }}
+      numberStyle={{ fontWeight: 500, fontFamily: 'Inter, system-ui, sans-serif' }}
+      nonNumberStyle={{ color: '#525252', fontWeight: 500 }}
     />
   );
 }

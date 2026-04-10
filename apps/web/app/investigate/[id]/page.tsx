@@ -984,27 +984,47 @@ function LoadingSkeleton() {
   return (
     <main className="min-h-screen">
       <NavBar />
-      <div className="max-w-7xl mx-auto px-8 py-12 animate-pulse space-y-6">
-        {/* Company header skeleton */}
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-white/5 rounded-sm" />
-          <div className="space-y-2">
-            <div className="h-5 w-64 bg-white/5 rounded-sm" />
-            <div className="h-3 w-32 bg-white/5 rounded-sm" />
+      <div className="max-w-7xl mx-auto px-8 py-8 animate-pulse space-y-6">
+        {/* Row 1: company + counters */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="border border-white/5 bg-ink-850 p-6 lg:w-64 lg:shrink-0 flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/5 rounded-sm" />
+            <div className="space-y-2 flex-1">
+              <div className="h-4 w-32 bg-white/5 rounded-sm" />
+              <div className="h-2 w-20 bg-white/5 rounded-sm" />
+            </div>
+          </div>
+          <div className="border border-white/5 bg-ink-850 px-6 py-5 flex-1">
+            <div className="flex items-center gap-10">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <div className="h-6 w-16 bg-white/5 rounded-sm" />
+                  <div className="h-2 w-12 bg-white/5 rounded-sm" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        {/* Tabs skeleton */}
-        <div className="flex gap-8 border-b border-white/5 pb-3">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <div key={i} className="h-3 w-16 bg-white/5 rounded-sm" />
-          ))}
-        </div>
-        {/* Content skeleton */}
-        <div className="h-64 bg-white/5 rounded-sm" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 bg-white/5 rounded-sm" />
-          ))}
+        {/* Row 2: progress + pipeline/sonar */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="border border-white/5 bg-ink-850 p-6 lg:w-64 lg:shrink-0 space-y-6">
+            <div className="h-8 w-24 bg-white/5 rounded-sm" />
+            <div className="h-4 w-32 bg-white/5 rounded-sm" />
+            <div className="h-1 w-full bg-white/5 rounded-full" />
+          </div>
+          <div className="flex-1 min-w-0 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6 space-y-4">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-white/5 rounded-full" />
+                    <div className="h-3 flex-1 bg-white/5 rounded-sm" />
+                  </div>
+                ))}
+              </div>
+              <div className="lg:col-span-7 border border-white/5 bg-ink-850 h-80" />
+            </div>
+          </div>
         </div>
       </div>
     </main>
