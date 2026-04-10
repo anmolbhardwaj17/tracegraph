@@ -34,6 +34,25 @@ export default function Home() {
   const searchRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  // Scroll-triggered animations via Intersection Observer
+  useEffect(() => {
+    const targets = document.querySelectorAll('.scroll-fade-in, .scroll-slide-in, .stagger-grid');
+    if (targets.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.15 },
+    );
+    targets.forEach((t) => observer.observe(t));
+    return () => observer.disconnect();
+  }, []);
+
   // "/" keyboard shortcut to focus search
   useEffect(() => {
     function handleSlash(e: KeyboardEvent) {
@@ -345,12 +364,12 @@ export default function Home() {
       {/* Product showcase */}
       <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
             / 002 · See it in action
           </div>
 
           {/* Mock investigation result card */}
-          <div className="border border-white/5 bg-ink-900 overflow-hidden">
+          <div className="border border-white/5 bg-ink-900 overflow-hidden scroll-fade-in">
             {/* Mock header */}
             <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -475,10 +494,10 @@ export default function Home() {
       {/* Approach · three numbered cards */}
       <section id="approach" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
             / 003 · Approach
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Approach
               n="001"
               title="Multi-source intelligence"
@@ -501,10 +520,10 @@ export default function Home() {
       {/* Data sources */}
       <section id="sources" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
             / 004 · Data sources
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 border border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Source
               kind="LIVE API"
               title="UK Companies House"
@@ -532,10 +551,10 @@ export default function Home() {
       {/* Capabilities */}
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
             / 005 · Intelligence capabilities
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Capability
               title="UBO chain resolution"
               body="Traces corporate PSC chains until reaching a natural person. Computes effective ownership %, flags offshore layers and dead ends."
@@ -567,10 +586,10 @@ export default function Home() {
       {/* Use cases */}
       <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
             / 006 · Built for due diligence
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Approach
               n="001"
               title="Vendor screening"
@@ -697,7 +716,7 @@ function TierCard({
 
 function Approach({ n, title, body }: { n: string; title: string; body: string }) {
   return (
-    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors">
+    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors card-glow border border-transparent">
       <div className="text-[10px] font-mono text-ink-500 tracking-[0.15em] mb-4">{n}</div>
       <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
@@ -707,7 +726,7 @@ function Approach({ n, title, body }: { n: string; title: string; body: string }
 
 function Source({ kind, title, body }: { kind: string; title: string; body: string }) {
   return (
-    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors">
+    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors card-glow border border-transparent">
       <div className="text-[10px] font-mono text-ink-500 tracking-[0.15em] mb-4">{kind}</div>
       <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
@@ -717,7 +736,7 @@ function Source({ kind, title, body }: { kind: string; title: string; body: stri
 
 function Capability({ title, body }: { title: string; body: string }) {
   return (
-    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors">
+    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors card-glow border border-transparent">
       <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
     </div>
