@@ -988,15 +988,29 @@ function NavBar() {
 
 function LoadingSkeleton() {
   return (
-    <main className="min-h-screen px-8 py-16 max-w-5xl mx-auto">
-      <div className="animate-pulse space-y-6">
-        <div className="h-3 w-32 bg-white/5 rounded-sm" />
-        <div className="h-12 w-96 bg-white/5 rounded-sm" />
-        <div className="h-48 bg-white/5 rounded-sm" />
-        <div className="grid grid-cols-3 gap-4">
-          <div className="h-24 bg-white/5 rounded-sm" />
-          <div className="h-24 bg-white/5 rounded-sm" />
-          <div className="h-24 bg-white/5 rounded-sm" />
+    <main className="min-h-screen">
+      <NavBar />
+      <div className="max-w-7xl mx-auto px-8 py-12 animate-pulse space-y-6">
+        {/* Company header skeleton */}
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-white/5 rounded-sm" />
+          <div className="space-y-2">
+            <div className="h-5 w-64 bg-white/5 rounded-sm" />
+            <div className="h-3 w-32 bg-white/5 rounded-sm" />
+          </div>
+        </div>
+        {/* Tabs skeleton */}
+        <div className="flex gap-8 border-b border-white/5 pb-3">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="h-3 w-16 bg-white/5 rounded-sm" />
+          ))}
+        </div>
+        {/* Content skeleton */}
+        <div className="h-64 bg-white/5 rounded-sm" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 bg-white/5 rounded-sm" />
+          ))}
         </div>
       </div>
     </main>
