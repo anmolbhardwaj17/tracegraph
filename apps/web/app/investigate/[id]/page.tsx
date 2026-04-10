@@ -131,7 +131,7 @@ export default function InvestigatePage() {
       <main className="min-h-screen">
         <NavBar />
         <div className="px-8 py-8 max-w-7xl mx-auto">
-          <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} companyName={data.companyName || data.query} tier={data.tier} />
+          <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} investigationId={id} companyName={data.companyName || data.query} tier={data.tier} />
         </div>
       </main>
     );

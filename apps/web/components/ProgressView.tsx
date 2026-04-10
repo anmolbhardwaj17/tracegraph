@@ -8,6 +8,7 @@ interface Props {
   resolution?: { processed: number; total: number; matches: number } | null;
   scoringStep?: { step: string; detail?: string } | null;
   startedAt?: string;
+  investigationId?: string;
   companyName?: string;
   tier?: string;
 }
@@ -28,7 +29,7 @@ const PCT_MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21,
 const STAGE_MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
 const ACTIVE_MAP: Record<string, number> = { QUEUED: -1, FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5, COMPLETE: 99 };
 
-export function ProgressView({ status, live, resolution, scoringStep, startedAt, companyName, tier }: Props) {
+export function ProgressView({ status, live, resolution, scoringStep, startedAt, investigationId, companyName, tier }: Props) {
   const elapsed = useElapsed(startedAt);
   const overallPct = PCT_MAP[status] ?? 0;
   const currentStageLabel = STAGE_MAP[status] != null ? STAGES[STAGE_MAP[status]]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
@@ -160,6 +161,10 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
         </div>
       </div>
 
+      <div className="text-[10px] font-mono text-ink-600 flex items-center justify-between">
+        <span>{investigationId ? `INV-${investigationId.slice(0, 8)}` : ''}</span>
+        <span>{startedAt ? `Started ${new Date(startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(startedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}</span>
+      </div>
     </div>
   );
 }
