@@ -447,29 +447,55 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-8">
-          {/* Main row */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            {/* Left: logo + copyright */}
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-[10px] font-bold">T</div>
-              <span className="text-xs font-mono text-ink-500">© 2026 TraceGraph</span>
+        <div className="max-w-6xl mx-auto px-8 py-16">
+          {/* Top: brand + link columns */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 mb-12">
+            {/* Brand */}
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
+                <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
+              </div>
+              <p className="text-xs text-ink-400 leading-relaxed">
+                Every company tells a story - we read between the filings.
+              </p>
             </div>
 
-            {/* Center: links */}
-            <div className="flex items-center gap-5 text-xs font-mono text-ink-500">
-              <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
-              <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
-              <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
-              <a href="/privacy" className="hover:text-ink-50 transition-colors">Privacy</a>
-              <a href="/terms" className="hover:text-ink-50 transition-colors">Terms</a>
+            {/* Product */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-4">Product</div>
+              <ul className="space-y-2.5 text-xs text-ink-400">
+                <li><a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a></li>
+                <li><a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a></li>
+                <li><a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a></li>
+              </ul>
             </div>
 
-            {/* Right: external */}
-            <div className="flex items-center gap-5 text-xs font-mono text-ink-500">
-              <a href="#" className="hover:text-ink-50 transition-colors">GitHub</a>
-              <a href="https://anmolbhardwaj.in" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">Anmol Bhardwaj</a>
+            {/* Resources */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-4">Resources</div>
+              <ul className="space-y-2.5 text-xs text-ink-400">
+                <li><a href="#" className="hover:text-ink-50 transition-colors">GitHub</a></li>
+                <li><a href="/api/docs" className="hover:text-ink-50 transition-colors">API Docs</a></li>
+              </ul>
             </div>
+
+            {/* Legal */}
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-4">Legal</div>
+              <ul className="space-y-2.5 text-xs text-ink-400">
+                <li><a href="/privacy" className="hover:text-ink-50 transition-colors">Privacy Policy</a></li>
+                <li><a href="/terms" className="hover:text-ink-50 transition-colors">Terms of Service</a></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] font-mono text-ink-500">
+            <div>© 2026 TraceGraph. All rights reserved.</div>
+            <a href="https://anmolbhardwaj.in" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">
+              Built by Anmol Bhardwaj
+            </a>
           </div>
         </div>
       </footer>
