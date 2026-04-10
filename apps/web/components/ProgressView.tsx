@@ -61,7 +61,57 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
         </div>
       </div>
 
-      {/* 2-column dashboard: stages left, visualization right */}
+      {/* Live activity - counters + resolution bar + scoring step */}
+      <div className="border border-white/5 bg-ink-850 px-6 py-5">
+        <div className="flex items-center gap-8 flex-wrap">
+          <div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.entities.toLocaleString()}</div>
+            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">entities</div>
+          </div>
+          <div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.edges.toLocaleString()}</div>
+            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">connections</div>
+          </div>
+          <div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.matches}</div>
+            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">matches</div>
+          </div>
+          <div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.apiCalls.toLocaleString()}</div>
+            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">API calls</div>
+          </div>
+        </div>
+
+        {resolution && resolution.total > 0 && (
+          <div className="mt-5 pt-5 border-t border-white/5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
+                / Screening entities against sanctions databases
+              </div>
+              <div className="text-[10px] font-mono text-ink-400 tabular-nums">
+                {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} - {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
+              </div>
+            </div>
+            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full bg-signal-clean rounded-full transition-all duration-500" style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }} />
+            </div>
+          </div>
+        )}
+
+        {scoringStep && (
+          <div className="mt-5 pt-5 border-t border-white/5 flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-ink-50">{scoringStep.step}</div>
+              {scoringStep.detail && (
+                <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 2-column: stages left, visualization right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT: stages */}
         <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6">
@@ -122,59 +172,10 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
         </div>
       </div>
 
-      {/* Live activity banner - shows during resolution */}
-      {resolution && resolution.total > 0 && (
-        <div className="border border-white/5 bg-ink-850 px-6 py-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
-              / Screening entities against sanctions databases
-            </div>
-            <div className="text-[10px] font-mono text-ink-400 tabular-nums">
-              {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} · {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
-            </div>
-          </div>
-          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-signal-clean rounded-full transition-all duration-500"
-              style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Live scoring step banner */}
-      {scoringStep && (
-        <div className="border border-white/5 bg-ink-850 px-6 py-4 flex items-center gap-4">
-          <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-ink-50">{scoringStep.step}</div>
-            {scoringStep.detail && (
-              <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Stats strip · full width */}
-      <div className="grid grid-cols-3 md:grid-cols-5 gap-px bg-white/5 border border-white/5">
-        <Counter label="Entities" value={live.entities} />
-        <Counter label="Connections" value={live.edges} />
-        <Counter label="Depth" value={live.depth} />
-        <Counter label="API calls" value={live.apiCalls} />
-        <Counter label="Matches" value={live.matches} />
-      </div>
     </div>
   );
 }
 
-function Counter({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-ink-850 px-4 py-4 text-center">
-      <div className="text-xl font-medium text-ink-50 tabular-nums">{value.toLocaleString()}</div>
-      <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">{label}</div>
-    </div>
-  );
-}
 
 /**
  * Sonar / radar visualization. Pulse waves expand from center when new
