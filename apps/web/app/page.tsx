@@ -169,7 +169,7 @@ export default function Home() {
           </div>
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-ink-300 reveal reveal-delay-1">
-            <a href="#approach" className="hover:text-ink-50 transition-colors">How it works</a>
+            <a href="#approach" className="hover:text-ink-50 transition-colors">Product</a>
             <a href="#capabilities" className="hover:text-ink-50 transition-colors">Capabilities</a>
             <span className="text-ink-700">|</span>
             <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
@@ -360,97 +360,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How it works — 3 steps, visual variety */}
+      {/* What you get — product showcase */}
       <section id="approach" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 002 · How it works
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
+            / 002 · What you get
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-grid">
-            {/* Step 1 */}
-            <div className="scroll-fade-in">
-              <div className="border border-white/5 bg-ink-900 p-8 card-glow border-transparent h-full">
-                <div className="w-10 h-10 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-sm font-bold mb-6">1</div>
-                <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">Enter a company</h3>
-                <p className="text-sm text-ink-300 leading-relaxed mb-6">Search by name or Companies House number. We resolve the entity and begin mapping.</p>
-                <div className="border border-white/5 bg-ink-950/50 rounded-sm overflow-hidden">
-                  <div className="px-4 py-3 flex items-center gap-3 border-b border-white/5">
-                    <div className="w-full bg-ink-900 border border-white/10 rounded-sm px-3 py-2 text-[10px] text-ink-500 font-mono">Rolls-Royce PLC</div>
-                    <div className="shrink-0 bg-ink-50 text-ink-900 rounded-sm px-2.5 py-1.5 text-[9px] font-medium">Go</div>
-                  </div>
-                  <div className="px-4 py-2 flex items-center gap-2 border-b border-white/5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-signal-clean" />
-                    <span className="text-[10px] text-ink-300">ROLLS-ROYCE PLC</span>
-                    <span className="text-[9px] font-mono text-ink-600 ml-auto">01003142</span>
-                  </div>
-                  <div className="px-4 py-2 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-ink-600" />
-                    <span className="text-[10px] text-ink-500">ROLLS-ROYCE HOLDINGS PLC</span>
-                    <span className="text-[9px] font-mono text-ink-600 ml-auto">03162462</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {/* Step 2 */}
-            <div className="scroll-fade-in">
-              <div className="border border-white/5 bg-ink-900 p-8 card-glow border-transparent h-full">
-                <div className="w-10 h-10 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-sm font-bold mb-6">2</div>
-                <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">Watch the network expand</h3>
-                <p className="text-sm text-ink-300 leading-relaxed mb-6">Directors, PSCs, addresses, and ownership chains are traced recursively across public data sources in real time.</p>
-                <div className="border border-dashed border-white/10 bg-ink-950/50 rounded-sm p-6 flex items-center justify-center min-h-[120px]">
-                  <svg viewBox="0 0 200 100" className="w-full max-w-[200px]" style={{ overflow: 'visible' }}>
-                    <style>{`
-                      @keyframes pulse-ring { 0% { r: 8; opacity: 0.4 } 100% { r: 40; opacity: 0 } }
-                      .pulse-r { animation: pulse-ring 2.5s ease-out infinite }
-                    `}</style>
-                    <circle cx="100" cy="50" r="20" fill="none" stroke="rgba(94,230,161,0.15)" className="pulse-r" />
-                    <line x1="100" y1="50" x2="50" y2="25" stroke="rgba(94,230,161,0.2)" strokeWidth="1" />
-                    <line x1="100" y1="50" x2="150" y2="30" stroke="rgba(94,230,161,0.2)" strokeWidth="1" />
-                    <line x1="100" y1="50" x2="60" y2="75" stroke="rgba(245,197,24,0.2)" strokeWidth="1" />
-                    <line x1="100" y1="50" x2="145" y2="70" stroke="rgba(245,197,24,0.2)" strokeWidth="1" />
-                    <circle cx="100" cy="50" r="5" fill="#F5F5F5" />
-                    <circle cx="50" cy="25" r="3" fill="#F5C518" />
-                    <circle cx="150" cy="30" r="3" fill="#5EE6A1" />
-                    <circle cx="60" cy="75" r="3" fill="#F5C518" />
-                    <circle cx="145" cy="70" r="3" fill="#5EE6A1" />
-                    <circle cx="30" cy="40" r="2" fill="#737373" /><line x1="50" y1="25" x2="30" y2="40" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                    <circle cx="170" cy="50" r="2" fill="#737373" /><line x1="150" y1="30" x2="170" y2="50" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-            {/* Step 3 */}
-            <div className="scroll-fade-in">
-              <div className="border border-white/5 bg-ink-900 p-8 card-glow border-transparent h-full">
-                <div className="w-10 h-10 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-sm font-bold mb-6">3</div>
-                <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">Read the risk report</h3>
-                <p className="text-sm text-ink-300 leading-relaxed mb-6">Shell networks, sanctions matches, disqualified directors, filing anomalies — every finding explained with evidence.</p>
-                <div className="border border-white/5 bg-ink-950/50 rounded-sm overflow-hidden">
-                  <div className="px-4 py-2 border-b border-white/5 flex items-center gap-2">
-                    <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded-sm bg-signal-critical/15 text-signal-critical border border-signal-critical/30">CRIT</span>
-                    <span className="text-[10px] text-ink-400 truncate">Shell network detected</span>
-                  </div>
-                  <div className="px-4 py-2 border-b border-white/5 flex items-center gap-2">
-                    <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded-sm bg-signal-high/15 text-signal-high border border-signal-high/30">HIGH</span>
-                    <span className="text-[10px] text-ink-400 truncate">Disqualified director match</span>
-                  </div>
-                  <div className="px-4 py-2 flex items-center gap-2">
-                    <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded-sm bg-signal-medium/15 text-signal-medium border border-signal-medium/30">MED</span>
-                    <span className="text-[10px] text-ink-400 truncate">Phoenix company pattern</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* What you get — product showcase */}
-      <section className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 003 · What you get
-          </div>
+          <p className="text-sm text-ink-400 mb-12 max-w-2xl scroll-fade-in">
+            Enter a company name. We trace the ownership network, screen every entity against sanctions and offshore databases, and score the risk — automatically.
+          </p>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 stagger-grid">
 
             {/* Panel 1: Network graph */}
@@ -588,7 +506,7 @@ export default function Home() {
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
-            / 004 · What it detects
+            / 003 · What it detects
           </div>
           <p className="text-sm text-ink-400 mb-12 max-w-2xl">
             20+ automated risk signals from three data sources — UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
@@ -608,7 +526,7 @@ export default function Home() {
       <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 005 · Built for due diligence
+            / 004 · Built for due diligence
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Approach
@@ -758,7 +676,7 @@ function Capability({ title, body }: { title: string; body: string }) {
 function MobileMenu() {
   const [open, setOpen] = useState(false);
   const links = [
-    { href: '#approach', label: 'How it works' },
+    { href: '#approach', label: 'Product' },
     { href: '#capabilities', label: 'Capabilities' },
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/compare', label: 'Compare' },
