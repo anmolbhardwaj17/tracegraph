@@ -19,6 +19,7 @@ import { EntityMatch } from './modules/entity-resolution/entities/entity-match.e
 import { GeocodeCache } from './modules/geocoding/entities/geocode-cache.entity';
 import { LogoCache } from './modules/logos/entities/logo-cache.entity';
 import { WatchlistItem } from './modules/watchlist/entities/watchlist-item.entity';
+import { ApiKey } from './modules/api-keys/entities/api-key.entity';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -27,7 +28,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.POSTGRES_USER || 'tracegraph',
   password: process.env.POSTGRES_PASSWORD || 'tracegraph',
   database: process.env.POSTGRES_DB || 'tracegraph',
-  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache, WatchlistItem],
+  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache, WatchlistItem, ApiKey],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,

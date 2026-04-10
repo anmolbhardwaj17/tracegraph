@@ -87,6 +87,59 @@ export class EntityResolutionService {
     return 'none';
   }
 
+  /**
+   * Quick screen: check a name directly against OpenSanctions + ICIJ without
+   * creating an investigation. Returns top-scoring matches.
+   */
+  async quickScreen(name: string, type: 'person' | 'company' = 'person'): Promise<any[]> {
+    const source: MatchCandidate = { id: 'screen', names: [name] };
+    const results: any[] = [];
+
+    // OpenSanctions
+    const sanctionHits = await this.sanctions.searchByName(name);
+    for (const h of sanctionHits.slice(0, 10)) {
+      const ent = h.entity;
+      const names: string[] = [];
+      try {
+        const props = typeof ent.properties === 'string' ? JSON.parse(ent.properties) : ent.properties;
+        if (props?.name) names.push(...(Array.isArray(props.name) ? props.name : [props.name]));
+      } catch {}
+      if (names.length === 0 && ent.names?.length) names.push(...ent.names);
+      const candidate: MatchCandidate = { id: ent.id, names };
+      const { score, reasons } = this.score(source, candidate);
+      if (score >= 50) {
+        results.push({
+          source: 'opensanctions',
+          matchedName: names[0],
+          matchedId: ent.id,
+          confidence: score,
+          reasons,
+          schema: ent.schemaType,
+        });
+      }
+    }
+
+    // ICIJ
+    const offshoreHits = type === 'person'
+      ? await this.offshore.searchOfficersByName(name)
+      : await this.offshore.searchEntitiesByName(name);
+    for (const h of offshoreHits.slice(0, 10)) {
+      const candidate: MatchCandidate = { id: String(h.id), names: [h.name] };
+      const { score, reasons } = this.score(source, candidate);
+      if (score >= 50) {
+        results.push({
+          source: 'icij_offshore',
+          matchedName: h.name,
+          matchedId: h.id,
+          confidence: score,
+          reasons,
+        });
+      }
+    }
+
+    return results.sort((a, b) => b.confidence - a.confidence).slice(0, 20);
+  }
+
   async resolveInvestigation(
     investigationId: string,
     events: ResolutionEvents = {},
