@@ -41,16 +41,6 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
           <Avatar name={companyName || '?'} type="company" size={40} />
           <div>
             <div className="text-sm font-medium text-ink-50 leading-snug">{companyName || 'Loading...'}</div>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-signal-clean animate-pulse" />
-              <span className="text-[9px] font-mono uppercase tracking-wider text-signal-clean">running</span>
-              {tier && (
-                <>
-                  <span className="text-ink-700 text-[9px]">-</span>
-                  <span className="text-[9px] font-mono uppercase tracking-wider text-ink-400">{tier === 'DEEP' ? 'Deep' : tier === 'QUICK' ? 'Quick' : 'Standard'}</span>
-                </>
-              )}
-            </div>
           </div>
         </div>
         <div className="border border-white/5 bg-ink-850 px-6 py-5 flex-1">
@@ -114,6 +104,16 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
               <div className="h-full bg-signal-clean rounded-full transition-all duration-700" style={{ width: `${overallPct}%` }} />
             </div>
+          </div>
+          {tier && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Depth</div>
+              <div className="text-sm text-ink-50">{tier === 'DEEP' ? 'Deep investigation' : tier === 'QUICK' ? 'Quick scan' : 'Standard'}</div>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
+            <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
           </div>
         </div>
         <div className="flex-1 min-w-0 space-y-6">
