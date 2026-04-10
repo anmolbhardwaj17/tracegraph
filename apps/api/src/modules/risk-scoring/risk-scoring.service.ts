@@ -16,6 +16,7 @@ import { FilingHealthService } from '../anomaly/filing-health.service';
 import { DisqualifiedDirectorService } from '../anomaly/disqualified-director.service';
 import { JurisdictionRiskService } from '../anomaly/jurisdiction-risk.service';
 import { CompanyAgeAnomalyService } from '../anomaly/company-age-anomaly.service';
+import { CrossDirectorshipService } from '../anomaly/cross-directorship.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -38,6 +39,7 @@ export class RiskScoringService {
     private readonly disqualifiedDirectors: DisqualifiedDirectorService,
     private readonly jurisdictionRisk: JurisdictionRiskService,
     private readonly companyAge: CompanyAgeAnomalyService,
+    private readonly crossDirectorship: CrossDirectorshipService,
   ) {}
 
   async run(investigationId: string): Promise<{ score: number; findings: Finding[] }> {
@@ -54,6 +56,7 @@ export class RiskScoringService {
     const uboChains: any[] = (existingProgress as any).uboChains || [];
     const jurisdictionResult = await this.jurisdictionRisk.tagAll(investigationId, uboChains);
     const ageAnomalies = await this.companyAge.detect(investigationId);
+    const crossDir = await this.crossDirectorship.analyze(investigationId);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -364,6 +367,61 @@ export class RiskScoringService {
         affectedEntities: [p.predecessorCompanyId, p.successorCompanyId],
         recommendation: 'Phoenix patterns are commonly used to shed liabilities and restart trading; review motive.',
       });
+    }
+
+    // ---- SAME-SIC COMPETITOR CONFLICT ----
+    for (const c of crossDir.sameSicConflicts) {
+      findings.push({
+        type: 'SAME_SIC_CONFLICT',
+        severity: 'MEDIUM',
+        confidence: 'HIGH',
+        title: `${c.directorLabel} directs ${c.companyLabels.length} companies in SIC ${c.sicCode}`,
+        description: `${c.directorLabel} holds director positions at ${c.companyLabels.length} companies sharing SIC code ${c.sicCode}, which may indicate a competitor-conflict or coordinated sector play.`,
+        evidence: [
+          `SIC: ${c.sicCode}`,
+          `Companies: ${c.companyLabels.join(', ')}`,
+        ],
+        affectedEntities: [c.directorId, ...c.companyIds],
+        recommendation: 'Assess whether companies are genuinely related (group structure) or competing entities with a conflicted director.',
+      });
+    }
+
+    // ---- INCESTUOUS DIRECTOR NETWORKS ----
+    for (const n of crossDir.incestuousNetworks) {
+      findings.push({
+        type: 'INCESTUOUS_NETWORK',
+        severity: 'HIGH',
+        confidence: 'HIGH',
+        title: `${n.personLabels.length} people cross-direct ${n.companyIds.length} companies (density ${n.density})`,
+        description: `A tight clique of ${n.personLabels.length} directors (${n.personLabels.join(', ')}) collectively serve across ${n.companyIds.length} companies. The density of ${n.density} companies per person suggests a circular appointment pattern where the same people keep appointing each other.`,
+        evidence: [
+          `Directors: ${n.personLabels.join(', ')}`,
+          `Companies: ${n.companyIds.length}`,
+          `Density: ${n.density} companies/person`,
+        ],
+        affectedEntities: [...n.personIds, ...n.companyIds.slice(0, 10)],
+        recommendation: 'Treat the group as a single decision-making unit. Look for cross-guarantees, related-party transactions, and aggregate risk exposure.',
+      });
+    }
+
+    // ---- DUAL-SIDED DIRECTORS ----
+    for (const d of crossDir.dualSidedDirectors) {
+      for (const pair of d.linkedPairs) {
+        findings.push({
+          type: 'DUAL_SIDED_DIRECTOR',
+          severity: 'MEDIUM',
+          confidence: 'MEDIUM',
+          title: `${d.directorLabel} sits on both sides of a ${pair.linkType} link`,
+          description: `${d.directorLabel} is a director of both ${pair.labelA} and ${pair.labelB}, which are connected by a "${pair.linkType}" relationship. This creates a potential conflict of interest.`,
+          evidence: [
+            `Company A: ${pair.labelA}`,
+            `Company B: ${pair.labelB}`,
+            `Relationship type: ${pair.linkType}`,
+          ],
+          affectedEntities: [d.directorId, pair.companyA, pair.companyB],
+          recommendation: 'Identify the nature of the business relationship and whether the director discloses the conflict.',
+        });
+      }
     }
 
     // ---- SHELF COMPANY (old dormant + sudden director churn) ----

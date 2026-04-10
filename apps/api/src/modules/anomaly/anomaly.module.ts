@@ -13,6 +13,7 @@ import { FilingHealthService } from './filing-health.service';
 import { DisqualifiedDirectorService } from './disqualified-director.service';
 import { JurisdictionRiskService } from './jurisdiction-risk.service';
 import { CompanyAgeAnomalyService } from './company-age-anomaly.service';
+import { CrossDirectorshipService } from './cross-directorship.service';
 import { CompaniesHouseModule } from '../companies-house/companies-house.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
     DisqualifiedDirectorService,
     JurisdictionRiskService,
     CompanyAgeAnomalyService,
+    CrossDirectorshipService,
   ],
   exports: [
     AnomalyDetectionService,
@@ -42,6 +44,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
     DisqualifiedDirectorService,
     JurisdictionRiskService,
     CompanyAgeAnomalyService,
+    CrossDirectorshipService,
   ],
 })
 export class AnomalyModule {}
