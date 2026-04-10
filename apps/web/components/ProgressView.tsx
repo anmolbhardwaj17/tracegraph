@@ -161,7 +161,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
         </div>
       </div>
 
-      <div className="text-[10px] font-mono text-ink-600 flex items-center justify-between">
+      <div className="text-xs font-mono text-ink-600 flex items-center justify-between">
         <span>{investigationId ? `INV-${investigationId.slice(0, 8)}` : ''}</span>
         <span>{startedAt ? `Started ${new Date(startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(startedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}</span>
       </div>
