@@ -183,14 +183,8 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative pt-48 pb-32 px-8 max-w-6xl mx-auto">
-        {/* Dot grid background */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)',
-            backgroundSize: '30px 30px',
-          }}
-        />
+        {/* Ambient network canvas */}
+        <HeroCanvas />
 
         <div className="relative">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-8 reveal">
@@ -215,9 +209,15 @@ export default function Home() {
             Trace ownership chains, detect shell networks, screen sanctions — from public data, in minutes.
           </p>
 
-          <p className="mt-4 text-xs font-mono text-ink-500 reveal reveal-delay-2">
-            Mapping 6M+ UK companies · 4.1M sanctions entities · 770K+ offshore records · 20+ risk signals
-          </p>
+          <div className="mt-6 flex items-center gap-6 text-xs font-mono text-ink-500 reveal reveal-delay-2 flex-wrap">
+            <CountUp end={6} suffix="M+" label="UK companies" />
+            <span className="text-ink-700">·</span>
+            <CountUp end={4.1} suffix="M" label="sanctions entities" decimals={1} />
+            <span className="text-ink-700">·</span>
+            <CountUp end={770} suffix="K+" label="offshore records" />
+            <span className="text-ink-700">·</span>
+            <CountUp end={20} suffix="+" label="risk signals" />
+          </div>
 
         {/* Search */}
         <form onSubmit={submit} className="mt-12 max-w-2xl reveal reveal-delay-3 relative">
@@ -373,10 +373,20 @@ export default function Home() {
                 <div className="w-10 h-10 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-sm font-bold mb-6">1</div>
                 <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">Enter a company</h3>
                 <p className="text-sm text-ink-300 leading-relaxed mb-6">Search by name or Companies House number. We resolve the entity and begin mapping.</p>
-                <div className="border border-dashed border-white/10 bg-ink-950/50 rounded-sm p-6 flex items-center justify-center min-h-[120px]">
-                  <div className="text-center">
-                    <div className="w-full max-w-[200px] h-8 bg-ink-850 border border-white/10 rounded-sm mx-auto mb-2" />
-                    <div className="text-[9px] font-mono text-ink-600">search bar wireframe</div>
+                <div className="border border-white/5 bg-ink-950/50 rounded-sm overflow-hidden">
+                  <div className="px-4 py-3 flex items-center gap-3 border-b border-white/5">
+                    <div className="w-full bg-ink-900 border border-white/10 rounded-sm px-3 py-2 text-[10px] text-ink-500 font-mono">Rolls-Royce PLC</div>
+                    <div className="shrink-0 bg-ink-50 text-ink-900 rounded-sm px-2.5 py-1.5 text-[9px] font-medium">Go</div>
+                  </div>
+                  <div className="px-4 py-2 flex items-center gap-2 border-b border-white/5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-signal-clean" />
+                    <span className="text-[10px] text-ink-300">ROLLS-ROYCE PLC</span>
+                    <span className="text-[9px] font-mono text-ink-600 ml-auto">01003142</span>
+                  </div>
+                  <div className="px-4 py-2 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-ink-600" />
+                    <span className="text-[10px] text-ink-500">ROLLS-ROYCE HOLDINGS PLC</span>
+                    <span className="text-[9px] font-mono text-ink-600 ml-auto">03162462</span>
                   </div>
                 </div>
               </div>
@@ -435,29 +445,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Product screenshot placeholder */}
-      <section className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 003 · The investigation
-          </div>
-          <div className="scroll-fade-in border border-dashed border-white/10 bg-ink-900/30 rounded-sm overflow-hidden">
-            <div className="aspect-[16/9] flex flex-col items-center justify-center p-12">
-              <div className="w-16 h-16 rounded-sm bg-ink-850 border border-white/10 flex items-center justify-center mb-6">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" /><path d="M3 9h18M9 3v18" stroke="rgba(255,255,255,0.1)" strokeWidth="1" /></svg>
-              </div>
-              <div className="text-sm text-ink-400 mb-2">Product screenshot</div>
-              <div className="text-[10px] font-mono text-ink-600">Full investigation results view — graph, findings, risk score, entity details</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* What it detects — merged capabilities */}
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
-            / 004 · What it detects
+            / 003 · What it detects
           </div>
           <p className="text-sm text-ink-400 mb-12 max-w-2xl">
             20+ automated risk signals from three data sources — UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
@@ -477,7 +469,7 @@ export default function Home() {
       <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 005 · Built for due diligence
+            / 004 · Built for due diligence
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Approach
@@ -652,6 +644,159 @@ function MobileMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Ambient network canvas for hero background */
+function HeroCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let raf: number;
+    let W = 0;
+    let H = 0;
+
+    // Particles
+    type P = { x: number; y: number; vx: number; vy: number };
+    let particles: P[] = [];
+    const PARTICLE_COUNT = 50;
+    const CONNECT_DIST = 120;
+
+    function resize() {
+      const rect = container!.getBoundingClientRect();
+      W = rect.width;
+      H = rect.height;
+      const dpr = window.devicePixelRatio || 1;
+      canvas!.width = W * dpr;
+      canvas!.height = H * dpr;
+      canvas!.style.width = `${W}px`;
+      canvas!.style.height = `${H}px`;
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function init() {
+      resize();
+      particles = [];
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+        });
+      }
+    }
+
+    function frame() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, W, H);
+
+      // Move particles
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = W;
+        if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H;
+        if (p.y > H) p.y = 0;
+      }
+
+      // Draw connections
+      ctx.strokeStyle = 'rgba(94,230,161,0.06)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONNECT_DIST) {
+            const alpha = (1 - dist / CONNECT_DIST) * 0.06;
+            ctx.strokeStyle = `rgba(94,230,161,${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw particles
+      for (const p of particles) {
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      raf = requestAnimationFrame(frame);
+    }
+
+    init();
+    frame();
+    window.addEventListener('resize', resize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 pointer-events-none overflow-hidden">
+      <canvas ref={canvasRef} className="w-full h-full block" />
+    </div>
+  );
+}
+
+/** Counter that animates from 0 to target on scroll */
+function CountUp({ end, suffix = '', label, decimals = 0 }: { end: number; suffix?: string; label: string; decimals?: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [value, setValue] = useState(0);
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started) {
+          setStarted(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [started]);
+
+  useEffect(() => {
+    if (!started) return;
+    const duration = 1500;
+    const startTime = performance.now();
+    let raf: number;
+    function tick() {
+      const elapsed = performance.now() - startTime;
+      const t = Math.min(1, elapsed / duration);
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(eased * end);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [started, end]);
+
+  return (
+    <span ref={ref}>
+      <span className="text-ink-300 tabular-nums">{decimals > 0 ? value.toFixed(decimals) : Math.round(value)}{suffix}</span>
+      {' '}{label}
+    </span>
   );
 }
 
