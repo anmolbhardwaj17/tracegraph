@@ -42,20 +42,35 @@ export class RiskScoringService {
     private readonly crossDirectorship: CrossDirectorshipService,
   ) {}
 
-  async run(investigationId: string): Promise<{ score: number; findings: Finding[] }> {
-    // Order matters: classify first so downstream services can read companyProfile
+  async run(
+    investigationId: string,
+    onStep?: (step: string, detail?: string) => void,
+  ): Promise<{ score: number; findings: Finding[] }> {
+    const emit = onStep || (() => {});
+
+    emit('Classifying companies', 'Profiling company types and address clusters');
     await this.classifier.classifyAll(investigationId);
     await this.addressAnalysis.analyze(investigationId);
     await this.directorRisk.profileAll(investigationId);
+
+    emit('Shell company scoring', 'Detecting shell indicators across the network');
     await this.anomaly.scoreShellCompanies(investigationId);
+
+    emit('Filing health analysis', 'Checking filing history, late accounts, phoenix patterns');
     const filingHealthResult = await this.filingHealth.analyze(investigationId);
+
+    emit('Disqualified director screening', 'Searching CH disqualified-officers register');
     const disqualifiedResult = await this.disqualifiedDirectors.checkAll(investigationId);
-    // Tag jurisdictions and (if UBO chains were already built) flag those that
-    // cross HIGH-risk territories
+
+    emit('Jurisdiction risk tagging', 'Classifying jurisdictions across the network');
     const existingProgress = await this.getProgress(investigationId);
     const uboChains: any[] = (existingProgress as any).uboChains || [];
     const jurisdictionResult = await this.jurisdictionRisk.tagAll(investigationId, uboChains);
+
+    emit('Company age anomalies', 'Shelf purchases, mass formations, filing gaps');
     const ageAnomalies = await this.companyAge.detect(investigationId);
+
+    emit('Cross-directorship conflicts', 'SIC conflicts, incestuous networks, dual-sided directors');
     const crossDir = await this.crossDirectorship.analyze(investigationId);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);

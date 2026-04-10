@@ -22,7 +22,7 @@ export default function WatchlistPage() {
   useEffect(() => {
     fetch(`${API}/api/watchlist`)
       .then((r) => r.json())
-      .then((d) => setItems(d))
+      .then((d) => setItems(Array.isArray(d) ? d : d.items || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

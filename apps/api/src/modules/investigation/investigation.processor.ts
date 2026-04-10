@@ -139,7 +139,9 @@ export class InvestigationProcessor extends WorkerHost {
         await this.investigations.update(investigationId, { status: 'SCORING' });
         // Brief breath so the UI can render the stage transition even on tiny graphs
         await new Promise((r) => setTimeout(r, 400));
-        riskResult = await this.riskScoring.run(investigationId);
+        riskResult = await this.riskScoring.run(investigationId, (step, detail) => {
+          this.gateway.emitScoringStep(investigationId, { step, detail });
+        });
       }
 
       await this.investigations.update(investigationId, {

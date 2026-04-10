@@ -4,23 +4,25 @@ import { useEffect, useRef, useState } from 'react';
 interface Props {
   status: string;
   live: { entities: number; edges: number; depth: number; apiCalls: number; matches: number };
+  resolution?: { processed: number; total: number; matches: number } | null;
+  scoringStep?: { step: string; detail?: string } | null;
   startedAt?: string;
 }
 
 const STAGES = [
-  { key: 'FETCHING',  label: 'Fetching company profile',          hint: 'UK Companies House' },
-  { key: 'EXPANDING', label: 'Expanding ownership network',       hint: 'Directors · PSC · addresses' },
-  { key: 'RESOLVING', label: 'Cross-source matching',             hint: 'OpenSanctions · ICIJ' },
-  { key: 'SCORING',   label: 'Detecting anomalies & scoring risk', hint: 'Shell · cycles · proximity' },
+  { key: 'FETCHING',    label: 'Fetching company profile',          hint: 'UK Companies House' },
+  { key: 'EXPANDING',   label: 'Expanding ownership network',       hint: 'Directors · PSC · addresses' },
+  { key: 'EXPANDING_2', label: 'UBO chain resolution',              hint: 'Tracing corporate PSCs to natural persons' },
+  { key: 'RESOLVING',   label: 'Cross-source matching',             hint: 'OpenSanctions 4M+ · ICIJ 770K+' },
+  { key: 'RESOLVING_2', label: 'Disqualified director screening',   hint: 'CH disqualified-officers register' },
+  { key: 'SCORING',     label: 'Filing health & jurisdiction risk',  hint: 'Late filings · phoenix · offshore' },
+  { key: 'SCORING_2',   label: 'Anomaly detection & risk scoring',  hint: 'Shell · cross-directorship · age anomalies' },
 ];
 
-const ORDER = ['QUEUED', 'FETCHING', 'EXPANDING', 'RESOLVING', 'SCORING', 'COMPLETE'];
+const ORDER = ['QUEUED', 'FETCHING', 'EXPANDING', 'EXPANDING_2', 'RESOLVING', 'RESOLVING_2', 'SCORING', 'SCORING_2', 'COMPLETE'];
 
-export function ProgressView({ status, live, startedAt }: Props) {
-  const currentIdx = ORDER.indexOf(status);
+export function ProgressView({ status, live, resolution, scoringStep, startedAt }: Props) {
   const elapsed = useElapsed(startedAt);
-  const stagesDone = Math.max(0, Math.min(STAGES.length, currentIdx - 1));
-  const overallPct = Math.min(100, Math.round((stagesDone / STAGES.length) * 100));
 
   return (
     <div className="space-y-6">
@@ -35,13 +37,22 @@ export function ProgressView({ status, live, startedAt }: Props) {
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Stage</div>
             <div className="text-sm text-ink-50 mt-1">
-              {currentIdx >= 0 && currentIdx < ORDER.length ? STAGES[Math.max(0, currentIdx - 1)]?.label || 'Queued' : 'Queued'}
+              {(() => {
+                const MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
+                const idx = MAP[status];
+                return idx != null ? STAGES[idx]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
+              })()}
             </div>
           </div>
           <div className="h-10 w-px bg-white/10" />
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Overall</div>
-            <div className="text-sm text-ink-50 tabular-nums mt-1">{overallPct}%</div>
+            <div className="text-sm text-ink-50 tabular-nums mt-1">
+              {(() => {
+                const MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 };
+                return `${MAP[status] ?? 0}%`;
+              })()}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -57,9 +68,18 @@ export function ProgressView({ status, live, startedAt }: Props) {
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">/ Pipeline</div>
           <ol>
             {STAGES.map((stage, i) => {
-              const stageIdx = ORDER.indexOf(stage.key);
-              const isActive = currentIdx === stageIdx;
-              const isDone = currentIdx > stageIdx;
+              // Map backend status → which stage index (0-based) is active
+              const ACTIVE_MAP: Record<string, number> = {
+                QUEUED: -1,
+                FETCHING: 0,     // /001 Fetching
+                EXPANDING: 1,    // /002 Expanding (UBO /003 runs right after)
+                RESOLVING: 3,    // /004 Cross-source matching
+                SCORING: 5,      // /006 Filing health (disqualified /005 is sub-step)
+                COMPLETE: 99,
+              };
+              const activeIdx = ACTIVE_MAP[status] ?? -1;
+              const isActive = i === activeIdx;
+              const isDone = i < activeIdx;
               return (
                 <li key={stage.key} className="border-b border-white/5 last:border-b-0 py-4 flex items-center gap-4">
                   <div className="text-[10px] font-mono text-ink-500 w-8">/{String(i + 1).padStart(3, '0')}</div>
@@ -78,8 +98,8 @@ export function ProgressView({ status, live, startedAt }: Props) {
                     </div>
                     <div className="text-[10px] font-mono text-ink-500 mt-0.5">{stage.hint}</div>
                   </div>
-                  {isActive && <span className="text-[10px] font-mono text-ink-400 uppercase tracking-wider">in progress</span>}
-                  {isDone && <span className="text-[10px] font-mono text-signal-clean uppercase tracking-wider">complete</span>}
+                  {isActive && <span className="text-[10px] font-mono text-ink-400 uppercase tracking-wider shrink-0 whitespace-nowrap">in progress</span>}
+                  {isDone && <span className="text-[10px] font-mono text-signal-clean uppercase tracking-wider shrink-0 whitespace-nowrap">complete</span>}
                 </li>
               );
             })}
@@ -102,6 +122,39 @@ export function ProgressView({ status, live, startedAt }: Props) {
         </div>
       </div>
 
+      {/* Live activity banner — shows during resolution */}
+      {resolution && resolution.total > 0 && (
+        <div className="border border-white/5 bg-ink-850 px-6 py-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
+              / Screening entities against sanctions databases
+            </div>
+            <div className="text-[10px] font-mono text-ink-400 tabular-nums">
+              {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} · {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-signal-clean rounded-full transition-all duration-500"
+              style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Live scoring step banner */}
+      {scoringStep && (
+        <div className="border border-white/5 bg-ink-850 px-6 py-4 flex items-center gap-4">
+          <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-ink-50">{scoringStep.step}</div>
+            {scoringStep.detail && (
+              <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Stats strip · full width */}
       <div className="grid grid-cols-3 md:grid-cols-5 gap-px bg-white/5 border border-white/5">
         <Counter label="Entities" value={live.entities} />
@@ -116,19 +169,17 @@ export function ProgressView({ status, live, startedAt }: Props) {
 
 function Counter({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-ink-850 p-5 text-center">
-      <div className="text-3xl font-medium text-ink-50 tabular-nums">{value.toLocaleString()}</div>
-      <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-2 font-mono">{label}</div>
+    <div className="bg-ink-850 px-4 py-4 text-center">
+      <div className="text-xl font-medium text-ink-50 tabular-nums">{value.toLocaleString()}</div>
+      <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">{label}</div>
     </div>
   );
 }
 
 /**
- * Sonar / radar visualization. A pulsing center node represents the target,
- * concentric grid rings define the search field, and blips appear at random
- * positions as entities are discovered. Each new batch triggers an expanding
- * wave from the center. Driven by requestAnimationFrame so the animation is
- * always smooth (60fps) regardless of how often the API polls.
+ * Sonar / radar visualization. Pulse waves expand from center when new
+ * entities are discovered. Blips appear at random positions and flash
+ * green when a pulse passes over them.
  */
 type Blip = { angle: number; radiusN: number; bornAt: number };
 type Pulse = { startedAt: number; intensity: number };
@@ -141,10 +192,10 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
   const blipsRef = useRef<Blip[]>([]);
   const pulsesRef = useRef<Pulse[]>([]);
   const lastEntitiesRef = useRef(0);
+  const lastAutoPulseRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const startedAtRef = useRef(performance.now());
 
-  // Track container size
   useEffect(() => {
     if (!containerRef.current) return;
     const ro = new ResizeObserver((entries) => {
@@ -155,30 +206,35 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
     return () => ro.disconnect();
   }, []);
 
-  // React to entity count change: spawn blips + a pulse wave
+  // React to entity count change: spawn blips + a pulse wave.
+  // On first non-zero value (including reload), seed blips proportional to current count.
   useEffect(() => {
     const delta = entities - lastEntitiesRef.current;
-    if (delta > 0) {
+    if (entities > 0 && (delta > 0 || lastEntitiesRef.current === 0)) {
       const now = performance.now();
-      // One pulse per detection event, intensity scaled by batch size
+      // Fire a pulse
       pulsesRef.current.push({
         startedAt: now,
-        intensity: Math.min(1, 0.4 + Math.log10(delta + 1) * 0.3),
+        intensity: Math.min(1, 0.4 + Math.log10((delta || entities) + 1) * 0.3),
       });
-      // Number of new blips proportional to delta but capped
-      const blipsToAdd = Math.min(25, Math.max(1, Math.ceil(Math.sqrt(delta))));
+      // On first load (lastEntities was 0), seed many blips based on total count.
+      // On incremental updates, add proportional to delta.
+      const isInitialSeed = lastEntitiesRef.current === 0 && entities > 10;
+      const blipsToAdd = isInitialSeed
+        ? Math.min(120, Math.floor(entities / 10))
+        : Math.min(25, Math.max(1, Math.ceil(Math.sqrt(delta))));
       for (let i = 0; i < blipsToAdd; i++) {
+        const rawR = Math.random();
         blipsRef.current.push({
           angle: Math.random() * Math.PI * 2,
-          radiusN: 0.18 + Math.random() * 0.78,
-          bornAt: now,
+          radiusN: 0.12 + Math.sqrt(rawR) * 0.86,
+          // Stagger birth times on initial seed so they don't all appear at once
+          bornAt: isInitialSeed ? now - Math.random() * 3000 : now,
         });
       }
-      // Cap blips at 240 · recycle oldest
-      if (blipsRef.current.length > 240) {
-        blipsRef.current.splice(0, blipsRef.current.length - 240);
+      if (blipsRef.current.length > 500) {
+        blipsRef.current.splice(0, blipsRef.current.length - 500);
       }
-      // Cap pulses at 6
       if (pulsesRef.current.length > 6) {
         pulsesRef.current.splice(0, pulsesRef.current.length - 6);
       }
@@ -186,7 +242,6 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
     lastEntitiesRef.current = entities;
   }, [entities]);
 
-  // Animation loop (rAF, runs at refresh rate)
   useEffect(() => {
     if (size.w === 0 || size.h === 0) return;
     const canvas = canvasRef.current;
@@ -207,17 +262,15 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
     const cy = H / 2;
     const maxR = Math.min(W, H) * 0.42;
 
-    const PULSE_DURATION = 2400; // ms
+    const PULSE_DURATION = 2400;
     const BLIP_FADE_IN = 600;
-    const BLIP_FADE_OUT_AFTER = 8000;
-    const BLIP_FADE_DURATION = 4000;
 
     function frame() {
       if (!ctx) return;
       const now = performance.now();
       ctx.clearRect(0, 0, W, H);
 
-      // ---- background grid: concentric ellipses ----
+      // Background grid
       ctx.strokeStyle = 'rgba(255,255,255,0.04)';
       ctx.lineWidth = 1;
       const RINGS = 5;
@@ -227,31 +280,33 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
         ctx.ellipse(cx, cy, r, r * 0.62, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
-      // Cross-hairs
       ctx.strokeStyle = 'rgba(255,255,255,0.03)';
       ctx.beginPath();
-      ctx.moveTo(cx - maxR, cy);
-      ctx.lineTo(cx + maxR, cy);
-      ctx.moveTo(cx, cy - maxR * 0.62);
-      ctx.lineTo(cx, cy + maxR * 0.62);
+      ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy);
+      ctx.moveTo(cx, cy - maxR * 0.62); ctx.lineTo(cx, cy + maxR * 0.62);
       ctx.stroke();
 
-      // ---- expanding pulse waves ----
+      // Auto-pulse every 2s to keep the sonar alive
+      if (now - lastAutoPulseRef.current > 2000) {
+        lastAutoPulseRef.current = now;
+        pulsesRef.current.push({ startedAt: now, intensity: 0.35 });
+        if (pulsesRef.current.length > 6) pulsesRef.current.splice(0, pulsesRef.current.length - 6);
+      }
+
+      // Expanding pulse waves
       const livePulses: Pulse[] = [];
       for (const p of pulsesRef.current) {
         const age = now - p.startedAt;
         if (age > PULSE_DURATION) continue;
         livePulses.push(p);
-        const t = age / PULSE_DURATION; // 0..1
+        const t = age / PULSE_DURATION;
         const r = t * maxR;
         const alpha = (1 - t) * p.intensity * 0.55;
-        // Glow ring
         ctx.strokeStyle = `rgba(94,230,161,${alpha})`;
         ctx.lineWidth = 1.6;
         ctx.beginPath();
         ctx.ellipse(cx, cy, r, r * 0.62, 0, 0, Math.PI * 2);
         ctx.stroke();
-        // Soft second ring trailing slightly
         ctx.strokeStyle = `rgba(94,230,161,${alpha * 0.5})`;
         ctx.lineWidth = 0.8;
         ctx.beginPath();
@@ -260,28 +315,17 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       }
       pulsesRef.current = livePulses;
 
-      // ---- blips ----
+      // Blips — permanent, never fade out
       const liveBlips: Blip[] = [];
       for (const b of blipsRef.current) {
         const age = now - b.bornAt;
-        // Fade in
-        let alpha = 1;
-        if (age < BLIP_FADE_IN) {
-          alpha = age / BLIP_FADE_IN;
-        }
-        // Fade out after a while
-        if (age > BLIP_FADE_OUT_AFTER) {
-          const fade = (age - BLIP_FADE_OUT_AFTER) / BLIP_FADE_DURATION;
-          alpha = Math.max(0, 1 - fade) * 0.6;
-        }
-        if (alpha <= 0.02) continue;
+        const alpha = age < BLIP_FADE_IN ? age / BLIP_FADE_IN : 1;
         liveBlips.push(b);
 
         const r = b.radiusN * maxR;
         const x = cx + Math.cos(b.angle) * r;
         const y = cy + Math.sin(b.angle) * r * 0.62;
 
-        // Highlight blips that a pulse is currently passing over (radar sweep)
         let highlight = 0;
         for (const p of livePulses) {
           const t = (now - p.startedAt) / PULSE_DURATION;
@@ -294,7 +338,6 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
 
         const baseAlpha = Math.min(1, alpha * 0.85);
         if (highlight > 0.15) {
-          // Lit by sweep · green flash
           ctx.fillStyle = `rgba(94,230,161,${Math.min(1, baseAlpha + highlight)})`;
           ctx.shadowColor = 'rgba(94,230,161,0.7)';
           ctx.shadowBlur = 6 * highlight;
@@ -311,57 +354,42 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       }
       blipsRef.current = liveBlips;
 
-      // ---- center node (the target company) ----
-      // Always-on slow breathing pulse
+      // Center node
       const breath = 0.5 + 0.5 * Math.sin((now - startedAtRef.current) / 600);
       ctx.fillStyle = `rgba(94,230,161,${0.12 + breath * 0.1})`;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 18, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = `rgba(94,230,161,${0.18 + breath * 0.18})`;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 11, 0, Math.PI * 2);
-      ctx.fill();
-      // Solid core
+      ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#F5F5F5';
       ctx.shadowColor = 'rgba(245,245,245,0.8)';
       ctx.shadowBlur = 14;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
 
-      // ---- HUD overlays ----
-      // Big entity count, top-left
+      // HUD
       ctx.fillStyle = '#F5F5F5';
       ctx.font = '500 28px Inter, system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      const entityText = (lastEntitiesRef.current).toLocaleString();
-      ctx.fillText(entityText, 20, 16);
+      ctx.fillText((lastEntitiesRef.current).toLocaleString(), 20, 16);
       ctx.fillStyle = '#525252';
       ctx.font = '10px ui-monospace, monospace';
-      ctx.fillText('/ ENTITIES', 20 + ctx.measureText(entityText).width + 10, 26);
+      ctx.fillText('ENTITIES', 20, 50);
 
-      // Edges count, top-right
       ctx.fillStyle = '#A0A0A0';
       ctx.font = '500 18px Inter, system-ui, sans-serif';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
-      const edgeText = edges.toLocaleString();
-      ctx.fillText(edgeText, W - 20, 22);
+      ctx.fillText(edges.toLocaleString(), W - 20, 18);
       ctx.fillStyle = '#525252';
       ctx.font = '10px ui-monospace, monospace';
-      ctx.fillText('CONNECTIONS /', W - 20 - ctx.measureText(edgeText).width - 10, 24);
+      ctx.fillText('CONNECTIONS', W - 20, 42);
 
-      // Status line, bottom-left
       ctx.fillStyle = '#525252';
       ctx.font = '10px ui-monospace, monospace';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
       ctx.fillText('● SCANNING NETWORK', 20, H - 14);
-
-      // Active blip count, bottom-right
       ctx.textAlign = 'right';
       ctx.fillText(`${liveBlips.length} VISIBLE`, W - 20, H - 14);
 
@@ -369,9 +397,7 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
     }
 
     rafRef.current = requestAnimationFrame(frame);
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
+    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
   }, [size, edges]);
 
   return (

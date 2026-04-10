@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { EncryptedText } from '../components/ui/encrypted-text';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -177,7 +178,15 @@ export default function Home() {
           <h1 className="text-[clamp(2.25rem,5vw,4.5rem)] leading-[1] tracking-tight font-medium text-ink-50 reveal reveal-delay-1">
             Enter a company.
             <br />
-            <span className="text-ink-400">Uncover everything.</span>
+            <span className="text-ink-400">
+              <EncryptedText
+                text="Uncover everything."
+                revealDelayMs={60}
+                flipDelayMs={40}
+                className="text-ink-400"
+                encryptedClassName="text-ink-600"
+              />
+            </span>
           </h1>
 
           <p className="mt-10 text-lg text-ink-300 max-w-xl leading-relaxed reveal reveal-delay-2">

@@ -55,6 +55,8 @@ export default function InvestigatePage() {
   const [tab, setTab] = useState<Tab>('overview');
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [live, setLive] = useState({ entities: 0, edges: 0, depth: 0, apiCalls: 0, matches: 0 });
+  const [resolution, setResolution] = useState<{ processed: number; total: number; matches: number } | null>(null);
+  const [scoringStep, setScoringStep] = useState<{ step: string; detail?: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -71,7 +73,10 @@ export default function InvestigatePage() {
       })),
     );
     socket.on('entity_matched', () => setLive((p) => ({ ...p, matches: p.matches + 1 })));
-    socket.on('expansion_complete', () => fetchData());
+    socket.on('resolution_progress', (p: any) => setResolution({ processed: p.processed, total: p.total, matches: p.matches }));
+    socket.on('resolution_complete', () => setResolution(null));
+    socket.on('scoring_step', (p: any) => setScoringStep({ step: p.step, detail: p.detail }));
+    socket.on('expansion_complete', () => { setScoringStep(null); fetchData(); });
 
     async function fetchData() {
       try {
@@ -80,6 +85,16 @@ export default function InvestigatePage() {
         const json = await res.json();
         if (cancelled) return;
         setData(json);
+        // Seed live counters from persisted progress so reload shows real numbers
+        if (json.progress) {
+          setLive((prev) => ({
+            entities: json.progress.entitiesDiscovered || json.counts?.companies + json.counts?.people + json.counts?.addresses || prev.entities,
+            edges: json.progress.edgesCreated || json.counts?.edges || prev.edges,
+            depth: json.progress.currentDepth || prev.depth,
+            apiCalls: json.progress.apiCallsMade || prev.apiCalls,
+            matches: json.matches?.length || prev.matches,
+          }));
+        }
         if (json.status === 'COMPLETE') {
           const gr = await fetch(`${API}/api/investigations/${id}/graph`);
           if (gr.ok) setGraph(await gr.json());
@@ -121,7 +136,7 @@ export default function InvestigatePage() {
           <h1 className="text-4xl font-medium tracking-tight text-ink-50">{data.companyName || data.query}</h1>
           {data.tier && <TierBadge tier={data.tier} />}
         </div>
-        <ProgressView status={data.status} live={live} startedAt={data.createdAt} />
+        <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} />
       </main>
     );
   }

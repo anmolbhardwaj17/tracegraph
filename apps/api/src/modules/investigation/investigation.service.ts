@@ -126,6 +126,13 @@ export class InvestigationService {
     };
   }
 
+  async remove(id: string): Promise<void> {
+    await this.matchesRepo.delete({ investigationId: id });
+    await this.edges.delete({ investigationId: id });
+    await this.nodes.delete({ investigationId: id });
+    await this.investigations.delete(id);
+  }
+
   async graphFor(id: string): Promise<any> {
     const nodes = await this.nodes.find({ where: { investigationId: id } });
     const edges = await this.edges.find({ where: { investigationId: id } });

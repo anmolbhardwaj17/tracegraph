@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { InvestigationService } from './investigation.service';
 import { CreateInvestigationDto } from './dto/create-investigation.dto';
 import { ReportService } from '../report/report.service';
@@ -45,6 +45,11 @@ export class InvestigationController {
   @Get('compare')
   async compare(@Query('a') a: string, @Query('b') b: string) {
     return this.service.compare(a, b);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return this.service.remove(id);
   }
 
   @Get(':id')
