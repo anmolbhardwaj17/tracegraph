@@ -446,48 +446,30 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 relative overflow-hidden">
-        {/* Subtle radial glow behind logo */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-signal-clean/[0.02] rounded-full blur-[100px] pointer-events-none" />
+      <footer className="border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-8">
+          {/* Main row */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            {/* Left: logo + copyright */}
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-[10px] font-bold">T</div>
+              <span className="text-xs font-mono text-ink-500">© 2026 TraceGraph</span>
+            </div>
 
-        <div className="relative max-w-6xl mx-auto px-8 py-20">
-          {/* Logo + brand */}
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-sm font-bold">T</div>
-            <span className="text-base tracking-tight text-ink-50">TraceGraph</span>
-          </div>
+            {/* Center: links */}
+            <div className="flex items-center gap-5 text-xs font-mono text-ink-500">
+              <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
+              <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
+              <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
+              <a href="/privacy" className="hover:text-ink-50 transition-colors">Privacy</a>
+              <a href="/terms" className="hover:text-ink-50 transition-colors">Terms</a>
+            </div>
 
-          {/* Tagline with typewriter-style mono */}
-          <p className="text-center text-sm text-ink-400 mb-10">
-            Corporate intelligence from public data.
-          </p>
-
-          {/* Links */}
-          <div className="flex items-center justify-center gap-8 text-xs font-mono text-ink-500 mb-6">
-            <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
-            <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
-            <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
-          </div>
-
-          {/* Legal + external */}
-          <div className="flex items-center justify-center gap-6 text-xs font-mono text-ink-500 mb-8">
-            <a href="/privacy" className="hover:text-ink-50 transition-colors">Privacy</a>
-            <a href="/terms" className="hover:text-ink-50 transition-colors">Terms</a>
-            <span className="text-ink-700">|</span>
-            <a href="#" className="hover:text-ink-50 transition-colors">GitHub</a>
-            <a href="https://anmolbhardwaj.in" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">
-              Anmol Bhardwaj
-            </a>
-          </div>
-
-          {/* Data sources */}
-          <div className="text-center text-[10px] font-mono text-ink-500 tracking-[0.15em] uppercase mb-4">
-            UK Companies House · OpenSanctions · ICIJ OffshoreLeaks
-          </div>
-
-          {/* Copyright */}
-          <div className="text-center text-[10px] font-mono text-ink-500">
-            © 2026 TraceGraph · Every company tells a story - we read between the filings.
+            {/* Right: external */}
+            <div className="flex items-center gap-5 text-xs font-mono text-ink-500">
+              <a href="#" className="hover:text-ink-50 transition-colors">GitHub</a>
+              <a href="https://anmolbhardwaj.in" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">Anmol Bhardwaj</a>
+            </div>
           </div>
         </div>
       </footer>
