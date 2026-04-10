@@ -48,7 +48,16 @@ const ACTIVE_MAP: Record<string, number> = { QUEUED: -1, FETCHING: 0, EXPANDING:
 
 export function ProgressView({ status, live, resolution, scoringStep, startedAt, investigationId, companyName, tier }: Props) {
   const elapsed = useElapsed(startedAt);
-  const overallPct = PCT_MAP[status] ?? 0;
+  const overallPct = (() => {
+    const start: Record<string, number> = { QUEUED: 0, FETCHING: 3, EXPANDING: 10, RESOLVING: 40, SCORING: 78, COMPLETE: 100 };
+    const end: Record<string, number> = { QUEUED: 3, FETCHING: 10, EXPANDING: 40, RESOLVING: 78, SCORING: 100, COMPLETE: 100 };
+    const s = start[status] ?? 0;
+    const e = end[status] ?? 0;
+    if (status === 'RESOLVING' && resolution && resolution.total > 0) {
+      return Math.round(s + (e - s) * (resolution.processed / resolution.total));
+    }
+    return s;
+  })();
   const currentStageLabel = STAGE_MAP[status] != null ? STAGES[STAGE_MAP[status]]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
 
   return (
