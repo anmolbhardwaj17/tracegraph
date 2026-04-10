@@ -43,27 +43,27 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             <div className="text-sm font-medium text-ink-50 leading-snug">{companyName || 'Loading...'}</div>
           </div>
         </div>
-        <div className="border border-white/5 bg-ink-850 px-6 py-5 flex-1">
-          <div className="flex items-center gap-8 flex-wrap">
-            <div>
+        <div className="border border-white/5 bg-ink-850 flex-1 flex flex-col">
+          <div className="px-6 py-5 flex items-center justify-between flex-wrap gap-y-4">
+            <div className="pr-6">
               <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.entities.toLocaleString()}</div>
-              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">entities</div>
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">entities</div>
             </div>
-            <div>
+            <div className="pr-6">
               <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.edges.toLocaleString()}</div>
-              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">connections</div>
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">connections</div>
             </div>
-            <div>
+            <div className="pr-6">
               <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.matches}</div>
-              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">matches</div>
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">matches</div>
             </div>
             <div>
               <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.apiCalls.toLocaleString()}</div>
-              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">API calls</div>
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">API calls</div>
             </div>
           </div>
           {resolution && resolution.total > 0 && (
-            <div className="mt-5 pt-5 border-t border-white/5">
+            <div className="px-6 pt-5 pb-5 border-t border-white/5">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Screening entities against sanctions databases</div>
                 <div className="text-[10px] font-mono text-ink-400 tabular-nums">{resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} - {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}</div>
@@ -74,7 +74,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             </div>
           )}
           {scoringStep && (
-            <div className="mt-5 pt-5 border-t border-white/5 flex items-center gap-3">
+            <div className="px-6 py-4 border-t border-white/5 flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-ink-50">{scoringStep.step}</div>
@@ -87,7 +87,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
 
       {/* ROW 2: progress (left) + pipeline & sonar (right) */}
       <div className="flex flex-col lg:flex-row gap-6">
-        <div className="border border-white/5 bg-ink-850 p-6 lg:w-64 lg:shrink-0">
+        <div className="border border-white/5 bg-ink-850 p-6 lg:w-64 lg:shrink-0 lg:self-stretch">
           <div className="pb-4 border-b border-white/5 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
             <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
