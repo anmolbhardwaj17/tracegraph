@@ -42,6 +42,13 @@ export default function Home() {
   }, []);
 
 
+  // Clear tier picker when search text is removed
+  useEffect(() => {
+    if (!query.trim() && selectedHit) {
+      setSelectedHit(null);
+    }
+  }, [query]);
+
   // Debounced live search for non-numeric queries
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -209,7 +216,10 @@ export default function Home() {
             {showDropdown && (searching || hits.length > 0) && (
               <div className="absolute left-0 right-0 top-full mt-2 bg-ink-850 border border-white/10 rounded-sm shadow-2xl z-30 overflow-hidden">
                 {searching && hits.length === 0 && (
-                  <div className="px-5 py-4 text-xs font-mono text-ink-500">searching companies house…</div>
+                  <div className="px-5 py-4 text-xs font-mono text-ink-500 flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 border border-ink-500 border-t-ink-50 rounded-full animate-spin" />
+                    searching companies house…
+                  </div>
                 )}
                 {hits.map((h, i) => (
                   <button
@@ -577,9 +587,9 @@ export default function Home() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Enter a UK company name or number..."
+                placeholder="Company name or number..."
                 autoComplete="off"
-                className="w-full px-6 py-5 pr-48 text-lg rounded-sm bg-ink-850 border border-white/10 text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
+                className="w-full px-6 py-5 pr-36 text-base rounded-sm bg-ink-850 border border-white/10 text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
               />
               <button
                 type="submit"
