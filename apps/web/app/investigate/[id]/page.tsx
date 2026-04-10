@@ -156,14 +156,25 @@ export default function InvestigatePage() {
 
   return (
     <main className="min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-20 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
+      {/* Global nav */}
+      <nav className="sticky top-0 z-30 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+          <a href="/" className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
+            <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
+          </a>
+          <div className="flex items-center gap-6 text-sm text-ink-300">
+            <a href="/dashboard" className="hover:text-ink-50 transition-colors hidden sm:block">Dashboard</a>
+            <a href="/compare" className="hover:text-ink-50 transition-colors hidden sm:block">Compare</a>
+            <a href="/watchlist" className="hover:text-ink-50 transition-colors hidden sm:block">Watchlist</a>
+          </div>
+        </div>
+      </nav>
+
+      {/* Investigation header */}
+      <header className="sticky top-[57px] z-20 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
           <div className="min-w-0 flex items-center gap-4">
-            <a href="/" className="flex items-center gap-2 text-xs text-ink-500 hover:text-ink-50 transition-colors font-mono">
-              <span>←</span> TraceGraph
-            </a>
-            <div className="h-4 w-px bg-white/10" />
             <Avatar name={data.companyName || data.query} type="company" size={28} />
             <h1 className="text-base font-medium tracking-tight text-ink-50 truncate">{data.companyName || data.query}</h1>
             {data.tier && (
