@@ -474,32 +474,18 @@ export default function Home() {
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
             / 003 · Beyond the report
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 snap-x snap-mandatory scrollbar-hide stagger-grid">
-            <FeatureStrip
-              label="Live expansion"
-              description="Watch your network grow in real time"
-              placeholder="sonar animation"
-            />
-            <FeatureStrip
-              label="Graph explorer"
-              description="Filter by type, search entities, trace paths"
-              placeholder="interactive graph"
-            />
-            <FeatureStrip
-              label="Ownership chains"
-              description="Trace UBO through corporate layers"
-              placeholder="chain diagram"
-            />
-            <FeatureStrip
-              label="Compare"
-              description="Find shared directors between any two companies"
-              placeholder="comparison view"
-            />
-            <FeatureStrip
-              label="Monitor"
-              description="Add to watchlist. Re-investigate anytime."
-              placeholder="watchlist view"
-            />
+          <div className="overflow-hidden -mx-8">
+            <div className="marquee-track gap-4">
+              {[0, 1].map((copy) => (
+                <div key={copy} className="flex gap-4 shrink-0 pr-4">
+                  <FeatureStrip label="Live expansion" description="Watch your network grow in real time" placeholder="sonar animation" />
+                  <FeatureStrip label="Graph explorer" description="Filter by type, search entities, trace paths" placeholder="interactive graph" />
+                  <FeatureStrip label="Ownership chains" description="Trace UBO through corporate layers" placeholder="chain diagram" />
+                  <FeatureStrip label="Compare" description="Find shared directors between any two companies" placeholder="comparison view" />
+                  <FeatureStrip label="Monitor" description="Add to watchlist. Re-investigate anytime." placeholder="watchlist view" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
