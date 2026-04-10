@@ -159,6 +159,22 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
           </div>
         </div>
       </div>
+
+      {/* Info strip */}
+      <div className="border border-white/5 bg-ink-850 px-6 py-5 text-[10px] font-mono text-ink-600 leading-relaxed space-y-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-ink-500 uppercase tracking-[0.15em]">Sources</span>
+          <span>UK Companies House</span>
+          <span className="text-ink-700">-</span>
+          <span>OpenSanctions (4.1M entities)</span>
+          <span className="text-ink-700">-</span>
+          <span>ICIJ OffshoreLeaks (770K+ records)</span>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-ink-500 uppercase tracking-[0.15em]">Detectors</span>
+          <span>Shell networks - UBO chains - Sanctions screening - Disqualified directors - Filing health - Jurisdiction risk - Phoenix companies - Cross-directorship conflicts</span>
+        </div>
+      </div>
     </div>
   );
 }
