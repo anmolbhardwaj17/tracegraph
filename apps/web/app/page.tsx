@@ -1,18 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Avatar } from '../components/Avatar';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-interface RecentInvestigation {
-  id: string;
-  query: string;
-  companyName?: string;
-  status: string;
-  createdAt: string;
-  riskScore?: number;
-}
 
 interface SearchHit {
   companyNumber: string;
@@ -30,13 +20,6 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recent, setRecent] = useState<RecentInvestigation[]>([]);
-  const [recentTotal, setRecentTotal] = useState(0);
-  const [recentPage, setRecentPage] = useState(1);
-  const [recentSearch, setRecentSearch] = useState('');
-  const [recentRisk, setRecentRisk] = useState('');
-  const [recentStatus, setRecentStatus] = useState('');
-  const [invStats, setInvStats] = useState<any>(null);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -58,29 +41,6 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleSlash);
   }, []);
 
-  // Fetch paginated investigation history
-  useEffect(() => {
-    const params = new URLSearchParams({ page: String(recentPage), limit: '15' });
-    if (recentSearch) params.set('search', recentSearch);
-    if (recentRisk) params.set('risk', recentRisk);
-    if (recentStatus) params.set('status', recentStatus);
-    fetch(`${API}/api/investigations?${params}`)
-      .then((r) => (r.ok ? r.json() : { items: [], total: 0 }))
-      .then((data) => {
-        // Support both old (array) and new (paginated) response shapes
-        if (Array.isArray(data)) { setRecent(data); setRecentTotal(data.length); }
-        else { setRecent(data.items || []); setRecentTotal(data.total || 0); }
-      })
-      .catch(() => {});
-  }, [recentPage, recentSearch, recentRisk, recentStatus]);
-
-  // Fetch stats once
-  useEffect(() => {
-    fetch(`${API}/api/investigations/stats`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setInvStats(d))
-      .catch(() => {});
-  }, []);
 
   // Debounced live search for non-numeric queries
   useEffect(() => {
@@ -113,19 +73,6 @@ export default function Home() {
     setSelectedHit(hit);
     setShowDropdown(false);
     setQuery(hit.title);
-  }
-
-  async function handleDeleteInvestigation(id: string) {
-    const pwd = prompt('Enter password to delete:');
-    if (pwd !== 'delete') {
-      if (pwd !== null) alert('Incorrect password.');
-      return;
-    }
-    try {
-      await fetch(`${API}/api/investigations/${id}`, { method: 'DELETE' });
-      setRecent((prev) => prev.filter((i) => i.id !== id));
-      setRecentTotal((t) => Math.max(0, t - 1));
-    } catch {}
   }
 
   async function startInvestigation(q: string, tier: Tier = 'STANDARD') {
@@ -593,135 +540,29 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Investigation history */}
-      <section id="recent" className="border-t border-white/5">
+      {/* Use cases */}
+      <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="flex items-baseline justify-between mb-8">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400">
-              / 006 · Investigation history
-            </div>
-            <span className="text-xs text-ink-500 font-mono">{recentTotal} total</span>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
+            / 006 · Who uses TraceGraph
           </div>
-
-          {/* Stats strip */}
-          {invStats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 border border-white/5 mb-8">
-              <div className="bg-ink-850 p-5">
-                <div className="text-2xl font-medium text-ink-50 tabular-nums">{invStats.total}</div>
-                <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">total runs</div>
-              </div>
-              <div className="bg-ink-850 p-5">
-                <div className="text-2xl font-medium text-ink-50 tabular-nums">{invStats.completed}</div>
-                <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">completed</div>
-              </div>
-              <div className="bg-ink-850 p-5">
-                <div className="text-2xl font-medium text-ink-50 tabular-nums">{invStats.avgScore}</div>
-                <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">avg risk</div>
-              </div>
-              <div className="bg-ink-850 p-5">
-                <div className="text-[10px] font-mono text-ink-500 mb-1">top findings</div>
-                {(invStats.topFindings || []).slice(0, 3).map((f: any) => (
-                  <div key={f.type} className="text-[10px] font-mono text-ink-400 truncate">{f.type} ({f.count})</div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Search + filters */}
-          <div className="flex gap-3 mb-6 flex-wrap">
-            <input
-              type="text"
-              placeholder="Search company name…"
-              value={recentSearch}
-              onChange={(e) => { setRecentSearch(e.target.value); setRecentPage(1); }}
-              className="flex-1 min-w-[200px] px-4 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30"
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5">
+            <Approach
+              n="001"
+              title="Vendor due diligence"
+              body="Screen suppliers and partners before signing contracts. Map director networks, check sanctions exposure, verify corporate legitimacy — in minutes instead of hours."
             />
-            <select
-              value={recentRisk}
-              onChange={(e) => { setRecentRisk(e.target.value); setRecentPage(1); }}
-              className="px-3 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-xs text-ink-50 font-mono focus:outline-none focus:border-white/30"
-            >
-              <option value="">All risk</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
-            <select
-              value={recentStatus}
-              onChange={(e) => { setRecentStatus(e.target.value); setRecentPage(1); }}
-              className="px-3 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-xs text-ink-50 font-mono focus:outline-none focus:border-white/30"
-            >
-              <option value="">All status</option>
-              <option value="COMPLETE">Complete</option>
-              <option value="FETCHING">Fetching</option>
-              <option value="EXPANDING">Expanding</option>
-              <option value="FAILED">Failed</option>
-            </select>
+            <Approach
+              n="002"
+              title="Investment screening"
+              body="Verify founders, trace ownership structures, and assess corporate risk before committing capital. From angel rounds to acquisitions."
+            />
+            <Approach
+              n="003"
+              title="Compliance & KYB"
+              body="Automate Know Your Business checks via API. Sanctions screening, UBO resolution, and risk scoring integrated into your onboarding flow."
+            />
           </div>
-
-          {recent.length === 0 ? (
-            <div className="text-ink-500 text-sm">No investigations match.</div>
-          ) : (
-            <ul className="border-t border-white/5">
-              {recent.map((inv) => (
-                <li key={inv.id} className="border-b border-white/5">
-                  <div className="grid grid-cols-12 gap-4 px-2 py-4 hover:bg-white/[0.02] transition-colors group items-center">
-                    <a
-                      href={`/investigate/${inv.id}`}
-                      className="col-span-6 min-w-0 flex items-center gap-3"
-                    >
-                      <Avatar name={inv.companyName || inv.query} type="company" size={32} />
-                      <div className="text-base text-ink-50 truncate group-hover:translate-x-1 transition-transform">
-                        {inv.companyName || inv.query}
-                      </div>
-                    </a>
-                    <div className="col-span-2 text-xs font-mono text-ink-500 uppercase tracking-wider">
-                      {inv.status}
-                    </div>
-                    <div className="col-span-2 text-xs text-ink-500 font-mono">
-                      {new Date(inv.createdAt).toLocaleDateString()}
-                    </div>
-                    <div className="col-span-1 text-right">
-                      {inv.riskScore !== undefined && <RiskPill score={inv.riskScore} />}
-                    </div>
-                    <div className="col-span-1 text-right">
-                      <button
-                        onClick={() => handleDeleteInvestigation(inv.id)}
-                        className="text-ink-700 hover:text-signal-critical transition-colors text-sm"
-                        title="Delete investigation"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Pagination */}
-          {recentTotal > 15 && (
-            <div className="flex items-center justify-center gap-4 mt-6">
-              <button
-                onClick={() => setRecentPage((p) => Math.max(1, p - 1))}
-                disabled={recentPage <= 1}
-                className="text-xs font-mono text-ink-400 hover:text-ink-50 disabled:text-ink-700 transition-colors"
-              >
-                ← prev
-              </button>
-              <span className="text-xs font-mono text-ink-500">
-                page {recentPage} of {Math.ceil(recentTotal / 15)}
-              </span>
-              <button
-                onClick={() => setRecentPage((p) => p + 1)}
-                disabled={recentPage >= Math.ceil(recentTotal / 15)}
-                className="text-xs font-mono text-ink-400 hover:text-ink-50 disabled:text-ink-700 transition-colors"
-              >
-                next →
-              </button>
-            </div>
-          )}
         </div>
       </section>
 
