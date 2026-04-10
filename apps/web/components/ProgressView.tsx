@@ -24,8 +24,14 @@ const STAGES = [
 
 const ORDER = ['QUEUED', 'FETCHING', 'EXPANDING', 'EXPANDING_2', 'RESOLVING', 'RESOLVING_2', 'SCORING', 'SCORING_2', 'COMPLETE'];
 
+const PCT_MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 };
+const STAGE_MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
+const ACTIVE_MAP: Record<string, number> = { QUEUED: -1, FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5, COMPLETE: 99 };
+
 export function ProgressView({ status, live, resolution, scoringStep, startedAt, companyName, tier }: Props) {
   const elapsed = useElapsed(startedAt);
+  const overallPct = PCT_MAP[status] ?? 0;
+  const currentStageLabel = STAGE_MAP[status] != null ? STAGES[STAGE_MAP[status]]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
 
   return (
     <div className="space-y-6">
@@ -111,26 +117,16 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
           </div>
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Stage</div>
-            <div className="text-sm text-ink-50">
-              {(() => {
-                const MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
-                const idx = MAP[status];
-                return idx != null ? STAGES[idx]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
-              })()}
-            </div>
+            <div className="text-sm text-ink-50">{currentStageLabel}</div>
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Overall</div>
-              <div className="text-[10px] font-mono text-ink-400 tabular-nums">
-                {(() => {
-                  const MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 };
-                  return `${MAP[status] ?? 0}%`;
-                })()}
+              <div className="text-[10px] font-mono text-ink-400 tabular-nums">{overallPct}%
               </div>
             </div>
             <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-              <div className="h-full bg-signal-clean rounded-full transition-all duration-700" style={{ width: `${(() => { const MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 }; return MAP[status] ?? 0; })()}%` }} />
+              <div className="h-full bg-signal-clean rounded-full transition-all duration-700" style={{ width: `${overallPct}%` }} />
             </div>
           </div>
         </div>
@@ -143,15 +139,6 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">/ Pipeline</div>
           <ol>
             {STAGES.map((stage, i) => {
-              // Map backend status → which stage index (0-based) is active
-              const ACTIVE_MAP: Record<string, number> = {
-                QUEUED: -1,
-                FETCHING: 0,     // /001 Fetching
-                EXPANDING: 1,    // /002 Expanding (UBO /003 runs right after)
-                RESOLVING: 3,    // /004 Cross-source matching
-                SCORING: 5,      // /006 Filing health (disqualified /005 is sub-step)
-                COMPLETE: 99,
-              };
               const activeIdx = ACTIVE_MAP[status] ?? -1;
               const isActive = i === activeIdx;
               const isDone = i < activeIdx;
