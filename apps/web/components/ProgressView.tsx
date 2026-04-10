@@ -88,7 +88,23 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
       {/* ROW 2: progress (left) + pipeline & sonar (right) */}
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="border border-white/5 bg-ink-850 p-6 lg:w-64 lg:shrink-0">
-          <div className="pb-4 border-b border-white/5">
+          <div className="pb-4 border-b border-white/5 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
+            <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
+          </div>
+          {tier && (
+            <div className="py-4 border-b border-white/5">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-2">Depth</div>
+              <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border ${
+                tier === 'DEEP' ? 'bg-signal-medium/15 text-signal-medium border-signal-medium/30' :
+                tier === 'QUICK' ? 'bg-signal-clean/15 text-signal-clean border-signal-clean/30' :
+                'bg-white/10 text-ink-50 border-white/20'
+              }`}>
+                {tier === 'DEEP' ? 'Deep investigation' : tier === 'QUICK' ? 'Quick scan' : 'Standard'}
+              </span>
+            </div>
+          )}
+          <div className="py-4 border-b border-white/5">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Elapsed</div>
             <div className="text-3xl font-medium text-ink-50 tabular-nums">{formatElapsed(elapsed)}</div>
           </div>
@@ -96,7 +112,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Stage</div>
             <div className="text-sm text-ink-50">{currentStageLabel}</div>
           </div>
-          <div className="py-4 border-b border-white/5">
+          <div className="pt-4">
             <div className="flex items-center justify-between mb-2">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Overall</div>
               <div className="text-[10px] font-mono text-ink-400 tabular-nums">{overallPct}%</div>
@@ -104,16 +120,6 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
               <div className="h-full bg-signal-clean rounded-full transition-all duration-700" style={{ width: `${overallPct}%` }} />
             </div>
-          </div>
-          {tier && (
-            <div className="py-4 border-b border-white/5">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Depth</div>
-              <div className="text-sm text-ink-50">{tier === 'DEEP' ? 'Deep' : tier === 'QUICK' ? 'Quick' : 'Standard'}</div>
-            </div>
-          )}
-          <div className="flex items-center gap-2 pt-4">
-            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
-            <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
           </div>
         </div>
         <div className="flex-1 min-w-0 space-y-6">
