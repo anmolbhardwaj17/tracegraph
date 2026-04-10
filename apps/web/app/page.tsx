@@ -664,9 +664,9 @@ function TierCard({
 
 function Approach({ n, title, body }: { n: string; title: string; body: string }) {
   return (
-    <div className="bg-ink-900 p-10 hover:bg-ink-850 transition-colors group">
-      <div className="text-xs font-mono text-ink-500 mb-6">{n}</div>
-      <h3 className="text-2xl font-medium tracking-tight text-ink-50 mb-4">{title}</h3>
+    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors">
+      <div className="text-[10px] font-mono text-ink-500 tracking-[0.15em] mb-4">{n}</div>
+      <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
     </div>
   );
@@ -674,9 +674,9 @@ function Approach({ n, title, body }: { n: string; title: string; body: string }
 
 function Source({ kind, title, body }: { kind: string; title: string; body: string }) {
   return (
-    <div className="bg-ink-900 p-10 hover:bg-ink-850 transition-colors">
-      <div className="text-[10px] font-mono text-ink-500 tracking-[0.15em] mb-6">{kind}</div>
-      <h3 className="text-xl font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
+    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors">
+      <div className="text-[10px] font-mono text-ink-500 tracking-[0.15em] mb-4">{kind}</div>
+      <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
     </div>
   );
@@ -685,8 +685,8 @@ function Source({ kind, title, body }: { kind: string; title: string; body: stri
 function Capability({ title, body }: { title: string; body: string }) {
   return (
     <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors">
-      <h3 className="text-sm font-medium tracking-tight text-ink-50 mb-2">{title}</h3>
-      <p className="text-xs text-ink-400 leading-relaxed">{body}</p>
+      <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
+      <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
     </div>
   );
 }
