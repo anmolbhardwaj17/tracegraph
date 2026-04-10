@@ -35,7 +35,83 @@ export class InvestigationService {
       order: { createdAt: 'DESC' },
       take: 25,
     });
-    return items.map((i) => ({
+    return items.map((i) => this.toListItem(i));
+  }
+
+  async listPaginated(opts: {
+    page: number;
+    limit: number;
+    risk?: string;
+    status?: string;
+    search?: string;
+    from?: string;
+    to?: string;
+  }): Promise<{ items: any[]; total: number; page: number; limit: number }> {
+    const qb = this.investigations.createQueryBuilder('i').orderBy('i.createdAt', 'DESC');
+
+    if (opts.status) {
+      qb.andWhere('i.status = :status', { status: opts.status });
+    }
+    if (opts.search) {
+      qb.andWhere("(i.query ILIKE :q OR i.metadata->>'companyName' ILIKE :q)", { q: `%${opts.search}%` });
+    }
+    if (opts.from) {
+      qb.andWhere('i.createdAt >= :from', { from: opts.from });
+    }
+    if (opts.to) {
+      qb.andWhere('i.createdAt <= :to', { to: opts.to });
+    }
+
+    const [items, total] = await qb
+      .skip((opts.page - 1) * opts.limit)
+      .take(opts.limit)
+      .getManyAndCount();
+
+    let mapped = items.map((i) => this.toListItem(i));
+
+    // Client-side risk filter (risk score lives in jsonb, not easy to query directly)
+    if (opts.risk) {
+      const band = opts.risk.toUpperCase();
+      mapped = mapped.filter((m) => {
+        const s = m.riskScore ?? 0;
+        if (band === 'CRITICAL') return s >= 75;
+        if (band === 'HIGH') return s >= 50 && s < 75;
+        if (band === 'MEDIUM') return s >= 25 && s < 50;
+        if (band === 'LOW') return s < 25;
+        return true;
+      });
+    }
+
+    return { items: mapped, total, page: opts.page, limit: opts.limit };
+  }
+
+  async stats(): Promise<any> {
+    const total = await this.investigations.count();
+    const completed = await this.investigations.count({ where: { status: 'COMPLETE' } });
+    const allComplete = await this.investigations.find({ where: { status: 'COMPLETE' } });
+
+    let avgScore = 0;
+    const findingCounts: Record<string, number> = {};
+    let scored = 0;
+    for (const inv of allComplete) {
+      const s = inv.progress?.riskScore;
+      if (s != null) { avgScore += s; scored++; }
+      for (const f of inv.progress?.findings || []) {
+        findingCounts[f.type] = (findingCounts[f.type] || 0) + 1;
+      }
+    }
+    if (scored > 0) avgScore = Math.round(avgScore / scored);
+
+    const topFindings = Object.entries(findingCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([type, count]) => ({ type, count }));
+
+    return { total, completed, avgScore, topFindings };
+  }
+
+  private toListItem(i: Investigation) {
+    return {
       id: i.id,
       query: i.query,
       companyName: i.metadata?.companyName,
@@ -45,12 +121,9 @@ export class InvestigationService {
       completedAt: i.completedAt,
       riskScore: i.progress?.riskScore,
       counts: i.progress
-        ? {
-            entities: i.progress.entitiesDiscovered,
-            edges: i.progress.edgesCreated,
-          }
+        ? { entities: i.progress.entitiesDiscovered, edges: i.progress.edgesCreated }
         : undefined,
-    }));
+    };
   }
 
   async graphFor(id: string): Promise<any> {

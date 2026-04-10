@@ -31,6 +31,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentInvestigation[]>([]);
+  const [recentTotal, setRecentTotal] = useState(0);
+  const [recentPage, setRecentPage] = useState(1);
+  const [recentSearch, setRecentSearch] = useState('');
+  const [recentRisk, setRecentRisk] = useState('');
+  const [recentStatus, setRecentStatus] = useState('');
+  const [invStats, setInvStats] = useState<any>(null);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -39,10 +45,27 @@ export default function Home() {
   const debounceRef = useRef<any>(null);
   const router = useRouter();
 
+  // Fetch paginated investigation history
   useEffect(() => {
-    fetch(`${API}/api/investigations`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setRecent(Array.isArray(data) ? data : []))
+    const params = new URLSearchParams({ page: String(recentPage), limit: '15' });
+    if (recentSearch) params.set('search', recentSearch);
+    if (recentRisk) params.set('risk', recentRisk);
+    if (recentStatus) params.set('status', recentStatus);
+    fetch(`${API}/api/investigations?${params}`)
+      .then((r) => (r.ok ? r.json() : { items: [], total: 0 }))
+      .then((data) => {
+        // Support both old (array) and new (paginated) response shapes
+        if (Array.isArray(data)) { setRecent(data); setRecentTotal(data.length); }
+        else { setRecent(data.items || []); setRecentTotal(data.total || 0); }
+      })
+      .catch(() => {});
+  }, [recentPage, recentSearch, recentRisk, recentStatus]);
+
+  // Fetch stats once
+  useEffect(() => {
+    fetch(`${API}/api/investigations/stats`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setInvStats(d))
       .catch(() => {});
   }, []);
 
@@ -358,17 +381,75 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Recent investigations */}
+      {/* Investigation history */}
       <section id="recent" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="flex items-baseline justify-between mb-12">
+          <div className="flex items-baseline justify-between mb-8">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400">
-              / 004 · Recent investigations
+              / 004 · Investigation history
             </div>
-            <span className="text-xs text-ink-500 font-mono">{recent.length} shown</span>
+            <span className="text-xs text-ink-500 font-mono">{recentTotal} total</span>
           </div>
+
+          {/* Stats strip */}
+          {invStats && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 border border-white/5 mb-8">
+              <div className="bg-ink-850 p-5">
+                <div className="text-2xl font-medium text-ink-50 tabular-nums">{invStats.total}</div>
+                <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">total runs</div>
+              </div>
+              <div className="bg-ink-850 p-5">
+                <div className="text-2xl font-medium text-ink-50 tabular-nums">{invStats.completed}</div>
+                <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">completed</div>
+              </div>
+              <div className="bg-ink-850 p-5">
+                <div className="text-2xl font-medium text-ink-50 tabular-nums">{invStats.avgScore}</div>
+                <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">avg risk</div>
+              </div>
+              <div className="bg-ink-850 p-5">
+                <div className="text-[10px] font-mono text-ink-500 mb-1">top findings</div>
+                {(invStats.topFindings || []).slice(0, 3).map((f: any) => (
+                  <div key={f.type} className="text-[10px] font-mono text-ink-400 truncate">{f.type} ({f.count})</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Search + filters */}
+          <div className="flex gap-3 mb-6 flex-wrap">
+            <input
+              type="text"
+              placeholder="Search company name…"
+              value={recentSearch}
+              onChange={(e) => { setRecentSearch(e.target.value); setRecentPage(1); }}
+              className="flex-1 min-w-[200px] px-4 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30"
+            />
+            <select
+              value={recentRisk}
+              onChange={(e) => { setRecentRisk(e.target.value); setRecentPage(1); }}
+              className="px-3 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-xs text-ink-50 font-mono focus:outline-none focus:border-white/30"
+            >
+              <option value="">All risk</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+            <select
+              value={recentStatus}
+              onChange={(e) => { setRecentStatus(e.target.value); setRecentPage(1); }}
+              className="px-3 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-xs text-ink-50 font-mono focus:outline-none focus:border-white/30"
+            >
+              <option value="">All status</option>
+              <option value="COMPLETE">Complete</option>
+              <option value="FETCHING">Fetching</option>
+              <option value="EXPANDING">Expanding</option>
+              <option value="FAILED">Failed</option>
+            </select>
+          </div>
+
           {recent.length === 0 ? (
-            <div className="text-ink-500 text-sm">No investigations yet. Start one above.</div>
+            <div className="text-ink-500 text-sm">No investigations match.</div>
           ) : (
             <ul className="border-t border-white/5">
               {recent.map((inv) => (
@@ -396,6 +477,29 @@ export default function Home() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {/* Pagination */}
+          {recentTotal > 15 && (
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <button
+                onClick={() => setRecentPage((p) => Math.max(1, p - 1))}
+                disabled={recentPage <= 1}
+                className="text-xs font-mono text-ink-400 hover:text-ink-50 disabled:text-ink-700 transition-colors"
+              >
+                ← prev
+              </button>
+              <span className="text-xs font-mono text-ink-500">
+                page {recentPage} of {Math.ceil(recentTotal / 15)}
+              </span>
+              <button
+                onClick={() => setRecentPage((p) => p + 1)}
+                disabled={recentPage >= Math.ceil(recentTotal / 15)}
+                className="text-xs font-mono text-ink-400 hover:text-ink-50 disabled:text-ink-700 transition-colors"
+              >
+                next →
+              </button>
+            </div>
           )}
         </div>
       </section>

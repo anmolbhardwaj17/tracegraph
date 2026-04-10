@@ -17,8 +17,29 @@ export class InvestigationController {
   }
 
   @Get()
-  async list() {
-    return this.service.list();
+  async list(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('risk') risk?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.listPaginated({
+      page: parseInt(page || '1', 10),
+      limit: Math.min(parseInt(limit || '25', 10), 100),
+      risk: risk as any,
+      status: status as any,
+      search,
+      from,
+      to,
+    });
+  }
+
+  @Get('stats')
+  async stats() {
+    return this.service.stats();
   }
 
   @Get('compare')
