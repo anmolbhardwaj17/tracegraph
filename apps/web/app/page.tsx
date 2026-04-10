@@ -371,11 +371,141 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Product showcase */}
+      <section className="border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-24">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
+            / 002 · See it in action
+          </div>
+
+          {/* Mock investigation result card */}
+          <div className="border border-white/5 bg-ink-900 overflow-hidden">
+            {/* Mock header */}
+            <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-sm bg-signal-medium/20 text-signal-medium flex items-center justify-center font-mono text-xs font-bold">P</div>
+                <div>
+                  <div className="text-base font-medium text-ink-50">PepsiCo International Limited</div>
+                  <div className="text-[10px] font-mono text-ink-500 mt-0.5">01521219 · Investigation complete</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border bg-signal-medium/15 text-signal-medium border-signal-medium/30">42 MEDIUM</span>
+              </div>
+            </div>
+
+            {/* Mock graph visualization */}
+            <div className="px-8 py-8 border-b border-white/5 bg-ink-950/50 flex items-center justify-center" style={{ height: 320 }}>
+              <svg viewBox="0 0 600 250" className="w-full max-w-2xl h-full" style={{ overflow: 'visible' }}>
+                {/* Edges */}
+                <g stroke="rgba(94,230,161,0.15)" strokeWidth="1">
+                  <line x1="300" y1="125" x2="180" y2="60" /><line x1="300" y1="125" x2="420" y2="70" />
+                  <line x1="300" y1="125" x2="200" y2="180" /><line x1="300" y1="125" x2="400" y2="190" />
+                  <line x1="300" y1="125" x2="140" y2="130" /><line x1="300" y1="125" x2="460" y2="120" />
+                  <line x1="180" y1="60" x2="100" y2="30" /><line x1="180" y1="60" x2="120" y2="90" />
+                  <line x1="420" y1="70" x2="500" y2="40" /><line x1="420" y1="70" x2="480" y2="100" />
+                  <line x1="200" y1="180" x2="130" y2="210" /><line x1="200" y1="180" x2="160" y2="230" />
+                  <line x1="400" y1="190" x2="470" y2="220" /><line x1="400" y1="190" x2="450" y2="170" />
+                  <line x1="140" y1="130" x2="80" y2="100" /><line x1="140" y1="130" x2="70" y2="160" />
+                  <line x1="460" y1="120" x2="530" y2="90" /><line x1="460" y1="120" x2="540" y2="150" />
+                  <line x1="100" y1="30" x2="50" y2="50" /><line x1="500" y1="40" x2="550" y2="25" />
+                </g>
+                <g stroke="rgba(245,197,24,0.2)" strokeWidth="1" strokeDasharray="3,3">
+                  <line x1="180" y1="60" x2="200" y2="180" /><line x1="420" y1="70" x2="400" y2="190" />
+                </g>
+                {/* Nodes — animated with gentle drift */}
+                <style>{`
+                  @keyframes drift1 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(2px,-2px) } }
+                  @keyframes drift2 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-2px,3px) } }
+                  @keyframes drift3 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(3px,1px) } }
+                  .drift1 { animation: drift1 18s ease-in-out infinite }
+                  .drift2 { animation: drift2 22s ease-in-out infinite }
+                  .drift3 { animation: drift3 20s ease-in-out infinite }
+                `}</style>
+                {/* Root */}
+                <circle cx="300" cy="125" r="10" fill="#FFFFFF" className="drift1" />
+                {/* Companies (amber) */}
+                <circle cx="180" cy="60" r="6" fill="#F5C518" className="drift2" />
+                <circle cx="420" cy="70" r="7" fill="#F5C518" className="drift1" />
+                <circle cx="100" cy="30" r="4" fill="#F5C518" className="drift3" />
+                <circle cx="500" cy="40" r="5" fill="#F5C518" className="drift2" />
+                <circle cx="130" cy="210" r="4" fill="#F5C518" className="drift1" />
+                <circle cx="470" cy="220" r="4" fill="#F5C518" className="drift3" />
+                {/* People (green) */}
+                <circle cx="200" cy="180" r="5" fill="#5EE6A1" className="drift3" />
+                <circle cx="400" cy="190" r="6" fill="#5EE6A1" className="drift1" />
+                <circle cx="140" cy="130" r="5" fill="#5EE6A1" className="drift2" />
+                <circle cx="460" cy="120" r="5" fill="#5EE6A1" className="drift3" />
+                <circle cx="120" cy="90" r="4" fill="#5EE6A1" className="drift1" />
+                <circle cx="480" cy="100" r="4" fill="#5EE6A1" className="drift2" />
+                {/* Addresses (gray) */}
+                <circle cx="80" cy="100" r="3" fill="#737373" className="drift2" />
+                <circle cx="530" cy="90" r="3" fill="#737373" className="drift1" />
+                <circle cx="70" cy="160" r="3" fill="#737373" className="drift3" />
+                <circle cx="540" cy="150" r="3" fill="#737373" className="drift2" />
+                <circle cx="160" cy="230" r="3" fill="#737373" className="drift1" />
+                <circle cx="450" cy="170" r="3" fill="#737373" className="drift3" />
+                {/* Outer leaves */}
+                <circle cx="50" cy="50" r="3" fill="#F5C518" className="drift3" />
+                <circle cx="550" cy="25" r="3" fill="#5EE6A1" className="drift2" />
+                {/* Risk halo on one node */}
+                <circle cx="420" cy="70" r="12" fill="none" stroke="#FF4D4D" strokeWidth="1.5" opacity="0.5" className="drift1" />
+              </svg>
+            </div>
+
+            {/* Mock stats row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5">
+              <div className="bg-ink-900 px-6 py-4 text-center">
+                <div className="text-lg font-medium text-ink-50 tabular-nums">847</div>
+                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Entities</div>
+              </div>
+              <div className="bg-ink-900 px-6 py-4 text-center">
+                <div className="text-lg font-medium text-ink-50 tabular-nums">1,203</div>
+                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Connections</div>
+              </div>
+              <div className="bg-ink-900 px-6 py-4 text-center">
+                <div className="text-lg font-medium text-signal-critical tabular-nums">3</div>
+                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Sanctions matches</div>
+              </div>
+              <div className="bg-ink-900 px-6 py-4 text-center">
+                <div className="text-lg font-medium text-signal-medium tabular-nums">42</div>
+                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Risk score</div>
+              </div>
+            </div>
+
+            {/* Mock findings */}
+            <div className="border-t border-white/5">
+              <div className="px-8 py-4 border-b border-white/5 flex items-center gap-4 hover:bg-white/[0.02]">
+                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border bg-signal-critical/15 text-signal-critical border-signal-critical/30">CRITICAL</span>
+                <span className="text-[10px] font-mono text-ink-500">SHELL_NETWORK</span>
+                <span className="text-sm text-ink-300 flex-1 truncate">Director operates 23 micro-entity companies from a single virtual office address</span>
+              </div>
+              <div className="px-8 py-4 border-b border-white/5 flex items-center gap-4 hover:bg-white/[0.02]">
+                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border bg-signal-high/15 text-signal-high border-signal-high/30">HIGH</span>
+                <span className="text-[10px] font-mono text-ink-500">DISQUALIFIED_DIRECTOR</span>
+                <span className="text-sm text-ink-300 flex-1 truncate">John Smith matches a disqualified UK director (87% confidence)</span>
+              </div>
+              <div className="px-8 py-4 flex items-center gap-4 hover:bg-white/[0.02]">
+                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border bg-signal-medium/15 text-signal-medium border-signal-medium/30">MEDIUM</span>
+                <span className="text-[10px] font-mono text-ink-500">PHOENIX_COMPANY</span>
+                <span className="text-sm text-ink-300 flex-1 truncate">Acme Holdings Ltd replaced Acme Trading Ltd within 7 days — shared director and address</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Image placeholder */}
+          <div className="mt-8 border border-dashed border-white/10 bg-ink-900/50 p-12 text-center">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-600 mb-2">/ Placeholder</div>
+            <div className="text-xs text-ink-500">Full product screenshot will go here</div>
+          </div>
+        </div>
+      </section>
+
       {/* Approach · three numbered cards */}
       <section id="approach" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
-            / 002 · Approach
+            / 003 · Approach
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5">
             <Approach
@@ -401,7 +531,7 @@ export default function Home() {
       <section id="sources" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
-            / 003 · Data sources
+            / 004 · Data sources
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 border border-white/5">
             <Source
@@ -432,7 +562,7 @@ export default function Home() {
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
-            / 004 · Intelligence capabilities
+            / 005 · Intelligence capabilities
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5">
             <Capability
@@ -468,7 +598,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="flex items-baseline justify-between mb-8">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400">
-              / 005 · Investigation history
+              / 006 · Investigation history
             </div>
             <span className="text-xs text-ink-500 font-mono">{recentTotal} total</span>
           </div>
