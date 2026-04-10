@@ -169,7 +169,7 @@ export default function Home() {
           </div>
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-ink-300 reveal reveal-delay-1">
-            <a href="#approach" className="hover:text-ink-50 transition-colors">Product</a>
+            <a href="#capabilities" className="hover:text-ink-50 transition-colors">Product</a>
             <a href="#capabilities" className="hover:text-ink-50 transition-colors">Capabilities</a>
             <span className="text-ink-700">|</span>
             <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
@@ -360,119 +360,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Product showcase — single full-width mock */}
-      <section id="approach" className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 002 · See it in action
-          </div>
-
-          <div className="border border-white/5 bg-ink-900 overflow-hidden scroll-fade-in">
-            {/* Mock header */}
-            <div className="px-8 py-5 border-b border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-sm bg-signal-medium/20 text-signal-medium flex items-center justify-center font-mono text-xs font-bold">P</div>
-                <div>
-                  <div className="text-sm font-medium text-ink-50">PepsiCo International Limited</div>
-                  <div className="text-[10px] font-mono text-ink-500 mt-0.5">01521219 · Investigation complete</div>
-                </div>
-              </div>
-              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border bg-signal-medium/15 text-signal-medium border-signal-medium/30">42 MEDIUM</span>
-            </div>
-
-            {/* Mock graph */}
-            <div className="border-b border-white/5 bg-ink-950/50 flex items-center justify-center" style={{ height: 280 }}>
-              <svg viewBox="0 0 600 220" className="w-full max-w-3xl h-full" style={{ overflow: 'visible' }}>
-                <style>{`
-                  @keyframes d1 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(2px,-2px) } }
-                  @keyframes d2 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-2px,3px) } }
-                  @keyframes d3 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(3px,1px) } }
-                  .d1 { animation: d1 18s ease-in-out infinite }
-                  .d2 { animation: d2 22s ease-in-out infinite }
-                  .d3 { animation: d3 20s ease-in-out infinite }
-                `}</style>
-                <g stroke="rgba(94,230,161,0.12)" strokeWidth="0.8">
-                  <line x1="300" y1="110" x2="180" y2="50" /><line x1="300" y1="110" x2="420" y2="55" />
-                  <line x1="300" y1="110" x2="190" y2="160" /><line x1="300" y1="110" x2="410" y2="165" />
-                  <line x1="300" y1="110" x2="140" y2="110" /><line x1="300" y1="110" x2="460" y2="105" />
-                  <line x1="180" y1="50" x2="100" y2="25" /><line x1="180" y1="50" x2="110" y2="80" />
-                  <line x1="420" y1="55" x2="500" y2="30" /><line x1="420" y1="55" x2="490" y2="85" />
-                  <line x1="190" y1="160" x2="120" y2="190" /><line x1="410" y1="165" x2="480" y2="195" />
-                  <line x1="140" y1="110" x2="75" y2="85" /><line x1="140" y1="110" x2="65" y2="140" />
-                  <line x1="460" y1="105" x2="530" y2="80" /><line x1="460" y1="105" x2="540" y2="135" />
-                  <line x1="100" y1="25" x2="50" y2="45" /><line x1="500" y1="30" x2="555" y2="20" />
-                </g>
-                <g stroke="rgba(245,197,24,0.15)" strokeWidth="0.8" strokeDasharray="2,2">
-                  <line x1="180" y1="50" x2="190" y2="160" /><line x1="420" y1="55" x2="410" y2="165" />
-                </g>
-                <circle cx="300" cy="110" r="9" fill="#FFFFFF" className="d1" />
-                <circle cx="180" cy="50" r="5" fill="#F5C518" className="d2" />
-                <circle cx="420" cy="55" r="6" fill="#F5C518" className="d1" />
-                <circle cx="190" cy="160" r="5" fill="#5EE6A1" className="d3" />
-                <circle cx="410" cy="165" r="5" fill="#5EE6A1" className="d1" />
-                <circle cx="140" cy="110" r="4" fill="#5EE6A1" className="d2" />
-                <circle cx="460" cy="105" r="4" fill="#5EE6A1" className="d3" />
-                <circle cx="100" cy="25" r="4" fill="#F5C518" className="d3" />
-                <circle cx="500" cy="30" r="4" fill="#F5C518" className="d2" />
-                <circle cx="110" cy="80" r="3" fill="#5EE6A1" className="d1" />
-                <circle cx="490" cy="85" r="3" fill="#5EE6A1" className="d2" />
-                <circle cx="120" cy="190" r="3" fill="#737373" className="d1" />
-                <circle cx="480" cy="195" r="3" fill="#737373" className="d3" />
-                <circle cx="75" cy="85" r="3" fill="#737373" className="d2" />
-                <circle cx="65" cy="140" r="3" fill="#737373" className="d1" />
-                <circle cx="530" cy="80" r="3" fill="#737373" className="d3" />
-                <circle cx="540" cy="135" r="3" fill="#737373" className="d2" />
-                <circle cx="50" cy="45" r="2" fill="#F5C518" className="d3" />
-                <circle cx="555" cy="20" r="2" fill="#5EE6A1" className="d2" />
-                <circle cx="420" cy="55" r="11" fill="none" stroke="#FF4D4D" strokeWidth="1.2" opacity="0.45" className="d1" />
-              </svg>
-            </div>
-
-            {/* Stats row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 border-b border-white/5">
-              <div className="bg-ink-900 px-6 py-4 text-center">
-                <div className="text-lg font-medium text-ink-50 tabular-nums">847</div>
-                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Entities</div>
-              </div>
-              <div className="bg-ink-900 px-6 py-4 text-center">
-                <div className="text-lg font-medium text-ink-50 tabular-nums">1,203</div>
-                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Connections</div>
-              </div>
-              <div className="bg-ink-900 px-6 py-4 text-center">
-                <div className="text-lg font-medium text-signal-critical tabular-nums">3</div>
-                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Sanctions matches</div>
-              </div>
-              <div className="bg-ink-900 px-6 py-4 text-center">
-                <div className="text-lg font-medium text-signal-medium tabular-nums">42</div>
-                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Risk score</div>
-              </div>
-            </div>
-
-            {/* Findings */}
-            <div className="px-8 py-3 border-b border-white/5 flex items-center gap-4">
-              <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-critical/15 text-signal-critical border border-signal-critical/30 shrink-0">CRITICAL</span>
-              <span className="text-[10px] font-mono text-ink-500 shrink-0">SHELL_NETWORK</span>
-              <span className="text-sm text-ink-300 truncate">Director operates 23 micro-entity companies from a single virtual office address</span>
-            </div>
-            <div className="px-8 py-3 border-b border-white/5 flex items-center gap-4">
-              <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-high/15 text-signal-high border border-signal-high/30 shrink-0">HIGH</span>
-              <span className="text-[10px] font-mono text-ink-500 shrink-0">DISQUALIFIED_DIRECTOR</span>
-              <span className="text-sm text-ink-300 truncate">John Smith matches a disqualified UK director (87% confidence)</span>
-            </div>
-            <div className="px-8 py-3 flex items-center gap-4">
-              <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-medium/15 text-signal-medium border border-signal-medium/30 shrink-0">MEDIUM</span>
-              <span className="text-[10px] font-mono text-ink-500 shrink-0">PHOENIX_COMPANY</span>
-              <span className="text-sm text-ink-300 truncate">Acme Holdings Ltd replaced Acme Trading Ltd within 7 days — shared director and address</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Beyond the report — feature strip */}
       <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 003 · Beyond the report
+            / 002 · Beyond the report
           </div>
           <div className="overflow-hidden -mx-8">
             <div className="marquee-track gap-4">
@@ -494,7 +386,7 @@ export default function Home() {
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
-            / 004 · What it detects
+            / 003 · What it detects
           </div>
           <p className="text-sm text-ink-400 mb-12 max-w-2xl">
             20+ automated risk signals from three data sources — UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
@@ -514,7 +406,7 @@ export default function Home() {
       <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 005 · Built for due diligence
+            / 004 · Built for due diligence
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Approach
