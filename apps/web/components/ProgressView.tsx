@@ -165,26 +165,10 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
         </div>
       </div>
 
-      {/* Stats strip · full width */}
-      <div className="grid grid-cols-3 md:grid-cols-5 gap-px bg-white/5 border border-white/5">
-        <Counter label="Entities" value={live.entities} />
-        <Counter label="Connections" value={live.edges} />
-        <Counter label="Depth" value={live.depth} />
-        <Counter label="API calls" value={live.apiCalls} />
-        <Counter label="Matches" value={live.matches} />
-      </div>
     </div>
   );
 }
 
-function Counter({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-ink-850 px-4 py-4 text-center">
-      <div className="text-xl font-medium text-ink-50 tabular-nums">{value.toLocaleString()}</div>
-      <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono">{label}</div>
-    </div>
-  );
-}
 
 /**
  * Sonar / radar visualization. Pulse waves expand from center when new
