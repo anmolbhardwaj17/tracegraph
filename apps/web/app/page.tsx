@@ -599,15 +599,18 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-12 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-ink-500 font-mono">
-          <div>© 2026 TraceGraph. All rights reserved.</div>
-          <div className="flex items-center gap-5">
-            <a href="/privacy" className="hover:text-ink-50 transition-colors">Privacy</a>
+        <div className="max-w-6xl mx-auto px-8 py-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-ink-500 font-mono">
+          <div>© 2026 TraceGraph · Open source corporate intelligence</div>
+          <div className="text-center text-ink-600">
+            Data from UK Companies House · OpenSanctions · ICIJ OffshoreLeaks
+          </div>
+          <div className="flex items-center justify-end gap-4">
+            <a href="#" className="hover:text-ink-50 transition-colors">GitHub →</a>
             <span className="text-ink-700">·</span>
-            <a href="/terms" className="hover:text-ink-50 transition-colors">Terms</a>
+            <a href="/api/docs" className="hover:text-ink-50 transition-colors">API Docs →</a>
             <span className="text-ink-700">·</span>
-            <a href="https://anmolbhardwaj.com" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">
-              anmolbhardwaj.com →
+            <a href="https://anmolbhardwaj.in" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">
+              Built by Anmol Bhardwaj →
             </a>
           </div>
         </div>
