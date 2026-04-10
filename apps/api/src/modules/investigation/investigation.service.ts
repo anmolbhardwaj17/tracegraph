@@ -174,4 +174,67 @@ export class InvestigationService {
       })),
     };
   }
+
+  /**
+   * Compare two investigations side by side. Finds shared directors, shared
+   * addresses, and merges the two graph datasets.
+   */
+  async compare(invIdA: string, invIdB: string): Promise<any> {
+    const [a, b] = await Promise.all([this.findOne(invIdA), this.findOne(invIdB)]);
+
+    // Normalise label for matching
+    const norm = (s: string) => (s || '').toLowerCase().trim();
+
+    // Shared directors (by normalised name)
+    const personsA = (a.entities?.person || []) as any[];
+    const personsB = (b.entities?.person || []) as any[];
+    const labelsA = new Map(personsA.map((p: any) => [norm(p.label), p]));
+    const sharedDirectors: any[] = [];
+    for (const p of personsB) {
+      const match = labelsA.get(norm(p.label));
+      if (match) sharedDirectors.push({ label: p.label, inA: match, inB: p });
+    }
+
+    // Shared addresses (by normalised label)
+    const addrsA = (a.entities?.address || []) as any[];
+    const addrsB = (b.entities?.address || []) as any[];
+    const addrLabelsA = new Map(addrsA.map((p: any) => [norm(p.label), p]));
+    const sharedAddresses: any[] = [];
+    for (const p of addrsB) {
+      const match = addrLabelsA.get(norm(p.label));
+      if (match) sharedAddresses.push({ label: p.label, inA: match, inB: p });
+    }
+
+    // Severity breakdown
+    const sevBreakdown = (findings: any[]) => {
+      const c = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+      for (const f of findings || []) c[f.severity as keyof typeof c]++;
+      return c;
+    };
+
+    return {
+      a: {
+        id: a.id,
+        query: a.query,
+        companyName: a.companyName,
+        riskScore: a.riskScore,
+        findingsCount: (a.findings || []).length,
+        severityBreakdown: sevBreakdown(a.findings),
+        counts: a.counts,
+      },
+      b: {
+        id: b.id,
+        query: b.query,
+        companyName: b.companyName,
+        riskScore: b.riskScore,
+        findingsCount: (b.findings || []).length,
+        severityBreakdown: sevBreakdown(b.findings),
+        counts: b.counts,
+      },
+      sharedDirectors: sharedDirectors.map((s) => ({ label: s.label })),
+      sharedAddresses: sharedAddresses.map((s) => ({ label: s.label })),
+      sharedDirectorsCount: sharedDirectors.length,
+      sharedAddressesCount: sharedAddresses.length,
+    };
+  }
 }

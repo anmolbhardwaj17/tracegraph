@@ -148,6 +148,8 @@ export default function Home() {
             <a href="#recent" className="hover:text-ink-50 transition-colors">Recent</a>
             <span className="text-ink-600">|</span>
             <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
+            <span className="text-ink-600">|</span>
+            <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
           </nav>
         </div>
       </header>
