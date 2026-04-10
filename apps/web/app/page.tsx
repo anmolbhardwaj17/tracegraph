@@ -566,6 +566,37 @@ export default function Home() {
         </div>
       </section>
 
+      {/* CTA */}
+      <section className="border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-24 text-center">
+          <h2 className="text-3xl font-light text-ink-50 mb-4">Start your first investigation</h2>
+          <p className="text-ink-400 mb-10">Free. No account required. Enter any UK company.</p>
+          <form onSubmit={submit} className="max-w-2xl mx-auto relative">
+            <div className="relative group">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Enter a UK company name or number..."
+                autoComplete="off"
+                className="w-full px-6 py-5 pr-48 text-lg rounded-sm bg-ink-850 border border-white/10 text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-3 bg-ink-50 text-ink-900 rounded-sm font-medium text-sm hover:bg-white disabled:opacity-50 transition-all group/btn"
+              >
+                {loading ? 'Starting...' : <span>Investigate <span className="inline-block transition-transform group-hover/btn:translate-x-1">→</span></span>}
+              </button>
+            </div>
+          </form>
+          <div className="mt-8 flex items-center justify-center gap-6 text-xs font-mono text-ink-500">
+            <a href="/api/docs" className="hover:text-ink-50 transition-colors">View API documentation →</a>
+            <span className="text-ink-700">·</span>
+            <a href="#" className="hover:text-ink-50 transition-colors">Star on GitHub →</a>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-12 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-ink-500 font-mono">
