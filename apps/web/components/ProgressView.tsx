@@ -7,132 +7,65 @@ interface Props {
   resolution?: { processed: number; total: number; matches: number } | null;
   scoringStep?: { step: string; detail?: string } | null;
   startedAt?: string;
+  companyName?: string;
+  tier?: string;
 }
 
 const STAGES = [
-  { key: 'FETCHING',    label: 'Fetching company profile',          hint: 'UK Companies House' },
-  { key: 'EXPANDING',   label: 'Expanding ownership network',       hint: 'Directors · PSC · addresses' },
-  { key: 'EXPANDING_2', label: 'UBO chain resolution',              hint: 'Tracing corporate PSCs to natural persons' },
-  { key: 'RESOLVING',   label: 'Cross-source matching',             hint: 'OpenSanctions 4M+ · ICIJ 770K+' },
-  { key: 'RESOLVING_2', label: 'Disqualified director screening',   hint: 'CH disqualified-officers register' },
-  { key: 'SCORING',     label: 'Filing health & jurisdiction risk',  hint: 'Late filings · phoenix · offshore' },
-  { key: 'SCORING_2',   label: 'Anomaly detection & risk scoring',  hint: 'Shell · cross-directorship · age anomalies' },
+  { key: 'FETCHING',    label: 'Fetching company profile' },
+  { key: 'EXPANDING',   label: 'Expanding ownership network' },
+  { key: 'EXPANDING_2', label: 'UBO chain resolution' },
+  { key: 'RESOLVING',   label: 'Cross-source matching' },
+  { key: 'RESOLVING_2', label: 'Disqualified director screening' },
+  { key: 'SCORING',     label: 'Filing health & jurisdiction risk' },
+  { key: 'SCORING_2',   label: 'Anomaly detection & risk scoring' },
 ];
 
-const ORDER = ['QUEUED', 'FETCHING', 'EXPANDING', 'EXPANDING_2', 'RESOLVING', 'RESOLVING_2', 'SCORING', 'SCORING_2', 'COMPLETE'];
-
-export function ProgressView({ status, live, resolution, scoringStep, startedAt }: Props) {
+export function ProgressView({ status, live, resolution, scoringStep, startedAt, companyName, tier }: Props) {
   const elapsed = useElapsed(startedAt);
+  const overallPct = (() => {
+    const MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 };
+    return MAP[status] ?? 0;
+  })();
 
   return (
-    <div className="space-y-6">
-      {/* Elapsed strip · full width, sleek dashboard header */}
-      <div className="border border-white/5 bg-ink-850 px-6 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Elapsed</div>
-            <div className="text-3xl font-medium text-ink-50 tabular-nums mt-1">{formatElapsed(elapsed)}</div>
+    <div className="h-[calc(100vh-57px)] grid grid-cols-1 lg:grid-cols-12">
+      {/* LEFT SIDEBAR */}
+      <div className="lg:col-span-3 border-r border-white/5 bg-ink-850 p-6 flex flex-col">
+        {/* Company identity */}
+        <div className="mb-8">
+          <div className="w-10 h-10 rounded-sm bg-ink-50/10 text-ink-50 flex items-center justify-center font-mono text-sm font-bold mb-3">
+            {(companyName || '?')[0].toUpperCase()}
           </div>
-          <div className="h-10 w-px bg-white/10" />
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Stage</div>
-            <div className="text-sm text-ink-50 mt-1">
-              {(() => {
-                const MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
-                const idx = MAP[status];
-                return idx != null ? STAGES[idx]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
-              })()}
-            </div>
-          </div>
-          <div className="h-10 w-px bg-white/10" />
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Overall</div>
-            <div className="text-sm text-ink-50 tabular-nums mt-1">
-              {(() => {
-                const MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 };
-                return `${MAP[status] ?? 0}%`;
-              })()}
-            </div>
-          </div>
+          <div className="text-base font-medium text-ink-50 leading-snug">{companyName || 'Loading...'}</div>
+          {tier && (
+            <span className="inline-block mt-2 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border border-white/10 text-ink-400">
+              {tier}
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
-          <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
-        </div>
-      </div>
 
-      {/* Live activity card - always visible, shows what's happening NOW */}
-      <div className="border border-white/5 bg-ink-850 px-6 py-5">
-        {/* Live counters - always shown */}
-        <div className="flex items-center gap-8 flex-wrap">
-          <div>
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.entities.toLocaleString()}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">entities</div>
+        {/* Timer */}
+        <div className="mb-8">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Elapsed</div>
+          <div className="text-3xl font-medium text-ink-50 tabular-nums">{formatElapsed(elapsed)}</div>
+        </div>
+
+        {/* Overall progress */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Overall</div>
+            <div className="text-[10px] font-mono text-ink-400 tabular-nums">{overallPct}%</div>
           </div>
-          <div>
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.edges.toLocaleString()}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">connections</div>
-          </div>
-          <div>
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.matches}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">matches</div>
-          </div>
-          <div>
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.apiCalls.toLocaleString()}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">API calls</div>
+          <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-signal-clean rounded-full transition-all duration-700" style={{ width: `${overallPct}%` }} />
           </div>
         </div>
 
-        {/* Resolution progress bar */}
-        {resolution && resolution.total > 0 && (
-          <div className="mt-5 pt-5 border-t border-white/5">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
-                / Screening entities against sanctions databases
-              </div>
-              <div className="text-[10px] font-mono text-ink-400 tabular-nums">
-                {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} · {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
-              </div>
-            </div>
-            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-signal-clean rounded-full transition-all duration-500"
-                style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Scoring step */}
-        {scoringStep && (
-          <div className="mt-5 pt-5 border-t border-white/5 flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-ink-50">{scoringStep.step}</div>
-              {scoringStep.detail && (
-                <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 2-column: sonar (wider) + pipeline (narrower) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT: visualization */}
-        <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col">
-          <div className="px-6 pt-6">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
-          </div>
-          <div className="flex-1 min-h-[340px] relative">
-            <MiniGraph entities={live.entities} edges={live.edges} />
-          </div>
-        </div>
-
-        {/* RIGHT: pipeline */}
-        <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">/ Pipeline</div>
-          <ol>
+        {/* Pipeline steps */}
+        <div className="flex-1">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">Pipeline</div>
+          <ol className="space-y-0.5">
             {STAGES.map((stage, i) => {
               const ACTIVE_MAP: Record<string, number> = {
                 QUEUED: -1, FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5, COMPLETE: 99,
@@ -141,34 +74,93 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
               const isActive = i === activeIdx;
               const isDone = i < activeIdx;
               return (
-                <li key={stage.key} className="border-b border-white/5 last:border-b-0 py-3 flex items-center gap-3">
+                <li key={stage.key} className="flex items-center gap-2.5 py-1.5">
                   <div
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      isDone
-                        ? 'bg-signal-clean'
-                        : isActive
-                        ? 'bg-ink-50 animate-pulse shadow-[0_0_10px_rgba(245,245,245,0.6)]'
-                        : 'bg-white/10'
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      isDone ? 'bg-signal-clean'
+                      : isActive ? 'bg-ink-50 animate-pulse'
+                      : 'bg-white/10'
                     }`}
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-xs ${isActive ? 'text-ink-50' : isDone ? 'text-ink-300' : 'text-ink-500'}`}>
-                      {stage.label}
-                    </div>
-                  </div>
-                  {isActive && <span className="text-[9px] font-mono text-ink-400 uppercase tracking-wider shrink-0">active</span>}
-                  {isDone && <span className="text-[9px] font-mono text-signal-clean uppercase tracking-wider shrink-0">done</span>}
+                  <span className={`text-[11px] ${isActive ? 'text-ink-50' : isDone ? 'text-ink-400' : 'text-ink-600'}`}>
+                    {stage.label}
+                  </span>
                 </li>
               );
             })}
           </ol>
         </div>
+
+        {/* Status indicator */}
+        <div className="flex items-center gap-2 pt-4 border-t border-white/5">
+          <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
+          <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
+        </div>
       </div>
 
+      {/* RIGHT MAIN */}
+      <div className="lg:col-span-9 flex flex-col overflow-hidden">
+        {/* Live counters */}
+        <div className="border-b border-white/5 bg-ink-900 px-8 py-5">
+          <div className="flex items-center gap-10 flex-wrap">
+            <LiveStat value={live.entities} label="entities" />
+            <LiveStat value={live.edges} label="connections" />
+            <LiveStat value={live.matches} label="matches" />
+            <LiveStat value={live.apiCalls} label="API calls" />
+            <LiveStat value={live.depth} label="depth" />
+          </div>
+
+          {/* Resolution progress bar */}
+          {resolution && resolution.total > 0 && (
+            <div className="mt-5 pt-5 border-t border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
+                  Screening against sanctions databases
+                </div>
+                <div className="text-[10px] font-mono text-ink-400 tabular-nums">
+                  {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} - {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-signal-clean rounded-full transition-all duration-500"
+                  style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Scoring step */}
+          {scoringStep && (
+            <div className="mt-5 pt-5 border-t border-white/5 flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-ink-50">{scoringStep.step}</div>
+                {scoringStep.detail && (
+                  <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sonar visualization - fills remaining space */}
+        <div className="flex-1 relative bg-ink-950/30">
+          <MiniGraph entities={live.entities} edges={live.edges} />
+        </div>
+      </div>
     </div>
   );
 }
 
+function LiveStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <div className="text-2xl font-medium text-ink-50 tabular-nums">{value.toLocaleString()}</div>
+      <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">{label}</div>
+    </div>
+  );
+}
 
 /**
  * Sonar / radar visualization. Pulse waves expand from center when new
@@ -200,19 +192,14 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
     return () => ro.disconnect();
   }, []);
 
-  // React to entity count change: spawn blips + a pulse wave.
-  // On first non-zero value (including reload), seed blips proportional to current count.
   useEffect(() => {
     const delta = entities - lastEntitiesRef.current;
     if (entities > 0 && (delta > 0 || lastEntitiesRef.current === 0)) {
       const now = performance.now();
-      // Fire a pulse
       pulsesRef.current.push({
         startedAt: now,
         intensity: Math.min(1, 0.4 + Math.log10((delta || entities) + 1) * 0.3),
       });
-      // On first load (lastEntities was 0), seed many blips based on total count.
-      // On incremental updates, add proportional to delta.
       const isInitialSeed = lastEntitiesRef.current === 0 && entities > 10;
       const blipsToAdd = isInitialSeed
         ? Math.min(120, Math.floor(entities / 10))
@@ -222,7 +209,6 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
         blipsRef.current.push({
           angle: Math.random() * Math.PI * 2,
           radiusN: 0.12 + Math.sqrt(rawR) * 0.86,
-          // Stagger birth times on initial seed so they don't all appear at once
           bornAt: isInitialSeed ? now - Math.random() * 3000 : now,
         });
       }
@@ -255,7 +241,6 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
     const cx = W / 2;
     const cy = H / 2;
     const maxR = Math.min(W, H) * 0.42;
-
     const PULSE_DURATION = 2400;
     const BLIP_FADE_IN = 600;
 
@@ -280,7 +265,7 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       ctx.moveTo(cx, cy - maxR * 0.62); ctx.lineTo(cx, cy + maxR * 0.62);
       ctx.stroke();
 
-      // Auto-pulse every 2s to keep the sonar alive
+      // Auto-pulse every 2s
       if (now - lastAutoPulseRef.current > 2000) {
         lastAutoPulseRef.current = now;
         pulsesRef.current.push({ startedAt: now, intensity: 0.35 });
@@ -309,7 +294,7 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       }
       pulsesRef.current = livePulses;
 
-      // Blips - permanent, never fade out
+      // Blips - permanent
       const liveBlips: Blip[] = [];
       for (const b of blipsRef.current) {
         const age = now - b.bornAt;
@@ -360,33 +345,6 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
 
-      // HUD
-      ctx.fillStyle = '#F5F5F5';
-      ctx.font = '500 28px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText((lastEntitiesRef.current).toLocaleString(), 20, 16);
-      ctx.fillStyle = '#525252';
-      ctx.font = '10px ui-monospace, monospace';
-      ctx.fillText('ENTITIES', 20, 50);
-
-      ctx.fillStyle = '#A0A0A0';
-      ctx.font = '500 18px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'top';
-      ctx.fillText(edges.toLocaleString(), W - 20, 18);
-      ctx.fillStyle = '#525252';
-      ctx.font = '10px ui-monospace, monospace';
-      ctx.fillText('CONNECTIONS', W - 20, 42);
-
-      ctx.fillStyle = '#525252';
-      ctx.font = '10px ui-monospace, monospace';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('● SCANNING NETWORK', 20, H - 14);
-      ctx.textAlign = 'right';
-      ctx.fillText(`${liveBlips.length} VISIBLE`, W - 20, H - 14);
-
       rafRef.current = requestAnimationFrame(frame);
     }
 
@@ -421,4 +379,3 @@ function formatElapsed(seconds: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
-
