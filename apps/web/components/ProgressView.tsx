@@ -1,6 +1,45 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Avatar } from './Avatar';
+
+/** Swipe-up number animation - old number slides out, new slides in */
+function SwipeNumber({ value, className = '' }: { value: number; className?: string }) {
+  const [display, setDisplay] = useState(value);
+  const [prev, setPrev] = useState<number | null>(null);
+  const [animating, setAnimating] = useState(false);
+  const timeoutRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (value === display && !animating) return;
+    if (value === display) return;
+    setPrev(display);
+    setAnimating(true);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setDisplay(value);
+      setPrev(null);
+      setAnimating(false);
+    }, 350);
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  }, [value]);
+
+  return (
+    <div className={`relative overflow-hidden ${className}`} style={{ height: '1.8em' }}>
+      {animating && prev !== null ? (
+        <>
+          <div style={{ animation: 'slideOutUp 0.35s cubic-bezier(0.4,0,0.2,1) forwards' }}>
+            {prev.toLocaleString()}
+          </div>
+          <div className="absolute inset-x-0 top-0" style={{ animation: 'slideInUp 0.35s cubic-bezier(0.4,0,0.2,1) forwards' }}>
+            {value.toLocaleString()}
+          </div>
+        </>
+      ) : (
+        <div>{display.toLocaleString()}</div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   status: string;
@@ -47,19 +86,19 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
         <div className="border border-white/5 bg-ink-850 flex-1 flex flex-col">
           <div className="px-6 py-5 flex items-center justify-between flex-wrap gap-y-4">
             <div className="pr-6">
-              <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.entities.toLocaleString()}</div>
+              <SwipeNumber value={live.entities} className="text-2xl font-medium text-ink-50 tabular-nums" />
               <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">entities</div>
             </div>
             <div className="pr-6">
-              <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.edges.toLocaleString()}</div>
+              <SwipeNumber value={live.edges} className="text-2xl font-medium text-ink-50 tabular-nums" />
               <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">connections</div>
             </div>
             <div className="pr-6">
-              <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.matches}</div>
+              <SwipeNumber value={live.matches} className="text-2xl font-medium text-ink-50 tabular-nums" />
               <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">matches</div>
             </div>
             <div>
-              <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.apiCalls.toLocaleString()}</div>
+              <SwipeNumber value={live.apiCalls} className="text-2xl font-medium text-ink-50 tabular-nums" />
               <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">API calls</div>
             </div>
           </div>
