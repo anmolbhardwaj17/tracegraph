@@ -29,15 +29,16 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
   })();
 
   return (
-    <div className="h-[calc(100vh-57px)] grid grid-cols-1 lg:grid-cols-12">
-      {/* LEFT SIDEBAR */}
-      <div className="lg:col-span-3 border-r border-white/5 bg-ink-850 p-6 flex flex-col">
-        {/* Company identity */}
-        <div className="mb-8">
-          <div className="w-10 h-10 rounded-sm bg-ink-50/10 text-ink-50 flex items-center justify-center font-mono text-sm font-bold mb-3">
-            {(companyName || '?')[0].toUpperCase()}
+    <div className="h-[calc(100vh-57px)] max-w-7xl mx-auto px-8 py-8 grid grid-cols-1 lg:grid-cols-10 gap-8">
+      {/* LEFT - company info + progress */}
+      <div className="lg:col-span-3 flex flex-col gap-8">
+        {/* Company + status */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
+            <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
           </div>
-          <div className="text-base font-medium text-ink-50 leading-snug">{companyName || 'Loading...'}</div>
+          <div className="text-xl font-medium text-ink-50 leading-snug">{companyName || 'Loading...'}</div>
           {tier && (
             <span className="inline-block mt-2 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border border-white/10 text-ink-400">
               {tier}
@@ -46,15 +47,15 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
         </div>
 
         {/* Timer */}
-        <div className="mb-8">
+        <div>
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Elapsed</div>
-          <div className="text-3xl font-medium text-ink-50 tabular-nums">{formatElapsed(elapsed)}</div>
+          <div className="text-4xl font-medium text-ink-50 tabular-nums">{formatElapsed(elapsed)}</div>
         </div>
 
         {/* Overall progress */}
-        <div className="mb-8">
+        <div>
           <div className="flex items-center justify-between mb-2">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Overall</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Progress</div>
             <div className="text-[10px] font-mono text-ink-400 tabular-nums">{overallPct}%</div>
           </div>
           <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
@@ -63,9 +64,9 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
         </div>
 
         {/* Pipeline steps */}
-        <div className="flex-1">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">Pipeline</div>
-          <ol className="space-y-0.5">
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-3">Pipeline</div>
+          <ol className="space-y-1">
             {STAGES.map((stage, i) => {
               const ACTIVE_MAP: Record<string, number> = {
                 QUEUED: -1, FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5, COMPLETE: 99,
@@ -74,7 +75,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
               const isActive = i === activeIdx;
               const isDone = i < activeIdx;
               return (
-                <li key={stage.key} className="flex items-center gap-2.5 py-1.5">
+                <li key={stage.key} className="flex items-center gap-2.5 py-1">
                   <div
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                       isDone ? 'bg-signal-clean'
@@ -90,62 +91,54 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             })}
           </ol>
         </div>
-
-        {/* Status indicator */}
-        <div className="flex items-center gap-2 pt-4 border-t border-white/5">
-          <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
-          <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
-        </div>
       </div>
 
-      {/* RIGHT MAIN */}
-      <div className="lg:col-span-9 flex flex-col overflow-hidden">
+      {/* RIGHT - live data + sonar */}
+      <div className="lg:col-span-7 flex flex-col gap-6 overflow-hidden">
         {/* Live counters */}
-        <div className="border-b border-white/5 bg-ink-900 px-8 py-5">
-          <div className="flex items-center gap-10 flex-wrap">
-            <LiveStat value={live.entities} label="entities" />
-            <LiveStat value={live.edges} label="connections" />
-            <LiveStat value={live.matches} label="matches" />
-            <LiveStat value={live.apiCalls} label="API calls" />
-            <LiveStat value={live.depth} label="depth" />
-          </div>
-
-          {/* Resolution progress bar */}
-          {resolution && resolution.total > 0 && (
-            <div className="mt-5 pt-5 border-t border-white/5">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
-                  Screening against sanctions databases
-                </div>
-                <div className="text-[10px] font-mono text-ink-400 tabular-nums">
-                  {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} - {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
-                </div>
-              </div>
-              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-signal-clean rounded-full transition-all duration-500"
-                  style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Scoring step */}
-          {scoringStep && (
-            <div className="mt-5 pt-5 border-t border-white/5 flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-ink-50">{scoringStep.step}</div>
-                {scoringStep.detail && (
-                  <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
-                )}
-              </div>
-            </div>
-          )}
+        <div className="flex items-center gap-10 flex-wrap">
+          <LiveStat value={live.entities} label="entities" />
+          <LiveStat value={live.edges} label="connections" />
+          <LiveStat value={live.matches} label="matches" />
+          <LiveStat value={live.apiCalls} label="API calls" />
+          <LiveStat value={live.depth} label="depth" />
         </div>
 
-        {/* Sonar visualization - fills remaining space */}
-        <div className="flex-1 relative bg-ink-950/30">
+        {/* Resolution progress bar */}
+        {resolution && resolution.total > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
+                Screening against sanctions databases
+              </div>
+              <div className="text-[10px] font-mono text-ink-400 tabular-nums">
+                {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} - {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
+              </div>
+            </div>
+            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-signal-clean rounded-full transition-all duration-500"
+                style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Scoring step */}
+        {scoringStep && (
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-ink-50">{scoringStep.step}</div>
+              {scoringStep.detail && (
+                <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Sonar visualization */}
+        <div className="flex-1 relative border border-white/5 rounded-sm overflow-hidden min-h-[300px]">
           <MiniGraph entities={live.entities} edges={live.edges} />
         </div>
       </div>
