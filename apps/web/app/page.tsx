@@ -43,7 +43,20 @@ export default function Home() {
   const [activeIdx, setActiveIdx] = useState(-1);
   const [selectedHit, setSelectedHit] = useState<SearchHit | null>(null);
   const debounceRef = useRef<any>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // "/" keyboard shortcut to focus search
+  useEffect(() => {
+    function handleSlash(e: KeyboardEvent) {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener('keydown', handleSlash);
+    return () => window.removeEventListener('keydown', handleSlash);
+  }, []);
 
   // Fetch paginated investigation history
   useEffect(() => {
@@ -100,6 +113,19 @@ export default function Home() {
     setSelectedHit(hit);
     setShowDropdown(false);
     setQuery(hit.title);
+  }
+
+  async function handleDeleteInvestigation(id: string) {
+    const pwd = prompt('Enter password to delete:');
+    if (pwd !== 'delete') {
+      if (pwd !== null) alert('Incorrect password.');
+      return;
+    }
+    try {
+      await fetch(`${API}/api/investigations/${id}`, { method: 'DELETE' });
+      setRecent((prev) => prev.filter((i) => i.id !== id));
+      setRecentTotal((t) => Math.max(0, t - 1));
+    } catch {}
   }
 
   async function startInvestigation(q: string, tier: Tier = 'STANDARD') {
@@ -168,7 +194,7 @@ export default function Home() {
             <span className="text-ink-600">|</span>
             <a href="#sources" className="hover:text-ink-50 transition-colors">Sources</a>
             <span className="text-ink-600">|</span>
-            <a href="#recent" className="hover:text-ink-50 transition-colors">Recent</a>
+            <a href="#capabilities" className="hover:text-ink-50 transition-colors">Capabilities</a>
             <span className="text-ink-600">|</span>
             <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
             <span className="text-ink-600">|</span>
@@ -179,26 +205,39 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative pt-48 pb-32 px-8 max-w-6xl mx-auto">
-        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-8 reveal">
-          / 001 · Corporate intelligence engine
-        </div>
+        {/* Dot grid background */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)',
+            backgroundSize: '30px 30px',
+          }}
+        />
 
-        <h1 className="text-[clamp(2.25rem,5vw,4.5rem)] leading-[1] tracking-tight font-medium text-ink-50 reveal reveal-delay-1">
-          Know who&rsquo;s really
-          <br />
-          <span className="text-ink-400">behind it.</span>
-        </h1>
+        <div className="relative">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-8 reveal">
+            / 001 · Corporate intelligence engine
+          </div>
 
-        <p className="mt-10 text-lg text-ink-300 max-w-xl leading-relaxed reveal reveal-delay-2">
-          TraceGraph autonomously investigates UK companies across public data sources,
-          walks ownership and director networks, and produces a complete risk report:
-          shell patterns, sanctions exposure, and structural anomalies.
-        </p>
+          <h1 className="text-[clamp(2.25rem,5vw,4.5rem)] leading-[1] tracking-tight font-medium text-ink-50 reveal reveal-delay-1">
+            Enter a company.
+            <br />
+            <span className="text-ink-400">Uncover everything.</span>
+          </h1>
+
+          <p className="mt-10 text-lg text-ink-300 max-w-xl leading-relaxed reveal reveal-delay-2">
+            Trace ownership chains, detect shell networks, screen sanctions — from public data, in minutes.
+          </p>
+
+          <p className="mt-4 text-xs font-mono text-ink-500 reveal reveal-delay-2">
+            Mapping 6M+ UK companies · 4.1M sanctions entities · 770K+ offshore records · 20+ risk signals
+          </p>
 
         {/* Search */}
         <form onSubmit={submit} className="mt-12 max-w-2xl reveal reveal-delay-3 relative">
           <div className="relative group">
             <input
+              ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -206,14 +245,16 @@ export default function Home() {
               onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
               placeholder="Enter a UK company name or number..."
               autoComplete="off"
-              className="w-full px-6 py-5 pr-40 text-lg rounded-sm bg-ink-850 border border-white/10 text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
+              className="w-full px-6 py-5 pr-48 text-lg rounded-sm bg-ink-850 border border-white/10 text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
             />
+            {/* "/" shortcut hint */}
+            <span className="absolute right-36 top-1/2 -translate-y-1/2 text-[10px] font-mono text-ink-600 border border-white/10 rounded-sm px-1.5 py-0.5 pointer-events-none">/</span>
             <button
               type="submit"
               disabled={loading}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-3 bg-ink-50 text-ink-900 rounded-sm font-medium text-sm hover:bg-white disabled:opacity-50 transition-all"
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-3 bg-ink-50 text-ink-900 rounded-sm font-medium text-sm hover:bg-white disabled:opacity-50 transition-all group/btn"
             >
-              {loading ? 'Starting…' : 'Investigate →'}
+              {loading ? 'Starting…' : <span>Investigate <span className="inline-block transition-transform group-hover/btn:translate-x-1">→</span></span>}
             </button>
 
             {/* Dropdown */}
@@ -327,6 +368,7 @@ export default function Home() {
             </div>
           </div>
         )}
+        </div>
       </section>
 
       {/* Approach · three numbered cards */}
@@ -339,17 +381,17 @@ export default function Home() {
             <Approach
               n="001"
               title="Multi-source intelligence"
-              body="UK Companies House, OpenSanctions, and ICIJ OffshoreLeaks unified into one ownership graph with cross-source entity resolution."
+              body="UK Companies House, OpenSanctions (4M+ entities), and ICIJ OffshoreLeaks (770K+ officers) unified into one ownership graph with cross-source entity resolution and fuzzy matching."
             />
             <Approach
               n="002"
-              title="Recursive expansion"
-              body="BFS through directors, PSCs, and addresses with cycle detection, dedup, and large-corp pruning. Watch the network grow live."
+              title="Deep ownership tracing"
+              body="Recursive BFS through directors, PSCs, and addresses. UBO chain resolution traces corporate PSCs until reaching the natural person — computing effective ownership through layers."
             />
             <Approach
               n="003"
-              title="Risk detection"
-              body="Shell-company scoring, virtual office clusters, circular ownership, sanctions proximity, and temporal anomalies · every signal explained with evidence."
+              title="20+ risk detectors"
+              body="Shell scoring, filing health, phoenix companies, disqualified directors, jurisdiction risk, cross-directorship conflicts, dormant cycling, mass formation, account regression — every signal explained with evidence."
             />
           </div>
         </div>
@@ -361,21 +403,61 @@ export default function Home() {
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
             / 003 · Data sources
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 border border-white/5">
             <Source
               kind="LIVE API"
               title="UK Companies House"
-              body="Company profiles, officers, PSC, filing history. Rate-limited at 600 requests per 5 minutes."
+              body="Company profiles, officers, PSC, filing history, charges, disqualified directors register. 600 req/5 min."
             />
             <Source
-              kind="BULK JSON"
+              kind="4.1M ENTITIES"
               title="OpenSanctions"
-              body="Global sanctions, PEPs, criminal entities · FollowTheMoney schema, refreshed daily."
+              body="Global sanctions lists, PEPs, criminal entities. FollowTheMoney schema with fuzzy name matching."
             />
             <Source
-              kind="BULK CSV"
+              kind="770K+ RECORDS"
               title="ICIJ OffshoreLeaks"
-              body="Panama Papers, Paradise Papers, Pandora Papers, Bahamas Leaks · public ICIJ database."
+              body="Panama Papers, Paradise Papers, Pandora Papers, Bahamas Leaks. Entities, officers, intermediaries."
+            />
+            <Source
+              kind="BUILT-IN"
+              title="Jurisdiction risk DB"
+              body="Three-tier classification of 20+ jurisdictions. BVI, Cayman, Panama flagged HIGH. Jersey, Malta flagged MEDIUM."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Capabilities */}
+      <section id="capabilities" className="border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-24">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
+            / 004 · Intelligence capabilities
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5">
+            <Capability
+              title="UBO chain resolution"
+              body="Traces corporate PSC chains until reaching a natural person. Computes effective ownership %, flags offshore layers and dead ends."
+            />
+            <Capability
+              title="Filing health analysis"
+              body="Scores filing discipline, detects account-type regression, dormant cycling, and phoenix company patterns from CH filing history."
+            />
+            <Capability
+              title="Disqualified director check"
+              body="Every director is screened against the CH disqualified-officers register with fuzzy name matching. CRITICAL finding on hit."
+            />
+            <Capability
+              title="Cross-directorship conflicts"
+              body="Detects same-SIC competitor conflicts, incestuous director cliques, and dual-sided directors across business relationships."
+            />
+            <Capability
+              title="Watchlist monitoring"
+              body="Save companies to a watchlist and re-investigate on demand. Track risk score changes over time."
+            />
+            <Capability
+              title="Company comparison"
+              body="Compare two investigations side by side. Surfaces shared directors and addresses — hidden connections between supposedly unrelated companies."
             />
           </div>
         </div>
@@ -386,7 +468,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="flex items-baseline justify-between mb-8">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400">
-              / 004 · Investigation history
+              / 005 · Investigation history
             </div>
             <span className="text-xs text-ink-500 font-mono">{recentTotal} total</span>
           </div>
@@ -454,17 +536,17 @@ export default function Home() {
             <ul className="border-t border-white/5">
               {recent.map((inv) => (
                 <li key={inv.id} className="border-b border-white/5">
-                  <a
-                    href={`/investigate/${inv.id}`}
-                    className="grid grid-cols-12 gap-4 px-2 py-4 hover:bg-white/[0.02] transition-colors group items-center"
-                  >
-                    <div className="col-span-6 min-w-0 flex items-center gap-3">
+                  <div className="grid grid-cols-12 gap-4 px-2 py-4 hover:bg-white/[0.02] transition-colors group items-center">
+                    <a
+                      href={`/investigate/${inv.id}`}
+                      className="col-span-6 min-w-0 flex items-center gap-3"
+                    >
                       <Avatar name={inv.companyName || inv.query} type="company" size={32} />
                       <div className="text-base text-ink-50 truncate group-hover:translate-x-1 transition-transform">
                         {inv.companyName || inv.query}
                       </div>
-                    </div>
-                    <div className="col-span-3 text-xs font-mono text-ink-500 uppercase tracking-wider">
+                    </a>
+                    <div className="col-span-2 text-xs font-mono text-ink-500 uppercase tracking-wider">
                       {inv.status}
                     </div>
                     <div className="col-span-2 text-xs text-ink-500 font-mono">
@@ -473,7 +555,16 @@ export default function Home() {
                     <div className="col-span-1 text-right">
                       {inv.riskScore !== undefined && <RiskPill score={inv.riskScore} />}
                     </div>
-                  </a>
+                    <div className="col-span-1 text-right">
+                      <button
+                        onClick={() => handleDeleteInvestigation(inv.id)}
+                        className="text-ink-700 hover:text-signal-critical transition-colors text-sm"
+                        title="Delete investigation"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -583,6 +674,15 @@ function Source({ kind, title, body }: { kind: string; title: string; body: stri
       <div className="text-[10px] font-mono text-ink-500 tracking-[0.15em] mb-6">{kind}</div>
       <h3 className="text-xl font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
+    </div>
+  );
+}
+
+function Capability({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors">
+      <h3 className="text-sm font-medium tracking-tight text-ink-50 mb-2">{title}</h3>
+      <p className="text-xs text-ink-400 leading-relaxed">{body}</p>
     </div>
   );
 }
