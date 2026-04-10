@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { Avatar } from './Avatar';
 
 interface Props {
   status: string;
@@ -7,6 +8,8 @@ interface Props {
   resolution?: { processed: number; total: number; matches: number } | null;
   scoringStep?: { step: string; detail?: string } | null;
   startedAt?: string;
+  companyName?: string;
+  tier?: string;
 }
 
 const STAGES = [
@@ -21,48 +24,35 @@ const STAGES = [
 
 const ORDER = ['QUEUED', 'FETCHING', 'EXPANDING', 'EXPANDING_2', 'RESOLVING', 'RESOLVING_2', 'SCORING', 'SCORING_2', 'COMPLETE'];
 
-export function ProgressView({ status, live, resolution, scoringStep, startedAt }: Props) {
+export function ProgressView({ status, live, resolution, scoringStep, startedAt, companyName, tier }: Props) {
   const elapsed = useElapsed(startedAt);
 
   return (
     <div className="space-y-6">
-      {/* Elapsed strip · full width, sleek dashboard header */}
-      <div className="border border-white/5 bg-ink-850 px-6 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-8">
+      {/* ROW 1: company (left) + counters (right) */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Company box */}
+        <div className="border border-white/5 bg-ink-850 p-6 flex items-center gap-3 lg:w-64 lg:shrink-0">
+          <Avatar name={companyName || '?'} type="company" size={40} />
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Elapsed</div>
-            <div className="text-3xl font-medium text-ink-50 tabular-nums mt-1">{formatElapsed(elapsed)}</div>
-          </div>
-          <div className="h-10 w-px bg-white/10" />
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Stage</div>
-            <div className="text-sm text-ink-50 mt-1">
-              {(() => {
-                const MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
-                const idx = MAP[status];
-                return idx != null ? STAGES[idx]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
-              })()}
-            </div>
-          </div>
-          <div className="h-10 w-px bg-white/10" />
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Overall</div>
-            <div className="text-sm text-ink-50 tabular-nums mt-1">
-              {(() => {
-                const MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 };
-                return `${MAP[status] ?? 0}%`;
-              })()}
+            <div className="text-sm font-medium text-ink-50 leading-snug">{companyName || 'Loading...'}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-signal-clean animate-pulse" />
+              <span className="text-[9px] font-mono uppercase tracking-wider text-signal-clean">running</span>
+              {tier && (
+                <>
+                  <span className="text-ink-700 text-[9px]">-</span>
+                  <span className="text-[9px] font-mono uppercase tracking-wider text-ink-400">{tier === 'DEEP' ? 'Deep' : tier === 'QUICK' ? 'Quick' : 'Standard'}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
-          <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
-        </div>
-      </div>
+
+        {/* Counters box - fills remaining space */}
 
       {/* Live activity - counters + resolution bar + scoring step */}
-      <div className="border border-white/5 bg-ink-850 px-6 py-5">
+      <div className="border border-white/5 bg-ink-850 px-6 py-5 flex-1">
         <div className="flex items-center gap-8 flex-wrap">
           <div>
             <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.entities.toLocaleString()}</div>
@@ -111,10 +101,45 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
         )}
       </div>
 
-      {/* 2-column: stages left, visualization right */}
+      {/* ROW 2: progress info (left) + pipeline & sonar (right) */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Progress box */}
+        <div className="border border-white/5 bg-ink-850 p-6 flex flex-col gap-6 lg:w-64 lg:shrink-0">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Elapsed</div>
+            <div className="text-3xl font-medium text-ink-50 tabular-nums">{formatElapsed(elapsed)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Stage</div>
+            <div className="text-sm text-ink-50">
+              {(() => {
+                const MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
+                const idx = MAP[status];
+                return idx != null ? STAGES[idx]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
+              })()}
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Overall</div>
+              <div className="text-[10px] font-mono text-ink-400 tabular-nums">
+                {(() => {
+                  const MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 };
+                  return `${MAP[status] ?? 0}%`;
+                })()}
+              </div>
+            </div>
+            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full bg-signal-clean rounded-full transition-all duration-700" style={{ width: `${(() => { const MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 }; return MAP[status] ?? 0; })()}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Pipeline + sonar stacked */}
+        <div className="space-y-6 flex-1 min-w-0">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT: stages */}
-        <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6">
+        <div className="lg:col-span-6 border border-white/5 bg-ink-850 p-6">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">/ Pipeline</div>
           <ol>
             {STAGES.map((stage, i) => {
@@ -157,7 +182,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
         </div>
 
         {/* RIGHT: visualization */}
-        <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col">
+        <div className="lg:col-span-6 border border-white/5 bg-ink-850 flex flex-col">
           <div className="px-6 pt-6">
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
@@ -171,7 +196,8 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
           </div>
         </div>
       </div>
-
+        </div>
+      </div>
     </div>
   );
 }

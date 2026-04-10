@@ -130,14 +130,8 @@ export default function InvestigatePage() {
     return (
       <main className="min-h-screen">
         <NavBar />
-        <div className="px-8 py-12 max-w-7xl mx-auto">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Investigation in progress</div>
-          <div className="flex items-center gap-4 mb-12">
-            <Avatar name={data.companyName || data.query} type="company" size={36} />
-            <h1 className="text-xl font-medium tracking-tight text-ink-50">{data.companyName || data.query}</h1>
-            {data.tier && <TierBadge tier={data.tier} />}
-          </div>
-          <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} />
+        <div className="px-8 py-8 max-w-7xl mx-auto">
+          <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} companyName={data.companyName || data.query} tier={data.tier} />
         </div>
       </main>
     );
