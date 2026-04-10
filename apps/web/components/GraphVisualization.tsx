@@ -190,7 +190,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
   const { visibleNodes, visibleLinks, totalAfterFilters, pathInfo } = useMemo(() => {
     if (nodes.length === 0) return { visibleNodes: [], visibleLinks: [], totalAfterFilters: 0, pathInfo: null as any };
 
-    // ─── PATH MODE — highest priority ───
+    // ─── PATH MODE - highest priority ───
     const findByQuery = (q: string) => {
       const ql = q.toLowerCase().trim();
       if (!ql) return null;
@@ -389,7 +389,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
       }
     }
 
-    // Pattern highlight set — these get a brighter render when a pattern is active
+    // Pattern highlight set - these get a brighter render when a pattern is active
     const patternSet = activePattern ? activePattern.nodeIds : null;
     const isInPattern = (id: string) => !patternSet || patternSet.has(id) || id === rootId;
 
@@ -516,7 +516,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
         .attr('stroke-dasharray', '3,2');
     }
 
-    // Jurisdiction risk tag — small colored pill above HIGH / MEDIUM nodes
+    // Jurisdiction risk tag - small colored pill above HIGH / MEDIUM nodes
     nodeGroup
       .filter((d) => d.jurisdictionRisk === 'HIGH' || d.jurisdictionRisk === 'MEDIUM')
       .append('text')
@@ -549,7 +549,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
       .attr('letter-spacing', '0.05em')
       .attr('pointer-events', 'none');
 
-    // Name labels — root + larger nodes only
+    // Name labels - root + larger nodes only
     nodeGroup
       .filter((d) => d.id === rootId || nodeRadius(d, false) >= 9 || matchSet.has(d.id))
       .append('text')
@@ -598,7 +598,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
 
         {patterns.length === 0 ? (
           <div className="text-xs font-mono text-ink-500 py-4 border border-dashed border-white/5 px-3">
-            no structural patterns detected — try "show all" below
+            no structural patterns detected - try "show all" below
           </div>
         ) : (
           <div className="space-y-1.5">

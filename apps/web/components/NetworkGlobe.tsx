@@ -19,7 +19,7 @@ interface Props {
 
 /**
  * Renders the Aceternity Globe3D positioned absolutely so the parent card
- * can crop the bottom of the sphere — the signature aceternity "half-globe
+ * can crop the bottom of the sphere - the signature aceternity "half-globe
  * rising from the bottom" look. Parent must be `relative` and `overflow-hidden`.
  */
 export function NetworkGlobe({ markers = [] }: Props) {

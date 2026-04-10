@@ -146,7 +146,7 @@ function ChainCard({ chain }: { chain: UboChain }) {
         ))}
       </div>
 
-      {/* Path — UBO at top, root company at bottom */}
+      {/* Path - UBO at top, root company at bottom */}
       <ol className="space-y-1">
         {chain.path.map((node, i) => {
           const isLast = i === chain.path.length - 1;

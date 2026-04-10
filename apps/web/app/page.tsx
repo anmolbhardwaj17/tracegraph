@@ -206,7 +206,7 @@ export default function Home() {
           </h1>
 
           <p className="mt-10 text-lg text-ink-300 max-w-xl leading-relaxed reveal reveal-delay-2">
-            Trace ownership chains, detect shell networks, screen sanctions — from public data, in minutes.
+            Trace ownership chains, detect shell networks, screen sanctions - from public data, in minutes.
           </p>
 
           <div className="mt-6 flex items-center gap-6 text-xs font-mono text-ink-500 reveal reveal-delay-2 flex-wrap">
@@ -360,7 +360,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Beyond the report — feature strip */}
+      {/* Beyond the report - feature strip */}
       <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
@@ -382,14 +382,14 @@ export default function Home() {
         </div>
       </section>
 
-      {/* What it detects — merged capabilities */}
+      {/* What it detects - merged capabilities */}
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
             / 003 · What it detects
           </div>
           <p className="text-sm text-ink-400 mb-12 max-w-2xl">
-            20+ automated risk signals from three data sources — UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
+            20+ automated risk signals from three data sources - UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Capability title="Shell company networks" body="Multi-factor scoring: director count, rapid dissolutions, dormant accounts, virtual office addresses, micro-entity filings." />
@@ -481,7 +481,7 @@ export default function Home() {
 
           {/* Copyright + subtle easter egg */}
           <div className="text-center text-[10px] font-mono text-ink-700">
-            © 2026 TraceGraph · Every company tells a story — we read between the filings.
+            © 2026 TraceGraph · Every company tells a story - we read between the filings.
           </div>
         </div>
       </footer>

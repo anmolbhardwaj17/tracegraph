@@ -122,7 +122,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
         </div>
       </div>
 
-      {/* Live activity banner — shows during resolution */}
+      {/* Live activity banner - shows during resolution */}
       {resolution && resolution.total > 0 && (
         <div className="border border-white/5 bg-ink-850 px-6 py-4">
           <div className="flex items-center justify-between mb-2">
@@ -315,7 +315,7 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       }
       pulsesRef.current = livePulses;
 
-      // Blips — permanent, never fade out
+      // Blips - permanent, never fade out
       const liveBlips: Blip[] = [];
       for (const b of blipsRef.current) {
         const age = now - b.bornAt;

@@ -109,13 +109,13 @@ export default function WatchlistPage() {
                       {item.lastRiskScore}
                     </span>
                   ) : (
-                    <span className="text-[10px] font-mono text-ink-600">—</span>
+                    <span className="text-[10px] font-mono text-ink-600">-</span>
                   )}
                 </div>
                 <div className="col-span-2 text-[10px] font-mono text-ink-500">
                   {item.lastInvestigatedAt
                     ? new Date(item.lastInvestigatedAt).toLocaleDateString()
-                    : '—'}
+                    : '-'}
                 </div>
                 <div className="col-span-2 text-[10px] font-mono text-ink-500">
                   {new Date(item.createdAt).toLocaleDateString()}

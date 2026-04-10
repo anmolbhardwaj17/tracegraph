@@ -55,7 +55,7 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
     return Array.from(set).sort();
   }, [findings]);
 
-  // Top affected entities — leaderboard (resolved to labels, duplicates collapsed)
+  // Top affected entities - leaderboard (resolved to labels, duplicates collapsed)
   const topEntities = useMemo(() => {
     const tally = new Map<string, { count: number; raws: Set<string> }>();
     for (const f of findings) {
@@ -113,7 +113,7 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
 
   return (
     <div className="space-y-6">
-      {/* A. Severity strip — clickable */}
+      {/* A. Severity strip - clickable */}
       <section>
         <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">
           / Severity distribution · {findings.length} total findings · click a band to filter

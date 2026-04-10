@@ -358,7 +358,7 @@ function OverviewTab({ data, investigationId }: { data: Investigation; investiga
         <div className="flex flex-col">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Geographic footprint</div>
           <div className="relative border border-white/5 bg-ink-850 flex-1 overflow-hidden min-h-[380px]">
-            {/* Header text — sits on top of the globe, anchored to top-left corner */}
+            {/* Header text - sits on top of the globe, anchored to top-left corner */}
             <div className="absolute top-5 left-5 z-10">
               <div className="flex items-baseline gap-3">
                 <span className="text-5xl font-medium text-ink-50 tabular-nums">{globeMarkers.length}</span>
@@ -380,10 +380,10 @@ function OverviewTab({ data, investigationId }: { data: Investigation; investiga
         </div>
       </section>
 
-      {/* ===== 3. AI INSIGHTS — narrative right after the score so it explains "why" in plain English ===== */}
+      {/* ===== 3. AI INSIGHTS - narrative right after the score so it explains "why" in plain English ===== */}
       <Insights investigationId={investigationId} />
 
-      {/* ===== 4. HOT SPOTS — the named offenders, immediately after the narrative ===== */}
+      {/* ===== 4. HOT SPOTS - the named offenders, immediately after the narrative ===== */}
       {(hotSpots.topPerson || hotSpots.topAddress || hotSpots.topMatch) && (
         <section>
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Hot spots</div>
@@ -597,7 +597,7 @@ function formatDurationSec(s: number): string {
 }
 
 /**
- * Client-side score breakdown — mirrors the backend's calculateScoreBreakdown.
+ * Client-side score breakdown - mirrors the backend's calculateScoreBreakdown.
  * Used as a fallback for investigations completed before the breakdown was
  * being persisted by the API.
  */
@@ -627,7 +627,7 @@ function computeBreakdownFromData(data: Investigation, fallbackTotal: number) {
     if (n.proximityScore === 'MEDIUM' && n.proximityHops === 2) sanctions = Math.min(40, Math.max(sanctions, 10));
   }
 
-  // ---- Structural component (max 35) — derive presence from findings ----
+  // ---- Structural component (max 35) - derive presence from findings ----
   const findings = data.findings || [];
   const hasCycle = findings.some((f) => f.type === 'CIRCULAR_OWNERSHIP');
   if (hasCycle) structural += 25;
@@ -704,7 +704,7 @@ function GraphTab({ graph, onSelect, selected, data }: { graph: any; onSelect: (
 
   return (
     <div className="space-y-4">
-      {/* Compact one-line caption — replaces the bulky narrative strip */}
+      {/* Compact one-line caption - replaces the bulky narrative strip */}
       <div className="flex items-center justify-between text-[10px] font-mono text-ink-500 px-1">
         <div className="flex items-center gap-3 flex-wrap">
           <span><span className="text-ink-300">{graph.nodes.length.toLocaleString()}</span> nodes</span>

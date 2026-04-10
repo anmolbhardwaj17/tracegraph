@@ -198,7 +198,7 @@ function SummaryCard({ data, label }: { data: CompanySummary; label: string }) {
 
       <div className="flex items-end gap-6">
         <div>
-          <div className={`text-4xl font-medium tabular-nums ${scoreColor(data.riskScore || 0)}`}>{data.riskScore ?? '—'}</div>
+          <div className={`text-4xl font-medium tabular-nums ${scoreColor(data.riskScore || 0)}`}>{data.riskScore ?? '-'}</div>
           <div className="text-[10px] font-mono text-ink-500 mt-1">risk score</div>
         </div>
         <div>
