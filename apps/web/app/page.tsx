@@ -136,17 +136,19 @@ export default function Home() {
             <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
             <span className="text-sm tracking-tight">TraceGraph</span>
           </div>
-          <nav className="flex items-center gap-8 text-sm text-ink-300 reveal reveal-delay-1">
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-6 text-sm text-ink-300 reveal reveal-delay-1">
             <a href="#approach" className="hover:text-ink-50 transition-colors">Approach</a>
-            <span className="text-ink-600">|</span>
             <a href="#sources" className="hover:text-ink-50 transition-colors">Sources</a>
-            <span className="text-ink-600">|</span>
             <a href="#capabilities" className="hover:text-ink-50 transition-colors">Capabilities</a>
-            <span className="text-ink-600">|</span>
-            <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
-            <span className="text-ink-600">|</span>
+            <span className="text-ink-700">|</span>
+            <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
             <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
+            <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
+            <a href="/api/docs" className="hover:text-ink-50 transition-colors text-ink-500">API Docs</a>
           </nav>
+          {/* Mobile hamburger */}
+          <MobileMenu />
         </div>
       </header>
 
@@ -688,6 +690,39 @@ function Capability({ title, body }: { title: string; body: string }) {
     <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors">
       <h3 className="text-sm font-medium tracking-tight text-ink-50 mb-2">{title}</h3>
       <p className="text-xs text-ink-400 leading-relaxed">{body}</p>
+    </div>
+  );
+}
+
+function MobileMenu() {
+  const [open, setOpen] = useState(false);
+  const links = [
+    { href: '#approach', label: 'Approach' },
+    { href: '#sources', label: 'Sources' },
+    { href: '#capabilities', label: 'Capabilities' },
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/compare', label: 'Compare' },
+    { href: '/watchlist', label: 'Watchlist' },
+    { href: '/api/docs', label: 'API Docs' },
+  ];
+  return (
+    <div className="md:hidden">
+      <button onClick={() => setOpen(!open)} className="text-ink-300 hover:text-ink-50 transition-colors p-1">
+        {open ? (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.5" /></svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" strokeWidth="1.5" /></svg>
+        )}
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 right-0 bg-ink-900/95 backdrop-blur-md border-b border-white/5 py-4 px-8">
+          {links.map((l) => (
+            <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="block py-2 text-sm text-ink-300 hover:text-ink-50 transition-colors">
+              {l.label}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
