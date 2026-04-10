@@ -37,7 +37,6 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
     <div className="space-y-6">
       {/* ROW 1: company (left) + counters (right) */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Company box */}
         <div className="border border-white/5 bg-ink-850 p-6 flex items-center gap-3 lg:w-64 lg:shrink-0">
           <Avatar name={companyName || '?'} type="company" size={40} />
           <div>
@@ -54,62 +53,50 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             </div>
           </div>
         </div>
-
-        {/* Counters box - fills remaining space */}
-
-      {/* Live activity - counters + resolution bar + scoring step */}
-      <div className="border border-white/5 bg-ink-850 px-6 py-5 flex-1">
-        <div className="flex items-center gap-8 flex-wrap">
-          <div>
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.entities.toLocaleString()}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">entities</div>
+        <div className="border border-white/5 bg-ink-850 px-6 py-5 flex-1">
+          <div className="flex items-center gap-8 flex-wrap">
+            <div>
+              <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.entities.toLocaleString()}</div>
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">entities</div>
+            </div>
+            <div>
+              <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.edges.toLocaleString()}</div>
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">connections</div>
+            </div>
+            <div>
+              <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.matches}</div>
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">matches</div>
+            </div>
+            <div>
+              <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.apiCalls.toLocaleString()}</div>
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">API calls</div>
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.edges.toLocaleString()}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">connections</div>
-          </div>
-          <div>
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.matches}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">matches</div>
-          </div>
-          <div>
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.apiCalls.toLocaleString()}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">API calls</div>
-          </div>
+          {resolution && resolution.total > 0 && (
+            <div className="mt-5 pt-5 border-t border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Screening entities against sanctions databases</div>
+                <div className="text-[10px] font-mono text-ink-400 tabular-nums">{resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} - {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}</div>
+              </div>
+              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-signal-clean rounded-full transition-all duration-500" style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }} />
+              </div>
+            </div>
+          )}
+          {scoringStep && (
+            <div className="mt-5 pt-5 border-t border-white/5 flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-ink-50">{scoringStep.step}</div>
+                {scoringStep.detail && <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>}
+              </div>
+            </div>
+          )}
         </div>
-
-        {resolution && resolution.total > 0 && (
-          <div className="mt-5 pt-5 border-t border-white/5">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
-                / Screening entities against sanctions databases
-              </div>
-              <div className="text-[10px] font-mono text-ink-400 tabular-nums">
-                {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} - {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
-              </div>
-            </div>
-            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-              <div className="h-full bg-signal-clean rounded-full transition-all duration-500" style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }} />
-            </div>
-          </div>
-        )}
-
-        {scoringStep && (
-          <div className="mt-5 pt-5 border-t border-white/5 flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-ink-50">{scoringStep.step}</div>
-              {scoringStep.detail && (
-                <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ROW 2: progress info (left) + pipeline & sonar (right) */}
+      {/* ROW 2: progress (left) + pipeline & sonar (right) */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Progress box */}
         <div className="border border-white/5 bg-ink-850 p-6 flex flex-col gap-6 lg:w-64 lg:shrink-0">
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Elapsed</div>
@@ -122,67 +109,48 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Overall</div>
-              <div className="text-[10px] font-mono text-ink-400 tabular-nums">{overallPct}%
-              </div>
+              <div className="text-[10px] font-mono text-ink-400 tabular-nums">{overallPct}%</div>
             </div>
             <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
               <div className="h-full bg-signal-clean rounded-full transition-all duration-700" style={{ width: `${overallPct}%` }} />
             </div>
           </div>
         </div>
-
-        {/* Pipeline + sonar stacked */}
-        <div className="space-y-6 flex-1 min-w-0">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT: stages */}
-        <div className="lg:col-span-6 border border-white/5 bg-ink-850 p-6">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">/ Pipeline</div>
-          <ol>
-            {STAGES.map((stage, i) => {
-              const activeIdx = ACTIVE_MAP[status] ?? -1;
-              const isActive = i === activeIdx;
-              const isDone = i < activeIdx;
-              return (
-                <li key={stage.key} className="border-b border-white/5 last:border-b-0 py-4 flex items-center gap-4">
-                  <div className="text-[10px] font-mono text-ink-500 w-8">/{String(i + 1).padStart(3, '0')}</div>
-                  <div
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      isDone
-                        ? 'bg-signal-clean'
-                        : isActive
-                        ? 'bg-ink-50 animate-pulse shadow-[0_0_10px_rgba(245,245,245,0.6)]'
-                        : 'bg-white/10'
-                    }`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-sm ${isActive ? 'text-ink-50' : isDone ? 'text-ink-300' : 'text-ink-500'}`}>
-                      {stage.label}
-                    </div>
-                    <div className="text-[10px] font-mono text-ink-500 mt-0.5">{stage.hint}</div>
-                  </div>
-                  {isActive && <span className="text-[10px] font-mono text-ink-400 uppercase tracking-wider shrink-0 whitespace-nowrap">in progress</span>}
-                  {isDone && <span className="text-[10px] font-mono text-signal-clean uppercase tracking-wider shrink-0 whitespace-nowrap">complete</span>}
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-
-        {/* RIGHT: visualization */}
-        <div className="lg:col-span-6 border border-white/5 bg-ink-850 flex flex-col">
-          <div className="px-6 pt-6">
-            <div className="flex items-center justify-between">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
-              <div className="text-[10px] font-mono text-ink-500 tabular-nums">
-                {live.entities.toLocaleString()} entities · {live.edges.toLocaleString()} connections
+        <div className="flex-1 min-w-0 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-6 border border-white/5 bg-ink-850 p-6">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">/ Pipeline</div>
+              <ol>
+                {STAGES.map((stage, i) => {
+                  const activeIdx = ACTIVE_MAP[status] ?? -1;
+                  const isActive = i === activeIdx;
+                  const isDone = i < activeIdx;
+                  return (
+                    <li key={stage.key} className="border-b border-white/5 last:border-b-0 py-4 flex items-center gap-4">
+                      <div className="text-[10px] font-mono text-ink-500 w-8">/{String(i + 1).padStart(3, '0')}</div>
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isDone ? 'bg-signal-clean' : isActive ? 'bg-ink-50 animate-pulse shadow-[0_0_10px_rgba(245,245,245,0.6)]' : 'bg-white/10'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm ${isActive ? 'text-ink-50' : isDone ? 'text-ink-300' : 'text-ink-500'}`}>{stage.label}</div>
+                      </div>
+                      {isActive && <span className="text-[10px] font-mono text-ink-400 uppercase tracking-wider shrink-0 whitespace-nowrap">in progress</span>}
+                      {isDone && <span className="text-[10px] font-mono text-signal-clean uppercase tracking-wider shrink-0 whitespace-nowrap">complete</span>}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+            <div className="lg:col-span-6 border border-white/5 bg-ink-850 flex flex-col">
+              <div className="px-6 pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
+                  <div className="text-[10px] font-mono text-ink-500 tabular-nums">{live.entities.toLocaleString()} entities - {live.edges.toLocaleString()} connections</div>
+                </div>
+              </div>
+              <div className="flex-1 min-h-[360px] relative">
+                <MiniGraph entities={live.entities} edges={live.edges} />
               </div>
             </div>
           </div>
-          <div className="flex-1 min-h-[360px] relative">
-            <MiniGraph entities={live.entities} edges={live.edges} />
-          </div>
-        </div>
-      </div>
         </div>
       </div>
     </div>
