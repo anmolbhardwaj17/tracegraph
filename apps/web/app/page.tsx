@@ -1,7 +1,11 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { EncryptedText } from '../components/ui/encrypted-text';
+import dynamic from 'next/dynamic';
+const EncryptedText = dynamic(
+  () => import('../components/ui/encrypted-text').then((m) => m.EncryptedText),
+  { ssr: false, loading: () => <span className="text-ink-400">Uncover everything.</span> },
+);
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
