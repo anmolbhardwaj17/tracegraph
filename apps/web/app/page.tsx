@@ -487,7 +487,7 @@ export default function Home() {
 
           {/* Copyright */}
           <div className="text-center text-[10px] font-mono text-ink-500">
-            © 2026 TraceGraph
+            © 2026 TraceGraph · Every company tells a story - we read between the filings.
           </div>
         </div>
       </footer>
