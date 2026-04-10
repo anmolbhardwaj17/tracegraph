@@ -128,27 +128,32 @@ export default function InvestigatePage() {
 
   if (isRunning) {
     return (
-      <main className="min-h-screen px-8 py-12 max-w-7xl mx-auto">
-        <a href="/" className="text-xs text-ink-500 hover:text-ink-50 transition-colors font-mono">← back</a>
-        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mt-12 mb-4">/ Investigation in progress</div>
-        <div className="flex items-center gap-4 mb-12">
-          <Avatar name={data.companyName || data.query} type="company" size={48} />
-          <h1 className="text-4xl font-medium tracking-tight text-ink-50">{data.companyName || data.query}</h1>
-          {data.tier && <TierBadge tier={data.tier} />}
+      <main className="min-h-screen">
+        <NavBar />
+        <div className="px-8 py-12 max-w-7xl mx-auto">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Investigation in progress</div>
+          <div className="flex items-center gap-4 mb-12">
+            <Avatar name={data.companyName || data.query} type="company" size={48} />
+            <h1 className="text-4xl font-medium tracking-tight text-ink-50">{data.companyName || data.query}</h1>
+            {data.tier && <TierBadge tier={data.tier} />}
+          </div>
+          <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} />
         </div>
-        <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} />
       </main>
     );
   }
 
   if (data.status === 'FAILED') {
     return (
-      <main className="min-h-screen flex items-center justify-center px-6">
-        <div className="text-center max-w-md">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Failed</div>
-          <div className="text-signal-critical text-2xl font-medium">Investigation failed</div>
-          <div className="text-ink-300 mt-3 text-sm">{data.error || 'Unknown error'}</div>
-          <a href="/" className="inline-block mt-8 px-5 py-2.5 bg-ink-50 text-ink-900 rounded-sm text-sm font-medium hover:bg-white transition-colors">New search</a>
+      <main className="min-h-screen">
+        <NavBar />
+        <div className="flex items-center justify-center px-6" style={{ minHeight: 'calc(100vh - 57px)' }}>
+          <div className="text-center max-w-md">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Failed</div>
+            <div className="text-signal-critical text-2xl font-medium">Investigation failed</div>
+            <div className="text-ink-300 mt-3 text-sm">{data.error || 'Unknown error'}</div>
+            <a href="/" className="inline-block mt-8 px-5 py-2.5 bg-ink-50 text-ink-900 rounded-sm text-sm font-medium hover:bg-white transition-colors">New search</a>
+          </div>
         </div>
       </main>
     );
@@ -156,20 +161,7 @@ export default function InvestigatePage() {
 
   return (
     <main className="min-h-screen">
-      {/* Global nav */}
-      <nav className="sticky top-0 z-30 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
-            <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
-          </a>
-          <div className="flex items-center gap-6 text-sm text-ink-300">
-            <a href="/dashboard" className="hover:text-ink-50 transition-colors hidden sm:block">Dashboard</a>
-            <a href="/compare" className="hover:text-ink-50 transition-colors hidden sm:block">Compare</a>
-            <a href="/watchlist" className="hover:text-ink-50 transition-colors hidden sm:block">Watchlist</a>
-          </div>
-        </div>
-      </nav>
+      <NavBar />
 
       {/* Investigation header */}
       <header className="sticky top-[57px] z-20 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
@@ -973,6 +965,24 @@ function WatchButton({ companyNumber, companyName, investigationId, riskScore }:
     >
       {watching ? '…' : done ? '✓ watching' : '+ watch'}
     </button>
+  );
+}
+
+function NavBar() {
+  return (
+    <nav className="sticky top-0 z-30 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
+      <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+        <a href="/" className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
+          <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
+        </a>
+        <div className="flex items-center gap-6 text-sm text-ink-300">
+          <a href="/dashboard" className="hover:text-ink-50 transition-colors hidden sm:block">Dashboard</a>
+          <a href="/compare" className="hover:text-ink-50 transition-colors hidden sm:block">Compare</a>
+          <a href="/watchlist" className="hover:text-ink-50 transition-colors hidden sm:block">Watchlist</a>
+        </div>
+      </div>
+    </nav>
   );
 }
 
