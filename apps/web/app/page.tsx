@@ -600,28 +600,23 @@ export default function Home() {
               </button>
             </div>
           </form>
-          <div className="mt-8 flex items-center justify-center text-xs font-mono text-ink-500">
-            <a href="/api/docs" className="hover:text-ink-50 transition-colors">View documentation →</a>
-          </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-ink-500 font-mono">
-          <div>© 2026 TraceGraph</div>
-          <div className="text-center text-ink-600">
-            UK Companies House · OpenSanctions · ICIJ OffshoreLeaks
-          </div>
-          <div className="flex items-center justify-end gap-4">
-            <a href="/api/docs" className="hover:text-ink-50 transition-colors">Documentation →</a>
-            <span className="text-ink-700">·</span>
-            <a href="#" className="hover:text-ink-50 transition-colors">GitHub →</a>
+        <div className="max-w-6xl mx-auto px-8 py-16 text-center space-y-4 text-xs font-mono text-ink-500">
+          <div className="flex items-center justify-center gap-6">
+            <a href="#" className="hover:text-ink-50 transition-colors">GitHub</a>
             <span className="text-ink-700">·</span>
             <a href="https://anmolbhardwaj.in" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">
-              Anmol Bhardwaj →
+              Anmol Bhardwaj
             </a>
           </div>
+          <div className="text-ink-600">
+            UK Companies House · OpenSanctions · ICIJ OffshoreLeaks
+          </div>
+          <div className="text-ink-700">© 2026 TraceGraph</div>
         </div>
       </footer>
     </main>
