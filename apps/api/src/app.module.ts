@@ -16,6 +16,7 @@ import { InsightsModule } from './modules/insights/insights.module';
 import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { DatasetsModule } from './modules/datasets/datasets.module';
 import { LogosModule } from './modules/logos/logos.module';
+import { WatchlistModule } from './modules/watchlist/watchlist.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { LogosModule } from './modules/logos/logos.module';
     GeocodingModule,
     DatasetsModule,
     LogosModule,
+    WatchlistModule,
     InvestigationModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

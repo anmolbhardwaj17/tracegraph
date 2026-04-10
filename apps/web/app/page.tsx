@@ -146,6 +146,8 @@ export default function Home() {
             <a href="#sources" className="hover:text-ink-50 transition-colors">Sources</a>
             <span className="text-ink-600">|</span>
             <a href="#recent" className="hover:text-ink-50 transition-colors">Recent</a>
+            <span className="text-ink-600">|</span>
+            <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
           </nav>
         </div>
       </header>

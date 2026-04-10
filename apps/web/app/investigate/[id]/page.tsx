@@ -158,6 +158,12 @@ export default function InvestigatePage() {
             )}
           </div>
           <div className="flex items-center gap-3">
+            <WatchButton
+              companyNumber={(data as any).rootCompanyNumber}
+              companyName={data.companyName || data.query}
+              investigationId={id}
+              riskScore={data.riskScore}
+            />
             <ExportButton investigationId={id} />
           </div>
         </div>
@@ -900,6 +906,47 @@ function GraphNarrativeStrip({ narrative }: { narrative: Narrative }) {
         click any node to explore its connections  ·  drag to reposition  ·  scroll to zoom
       </div>
     </div>
+  );
+}
+
+function WatchButton({ companyNumber, companyName, investigationId, riskScore }: {
+  companyNumber?: string; companyName: string; investigationId: string; riskScore?: number;
+}) {
+  const [watching, setWatching] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function toggle() {
+    if (!companyNumber) return;
+    setWatching(true);
+    try {
+      if (done) {
+        await fetch(`${API}/api/watchlist/${companyNumber}`, { method: 'DELETE' });
+        setDone(false);
+      } else {
+        await fetch(`${API}/api/watchlist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyNumber, companyName, investigationId, riskScore }),
+        });
+        setDone(true);
+      }
+    } catch {}
+    setWatching(false);
+  }
+
+  if (!companyNumber) return null;
+  return (
+    <button
+      onClick={toggle}
+      disabled={watching}
+      className={`text-[10px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-sm border transition-colors ${
+        done
+          ? 'bg-signal-clean/15 text-signal-clean border-signal-clean/30'
+          : 'bg-ink-900 text-ink-400 border-white/10 hover:border-white/30'
+      } disabled:opacity-50`}
+    >
+      {watching ? '…' : done ? '✓ watching' : '+ watch'}
+    </button>
   );
 }
 

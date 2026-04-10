@@ -18,6 +18,7 @@ import { OffshoreRelationship } from './modules/offshore-leaks/entities/offshore
 import { EntityMatch } from './modules/entity-resolution/entities/entity-match.entity';
 import { GeocodeCache } from './modules/geocoding/entities/geocode-cache.entity';
 import { LogoCache } from './modules/logos/entities/logo-cache.entity';
+import { WatchlistItem } from './modules/watchlist/entities/watchlist-item.entity';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -26,7 +27,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.POSTGRES_USER || 'tracegraph',
   password: process.env.POSTGRES_PASSWORD || 'tracegraph',
   database: process.env.POSTGRES_DB || 'tracegraph',
-  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache],
+  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache, WatchlistItem],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,
