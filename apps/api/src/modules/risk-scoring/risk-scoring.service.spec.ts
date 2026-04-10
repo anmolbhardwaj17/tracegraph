@@ -4,7 +4,7 @@ import { Finding, classifyOverall } from './finding.types';
 describe('RiskScoringService.aggregateScore (legacy weight sum)', () => {
   const svc = new RiskScoringService(
     {} as any, {} as any, {} as any, {} as any,
-    {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any,
+    {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any,
   );
 
   const f = (severity: Finding['severity']): Finding => ({
@@ -49,7 +49,7 @@ describe('classifyOverall', () => {
 describe('RiskScoringService.calculateScore (component model)', () => {
   const svc = new RiskScoringService(
     {} as any, {} as any, {} as any, {} as any,
-    {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any,
+    {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any,
   );
 
   function profile(p: string) {

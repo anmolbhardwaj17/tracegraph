@@ -70,6 +70,10 @@ export class CompaniesHouseService {
     return this.request(`/disqualified-officers/natural/${encodeURIComponent(officerId)}`);
   }
 
+  async getCharges(companyNumber: string): Promise<any> {
+    return this.request(`/company/${encodeURIComponent(companyNumber)}/charges`);
+  }
+
   private async request(path: string): Promise<any> {
     const cacheKey = `ch:${path}`;
     const cached = await this.redis.get(cacheKey);

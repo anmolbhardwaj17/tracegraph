@@ -15,6 +15,7 @@ import { DirectorRiskService } from '../anomaly/director-risk.service';
 import { FilingHealthService } from '../anomaly/filing-health.service';
 import { DisqualifiedDirectorService } from '../anomaly/disqualified-director.service';
 import { JurisdictionRiskService } from '../anomaly/jurisdiction-risk.service';
+import { CompanyAgeAnomalyService } from '../anomaly/company-age-anomaly.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -36,6 +37,7 @@ export class RiskScoringService {
     private readonly filingHealth: FilingHealthService,
     private readonly disqualifiedDirectors: DisqualifiedDirectorService,
     private readonly jurisdictionRisk: JurisdictionRiskService,
+    private readonly companyAge: CompanyAgeAnomalyService,
   ) {}
 
   async run(investigationId: string): Promise<{ score: number; findings: Finding[] }> {
@@ -51,6 +53,7 @@ export class RiskScoringService {
     const existingProgress = await this.getProgress(investigationId);
     const uboChains: any[] = (existingProgress as any).uboChains || [];
     const jurisdictionResult = await this.jurisdictionRisk.tagAll(investigationId, uboChains);
+    const ageAnomalies = await this.companyAge.detect(investigationId);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -360,6 +363,74 @@ export class RiskScoringService {
         ],
         affectedEntities: [p.predecessorCompanyId, p.successorCompanyId],
         recommendation: 'Phoenix patterns are commonly used to shed liabilities and restart trading; review motive.',
+      });
+    }
+
+    // ---- SHELF COMPANY (old dormant + sudden director churn) ----
+    for (const s of ageAnomalies.shelfPurchases) {
+      findings.push({
+        type: 'SHELF_COMPANY_PURCHASE',
+        severity: 'HIGH',
+        confidence: 'MEDIUM',
+        title: `${s.companyLabel} (${s.ageYears}y old) revived after dormancy`,
+        description: `${s.companyLabel} has been dormant or filing-inactive for most of its ${s.ageYears}-year history but recently saw ${s.recentDirectorChanges} director appointments / changes. Pattern is consistent with the purchase of a "shelf company" to acquire instant historical credibility.`,
+        evidence: s.evidence,
+        affectedEntities: [s.companyId],
+        recommendation: 'Verify the buyers, the substance of new operations, and any change of beneficial ownership not yet filed.',
+      });
+    }
+
+    // ---- BRAND-NEW WITH LARGE CHARGES ----
+    for (const b of ageAnomalies.brandNewWithCharges) {
+      findings.push({
+        type: 'NEW_COMPANY_HEAVY_CHARGES',
+        severity: 'MEDIUM',
+        confidence: 'HIGH',
+        title: `${b.companyLabel} has ${b.chargeCount} charge(s) at ${b.ageDays} days old`,
+        description: `${b.companyLabel} was incorporated only ${b.ageDays} days ago but already has ${b.chargeCount} registered charge${b.chargeCount === 1 ? '' : 's'} (mortgages / debentures). Newly-formed companies don't normally take on secured debt this quickly.`,
+        evidence: [
+          `Age: ${b.ageDays} days`,
+          `Charges: ${b.chargeCount}`,
+        ],
+        affectedEntities: [b.companyId],
+        recommendation: 'Inspect each charge: lender identity, instrument type, and what asset is secured. Common in asset-stripping vehicles.',
+      });
+    }
+
+    // ---- MASS FORMATION EVENT ----
+    for (const m of ageAnomalies.massFormationEvents) {
+      findings.push({
+        type: 'MASS_FORMATION_EVENT',
+        severity: 'HIGH',
+        confidence: 'HIGH',
+        title: `${m.directorLabel} incorporated ${m.companyIds.length} companies on ${m.date}`,
+        description: `On ${m.date}, ${m.directorLabel} appears as a director of ${m.companyIds.length} companies all incorporated the same day. Single-day mass formation by one individual is consistent with templated structures (formation agents, single-purpose vehicles, layered ownership).`,
+        evidence: [
+          `Date: ${m.date}`,
+          `Companies: ${m.companyIds.length}`,
+          `Sample: ${m.companyLabels.slice(0, 5).join(', ')}${m.companyLabels.length > 5 ? '…' : ''}`,
+        ],
+        affectedEntities: [m.directorId, ...m.companyIds],
+        recommendation: 'Treat the cluster as a single risk unit; investigate the controlling party behind the mass formation.',
+      });
+    }
+
+    // ---- MULTI-YEAR FILING GAP REACTIVATION ----
+    for (const g of ageAnomalies.filingGapRevivals) {
+      findings.push({
+        type: 'FILING_GAP_REACTIVATION',
+        severity: 'MEDIUM',
+        confidence: 'MEDIUM',
+        title: `${g.companyLabel} reactivated after a ${g.gapYears}-year filing gap`,
+        description: `${g.companyLabel} has a ${g.gapYears}-year gap in its accounts filings, then resumed filing on ${g.resumedAt}. Long gaps followed by reactivation are consistent with repurposing a dormant corporate vehicle.`,
+        evidence: [
+          `Gap: ${g.gapYears} years`,
+          `Resumed: ${g.resumedAt}`,
+          ...(g.beforeType ? [`Before: ${g.beforeType}`] : []),
+          ...(g.afterType ? [`After: ${g.afterType}`] : []),
+        ],
+        affectedEntities: [g.companyId],
+        recommendation: 'Identify what triggered the reactivation; check for change of beneficial owner or new commercial activity.',
       });
     }
 
