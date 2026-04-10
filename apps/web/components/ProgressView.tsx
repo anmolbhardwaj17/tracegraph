@@ -87,16 +87,16 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
 
       {/* ROW 2: progress (left) + pipeline & sonar (right) */}
       <div className="flex flex-col lg:flex-row gap-6">
-        <div className="border border-white/5 bg-ink-850 p-6 flex flex-col gap-6 lg:w-64 lg:shrink-0">
-          <div>
+        <div className="border border-white/5 bg-ink-850 p-6 lg:w-64 lg:shrink-0">
+          <div className="pb-4 border-b border-white/5">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Elapsed</div>
             <div className="text-3xl font-medium text-ink-50 tabular-nums">{formatElapsed(elapsed)}</div>
           </div>
-          <div>
+          <div className="py-4 border-b border-white/5">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Stage</div>
             <div className="text-sm text-ink-50">{currentStageLabel}</div>
           </div>
-          <div>
+          <div className="py-4 border-b border-white/5">
             <div className="flex items-center justify-between mb-2">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Overall</div>
               <div className="text-[10px] font-mono text-ink-400 tabular-nums">{overallPct}%</div>
@@ -106,19 +106,19 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             </div>
           </div>
           {tier && (
-            <div>
+            <div className="py-4 border-b border-white/5">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Depth</div>
-              <div className="text-sm text-ink-50">{tier === 'DEEP' ? 'Deep investigation' : tier === 'QUICK' ? 'Quick scan' : 'Standard'}</div>
+              <div className="text-sm text-ink-50">{tier === 'DEEP' ? 'Deep' : tier === 'QUICK' ? 'Quick' : 'Standard'}</div>
             </div>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pt-4">
             <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
             <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
           </div>
         </div>
         <div className="flex-1 min-w-0 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-6 border border-white/5 bg-ink-850 p-6">
+            <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">/ Pipeline</div>
               <ol>
                 {STAGES.map((stage, i) => {
@@ -139,7 +139,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
                 })}
               </ol>
             </div>
-            <div className="lg:col-span-6 border border-white/5 bg-ink-850 flex flex-col">
+            <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col">
               <div className="px-6 pt-6">
                 <div className="flex items-center justify-between">
                   <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
@@ -347,33 +347,6 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       ctx.shadowBlur = 14;
       ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
-
-      // HUD
-      ctx.fillStyle = '#F5F5F5';
-      ctx.font = '500 28px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText((lastEntitiesRef.current).toLocaleString(), 20, 16);
-      ctx.fillStyle = '#525252';
-      ctx.font = '10px ui-monospace, monospace';
-      ctx.fillText('ENTITIES', 20, 50);
-
-      ctx.fillStyle = '#A0A0A0';
-      ctx.font = '500 18px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'top';
-      ctx.fillText(edges.toLocaleString(), W - 20, 18);
-      ctx.fillStyle = '#525252';
-      ctx.font = '10px ui-monospace, monospace';
-      ctx.fillText('CONNECTIONS', W - 20, 42);
-
-      ctx.fillStyle = '#525252';
-      ctx.font = '10px ui-monospace, monospace';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('● SCANNING NETWORK', 20, H - 14);
-      ctx.textAlign = 'right';
-      ctx.fillText(`${liveBlips.length} VISIBLE`, W - 20, H - 14);
 
       rafRef.current = requestAnimationFrame(frame);
     }
