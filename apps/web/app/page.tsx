@@ -582,24 +582,15 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-8 py-24 text-center">
           <h2 className="text-2xl font-medium tracking-tight text-ink-50 mb-4">Start an investigation</h2>
           <p className="text-sm text-ink-400 mb-10">Enter any UK company name or number.</p>
-          <form onSubmit={submit} className="max-w-2xl mx-auto relative">
-            <div className="relative group">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Company name or number..."
-                autoComplete="off"
-                className="w-full px-6 py-5 pr-36 text-base rounded-sm bg-ink-850 border border-white/10 text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-3 bg-ink-50 text-ink-900 rounded-sm font-medium text-sm hover:bg-white disabled:opacity-50 transition-all group/btn"
-              >
-                {loading ? 'Starting...' : <span>Investigate <span className="inline-block transition-transform group-hover/btn:translate-x-1">→</span></span>}
-              </button>
-            </div>
-          </form>
+          <button
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              setTimeout(() => searchRef.current?.focus(), 400);
+            }}
+            className="px-8 py-4 bg-ink-50 text-ink-900 rounded-sm font-medium text-sm hover:bg-white transition-all group/btn"
+          >
+            <span>Search a company <span className="inline-block transition-transform group-hover/btn:translate-x-1">→</span></span>
+          </button>
         </div>
       </section>
 
