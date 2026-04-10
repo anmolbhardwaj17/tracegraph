@@ -61,28 +61,87 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
         </div>
       </div>
 
-      {/* 2-column dashboard: stages left, visualization right */}
+      {/* Live activity card - always visible, shows what's happening NOW */}
+      <div className="border border-white/5 bg-ink-850 px-6 py-5">
+        {/* Live counters - always shown */}
+        <div className="flex items-center gap-8 flex-wrap">
+          <div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.entities.toLocaleString()}</div>
+            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">entities</div>
+          </div>
+          <div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.edges.toLocaleString()}</div>
+            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">connections</div>
+          </div>
+          <div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.matches}</div>
+            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">matches</div>
+          </div>
+          <div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{live.apiCalls.toLocaleString()}</div>
+            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">API calls</div>
+          </div>
+        </div>
+
+        {/* Resolution progress bar */}
+        {resolution && resolution.total > 0 && (
+          <div className="mt-5 pt-5 border-t border-white/5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
+                / Screening entities against sanctions databases
+              </div>
+              <div className="text-[10px] font-mono text-ink-400 tabular-nums">
+                {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} · {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
+              </div>
+            </div>
+            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-signal-clean rounded-full transition-all duration-500"
+                style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Scoring step */}
+        {scoringStep && (
+          <div className="mt-5 pt-5 border-t border-white/5 flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-ink-50">{scoringStep.step}</div>
+              {scoringStep.detail && (
+                <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 2-column: sonar (wider) + pipeline (narrower) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT: stages */}
+        {/* LEFT: visualization */}
+        <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col">
+          <div className="px-6 pt-6">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
+          </div>
+          <div className="flex-1 min-h-[340px] relative">
+            <MiniGraph entities={live.entities} edges={live.edges} />
+          </div>
+        </div>
+
+        {/* RIGHT: pipeline */}
         <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">/ Pipeline</div>
           <ol>
             {STAGES.map((stage, i) => {
-              // Map backend status → which stage index (0-based) is active
               const ACTIVE_MAP: Record<string, number> = {
-                QUEUED: -1,
-                FETCHING: 0,     // /001 Fetching
-                EXPANDING: 1,    // /002 Expanding (UBO /003 runs right after)
-                RESOLVING: 3,    // /004 Cross-source matching
-                SCORING: 5,      // /006 Filing health (disqualified /005 is sub-step)
-                COMPLETE: 99,
+                QUEUED: -1, FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5, COMPLETE: 99,
               };
               const activeIdx = ACTIVE_MAP[status] ?? -1;
               const isActive = i === activeIdx;
               const isDone = i < activeIdx;
               return (
-                <li key={stage.key} className="border-b border-white/5 last:border-b-0 py-4 flex items-center gap-4">
-                  <div className="text-[10px] font-mono text-ink-500 w-8">/{String(i + 1).padStart(3, '0')}</div>
+                <li key={stage.key} className="border-b border-white/5 last:border-b-0 py-3 flex items-center gap-3">
                   <div
                     className={`w-2 h-2 rounded-full flex-shrink-0 ${
                       isDone
@@ -93,67 +152,18 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt 
                     }`}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm ${isActive ? 'text-ink-50' : isDone ? 'text-ink-300' : 'text-ink-500'}`}>
+                    <div className={`text-xs ${isActive ? 'text-ink-50' : isDone ? 'text-ink-300' : 'text-ink-500'}`}>
                       {stage.label}
                     </div>
-                    <div className="text-[10px] font-mono text-ink-500 mt-0.5">{stage.hint}</div>
                   </div>
-                  {isActive && <span className="text-[10px] font-mono text-ink-400 uppercase tracking-wider shrink-0 whitespace-nowrap">in progress</span>}
-                  {isDone && <span className="text-[10px] font-mono text-signal-clean uppercase tracking-wider shrink-0 whitespace-nowrap">complete</span>}
+                  {isActive && <span className="text-[9px] font-mono text-ink-400 uppercase tracking-wider shrink-0">active</span>}
+                  {isDone && <span className="text-[9px] font-mono text-signal-clean uppercase tracking-wider shrink-0">done</span>}
                 </li>
               );
             })}
           </ol>
         </div>
-
-        {/* RIGHT: visualization */}
-        <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col">
-          <div className="px-6 pt-6">
-            <div className="flex items-center justify-between">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
-              <div className="text-[10px] font-mono text-ink-500 tabular-nums">
-                {live.entities.toLocaleString()} entities · {live.edges.toLocaleString()} connections
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 min-h-[360px] relative">
-            <MiniGraph entities={live.entities} edges={live.edges} />
-          </div>
-        </div>
       </div>
-
-      {/* Live activity banner - shows during resolution */}
-      {resolution && resolution.total > 0 && (
-        <div className="border border-white/5 bg-ink-850 px-6 py-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
-              / Screening entities against sanctions databases
-            </div>
-            <div className="text-[10px] font-mono text-ink-400 tabular-nums">
-              {resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} · {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}
-            </div>
-          </div>
-          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-signal-clean rounded-full transition-all duration-500"
-              style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Live scoring step banner */}
-      {scoringStep && (
-        <div className="border border-white/5 bg-ink-850 px-6 py-4 flex items-center gap-4">
-          <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-ink-50">{scoringStep.step}</div>
-            {scoringStep.detail && (
-              <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Stats strip · full width */}
       <div className="grid grid-cols-3 md:grid-cols-5 gap-px bg-white/5 border border-white/5">
