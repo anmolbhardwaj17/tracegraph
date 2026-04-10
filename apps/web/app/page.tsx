@@ -145,7 +145,6 @@ export default function Home() {
             <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
             <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
             <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
-            <a href="/api/docs" className="hover:text-ink-50 transition-colors text-ink-500">API Docs</a>
           </nav>
           {/* Mobile hamburger */}
           <MobileMenu />
@@ -546,23 +545,23 @@ export default function Home() {
       <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12">
-            / 006 · Who uses TraceGraph
+            / 006 · Built for due diligence
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5">
             <Approach
               n="001"
-              title="Vendor due diligence"
-              body="Screen suppliers and partners before signing contracts. Map director networks, check sanctions exposure, verify corporate legitimacy — in minutes instead of hours."
+              title="Vendor screening"
+              body="Map director networks, verify corporate legitimacy, and assess risk exposure before signing contracts."
             />
             <Approach
               n="002"
-              title="Investment screening"
-              body="Verify founders, trace ownership structures, and assess corporate risk before committing capital. From angel rounds to acquisitions."
+              title="Investment due diligence"
+              body="Trace ownership structures, check founder histories, and identify hidden risks before committing capital."
             />
             <Approach
               n="003"
               title="Compliance & KYB"
-              body="Automate Know Your Business checks via API. Sanctions screening, UBO resolution, and risk scoring integrated into your onboarding flow."
+              body="Automated sanctions screening, UBO resolution, and continuous risk monitoring for regulated onboarding workflows."
             />
           </div>
         </div>
@@ -571,8 +570,8 @@ export default function Home() {
       {/* CTA */}
       <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24 text-center">
-          <h2 className="text-3xl font-light text-ink-50 mb-4">Start your first investigation</h2>
-          <p className="text-ink-400 mb-10">Free. No account required. Enter any UK company.</p>
+          <h2 className="text-2xl font-medium tracking-tight text-ink-50 mb-4">Start an investigation</h2>
+          <p className="text-sm text-ink-400 mb-10">Enter any UK company name or number.</p>
           <form onSubmit={submit} className="max-w-2xl mx-auto relative">
             <div className="relative group">
               <input
@@ -591,10 +590,8 @@ export default function Home() {
               </button>
             </div>
           </form>
-          <div className="mt-8 flex items-center justify-center gap-6 text-xs font-mono text-ink-500">
-            <a href="/api/docs" className="hover:text-ink-50 transition-colors">View API documentation →</a>
-            <span className="text-ink-700">·</span>
-            <a href="#" className="hover:text-ink-50 transition-colors">Star on GitHub →</a>
+          <div className="mt-8 flex items-center justify-center text-xs font-mono text-ink-500">
+            <a href="/api/docs" className="hover:text-ink-50 transition-colors">View documentation →</a>
           </div>
         </div>
       </section>
@@ -602,17 +599,17 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-ink-500 font-mono">
-          <div>© 2026 TraceGraph · Open source corporate intelligence</div>
+          <div>© 2026 TraceGraph</div>
           <div className="text-center text-ink-600">
-            Data from UK Companies House · OpenSanctions · ICIJ OffshoreLeaks
+            UK Companies House · OpenSanctions · ICIJ OffshoreLeaks
           </div>
           <div className="flex items-center justify-end gap-4">
+            <a href="/api/docs" className="hover:text-ink-50 transition-colors">Documentation →</a>
+            <span className="text-ink-700">·</span>
             <a href="#" className="hover:text-ink-50 transition-colors">GitHub →</a>
             <span className="text-ink-700">·</span>
-            <a href="/api/docs" className="hover:text-ink-50 transition-colors">API Docs →</a>
-            <span className="text-ink-700">·</span>
             <a href="https://anmolbhardwaj.in" target="_blank" rel="noopener noreferrer" className="hover:text-ink-50 transition-colors">
-              Built by Anmol Bhardwaj →
+              Anmol Bhardwaj →
             </a>
           </div>
         </div>
@@ -703,7 +700,6 @@ function MobileMenu() {
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/compare', label: 'Compare' },
     { href: '/watchlist', label: 'Watchlist' },
-    { href: '/api/docs', label: 'API Docs' },
   ];
   return (
     <div className="md:hidden">
