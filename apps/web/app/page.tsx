@@ -445,11 +445,150 @@ export default function Home() {
         </div>
       </section>
 
+      {/* What you get — product showcase */}
+      <section className="border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-24">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
+            / 003 · What you get
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 stagger-grid">
+
+            {/* Panel 1: Network graph */}
+            <div className="border border-white/5 bg-ink-900 overflow-hidden card-glow border-transparent">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                <div className="text-[10px] font-mono text-ink-500 uppercase tracking-wider">Network graph</div>
+                <div className="text-[9px] font-mono text-ink-600">4,906 nodes</div>
+              </div>
+              <div className="p-4 bg-ink-950/50" style={{ height: 220 }}>
+                <svg viewBox="0 0 280 180" className="w-full h-full" style={{ overflow: 'visible' }}>
+                  <style>{`
+                    @keyframes d1 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(2px,-1px) } }
+                    @keyframes d2 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-1px,2px) } }
+                    @keyframes d3 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(1px,1px) } }
+                    .d1 { animation: d1 16s ease-in-out infinite }
+                    .d2 { animation: d2 20s ease-in-out infinite }
+                    .d3 { animation: d3 18s ease-in-out infinite }
+                  `}</style>
+                  <g stroke="rgba(94,230,161,0.12)" strokeWidth="0.8">
+                    <line x1="140" y1="90" x2="80" y2="40" /><line x1="140" y1="90" x2="200" y2="45" />
+                    <line x1="140" y1="90" x2="70" y2="120" /><line x1="140" y1="90" x2="210" y2="130" />
+                    <line x1="140" y1="90" x2="100" y2="150" /><line x1="140" y1="90" x2="180" y2="155" />
+                    <line x1="80" y1="40" x2="40" y2="25" /><line x1="80" y1="40" x2="50" y2="70" />
+                    <line x1="200" y1="45" x2="245" y2="25" /><line x1="200" y1="45" x2="240" y2="75" />
+                    <line x1="70" y1="120" x2="30" y2="140" /><line x1="210" y1="130" x2="250" y2="150" />
+                  </g>
+                  <g stroke="rgba(245,197,24,0.15)" strokeWidth="0.8" strokeDasharray="2,2">
+                    <line x1="80" y1="40" x2="70" y2="120" /><line x1="200" y1="45" x2="210" y2="130" />
+                  </g>
+                  <circle cx="140" cy="90" r="7" fill="#FFFFFF" className="d1" />
+                  <circle cx="80" cy="40" r="4" fill="#F5C518" className="d2" />
+                  <circle cx="200" cy="45" r="5" fill="#F5C518" className="d1" />
+                  <circle cx="70" cy="120" r="4" fill="#5EE6A1" className="d3" />
+                  <circle cx="210" cy="130" r="4" fill="#5EE6A1" className="d2" />
+                  <circle cx="100" cy="150" r="3" fill="#737373" className="d1" />
+                  <circle cx="180" cy="155" r="3" fill="#737373" className="d3" />
+                  <circle cx="40" cy="25" r="3" fill="#F5C518" className="d3" />
+                  <circle cx="50" cy="70" r="3" fill="#5EE6A1" className="d2" />
+                  <circle cx="245" cy="25" r="3" fill="#F5C518" className="d1" />
+                  <circle cx="240" cy="75" r="3" fill="#5EE6A1" className="d3" />
+                  <circle cx="30" cy="140" r="2" fill="#737373" className="d2" />
+                  <circle cx="250" cy="150" r="2" fill="#737373" className="d1" />
+                  <circle cx="200" cy="45" r="9" fill="none" stroke="#FF4D4D" strokeWidth="1" opacity="0.4" className="d1" />
+                </svg>
+              </div>
+              <div className="px-5 py-3 border-t border-white/5 flex items-center gap-4 text-[9px] font-mono text-ink-600">
+                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#F5C518]" /> companies</span>
+                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#5EE6A1]" /> people</span>
+                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#737373]" /> addresses</span>
+              </div>
+            </div>
+
+            {/* Panel 2: Risk findings */}
+            <div className="border border-white/5 bg-ink-900 overflow-hidden card-glow border-transparent">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                <div className="text-[10px] font-mono text-ink-500 uppercase tracking-wider">Risk findings</div>
+                <div className="text-[9px] font-mono text-ink-600">12 signals</div>
+              </div>
+              <div>
+                <div className="px-5 py-3 border-b border-white/5 flex items-center gap-3">
+                  <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-critical/15 text-signal-critical border border-signal-critical/30 shrink-0">CRIT</span>
+                  <span className="text-xs text-ink-300 truncate">Director operates 23 shell companies from virtual office</span>
+                </div>
+                <div className="px-5 py-3 border-b border-white/5 flex items-center gap-3">
+                  <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-critical/15 text-signal-critical border border-signal-critical/30 shrink-0">CRIT</span>
+                  <span className="text-xs text-ink-300 truncate">Matches disqualified director (91% confidence)</span>
+                </div>
+                <div className="px-5 py-3 border-b border-white/5 flex items-center gap-3">
+                  <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-high/15 text-signal-high border border-signal-high/30 shrink-0">HIGH</span>
+                  <span className="text-xs text-ink-300 truncate">UBO chain passes through BVI (offshore)</span>
+                </div>
+                <div className="px-5 py-3 border-b border-white/5 flex items-center gap-3">
+                  <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-high/15 text-signal-high border border-signal-high/30 shrink-0">HIGH</span>
+                  <span className="text-xs text-ink-300 truncate">Phoenix pattern: successor incorporated in 3 days</span>
+                </div>
+                <div className="px-5 py-3 flex items-center gap-3">
+                  <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-medium/15 text-signal-medium border border-signal-medium/30 shrink-0">MED</span>
+                  <span className="text-xs text-ink-300 truncate">Filing health score 28/100 — 4 late accounts</span>
+                </div>
+              </div>
+              <div className="px-5 py-2.5 border-t border-white/5 text-[9px] font-mono text-ink-600">
+                + 7 more findings
+              </div>
+            </div>
+
+            {/* Panel 3: Risk score */}
+            <div className="border border-white/5 bg-ink-900 overflow-hidden card-glow border-transparent flex flex-col">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                <div className="text-[10px] font-mono text-ink-500 uppercase tracking-wider">Risk assessment</div>
+                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-signal-high/15 text-signal-high border border-signal-high/30">HIGH</span>
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center p-8">
+                <div className="text-6xl font-medium text-ink-50 tabular-nums mb-1">67</div>
+                <div className="text-[10px] font-mono text-ink-500 uppercase tracking-wider mb-8">out of 100</div>
+                {/* Breakdown bars */}
+                <div className="w-full space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono text-ink-500">Sanctions exposure</span>
+                      <span className="text-[10px] font-mono text-ink-400">24 / 40</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-signal-critical rounded-full" style={{ width: '60%' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono text-ink-500">Structural risk</span>
+                      <span className="text-[10px] font-mono text-ink-400">28 / 40</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-signal-high rounded-full" style={{ width: '70%' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono text-ink-500">Director risk</span>
+                      <span className="text-[10px] font-mono text-ink-400">15 / 20</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-signal-medium rounded-full" style={{ width: '75%' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-3 border-t border-white/5 text-center">
+                <div className="text-[9px] font-mono text-ink-600">Automated · evidence-backed · exportable</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* What it detects — merged capabilities */}
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
-            / 003 · What it detects
+            / 004 · What it detects
           </div>
           <p className="text-sm text-ink-400 mb-12 max-w-2xl">
             20+ automated risk signals from three data sources — UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
@@ -469,7 +608,7 @@ export default function Home() {
       <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 004 · Built for due diligence
+            / 005 · Built for due diligence
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Approach
