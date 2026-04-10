@@ -476,7 +476,6 @@ export default function Home() {
               <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-4">Resources</div>
               <ul className="space-y-2.5 text-xs text-ink-400">
                 <li><a href="#" className="hover:text-ink-50 transition-colors">GitHub</a></li>
-                <li><a href="/api/docs" className="hover:text-ink-50 transition-colors">API Docs</a></li>
               </ul>
             </div>
 
