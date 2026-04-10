@@ -169,8 +169,7 @@ export default function Home() {
           </div>
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-ink-300 reveal reveal-delay-1">
-            <a href="#approach" className="hover:text-ink-50 transition-colors">Approach</a>
-            <a href="#sources" className="hover:text-ink-50 transition-colors">Sources</a>
+            <a href="#approach" className="hover:text-ink-50 transition-colors">How it works</a>
             <a href="#capabilities" className="hover:text-ink-50 transition-colors">Capabilities</a>
             <span className="text-ink-700">|</span>
             <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
@@ -361,224 +360,115 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Product showcase */}
-      <section className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 002 · See it in action
-          </div>
-
-          {/* Mock investigation result card */}
-          <div className="border border-white/5 bg-ink-900 overflow-hidden scroll-fade-in">
-            {/* Mock header */}
-            <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-sm bg-signal-medium/20 text-signal-medium flex items-center justify-center font-mono text-xs font-bold">P</div>
-                <div>
-                  <div className="text-base font-medium text-ink-50">PepsiCo International Limited</div>
-                  <div className="text-[10px] font-mono text-ink-500 mt-0.5">01521219 · Investigation complete</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border bg-signal-medium/15 text-signal-medium border-signal-medium/30">42 MEDIUM</span>
-              </div>
-            </div>
-
-            {/* Mock graph visualization */}
-            <div className="px-8 py-8 border-b border-white/5 bg-ink-950/50 flex items-center justify-center" style={{ height: 320 }}>
-              <svg viewBox="0 0 600 250" className="w-full max-w-2xl h-full" style={{ overflow: 'visible' }}>
-                {/* Edges */}
-                <g stroke="rgba(94,230,161,0.15)" strokeWidth="1">
-                  <line x1="300" y1="125" x2="180" y2="60" /><line x1="300" y1="125" x2="420" y2="70" />
-                  <line x1="300" y1="125" x2="200" y2="180" /><line x1="300" y1="125" x2="400" y2="190" />
-                  <line x1="300" y1="125" x2="140" y2="130" /><line x1="300" y1="125" x2="460" y2="120" />
-                  <line x1="180" y1="60" x2="100" y2="30" /><line x1="180" y1="60" x2="120" y2="90" />
-                  <line x1="420" y1="70" x2="500" y2="40" /><line x1="420" y1="70" x2="480" y2="100" />
-                  <line x1="200" y1="180" x2="130" y2="210" /><line x1="200" y1="180" x2="160" y2="230" />
-                  <line x1="400" y1="190" x2="470" y2="220" /><line x1="400" y1="190" x2="450" y2="170" />
-                  <line x1="140" y1="130" x2="80" y2="100" /><line x1="140" y1="130" x2="70" y2="160" />
-                  <line x1="460" y1="120" x2="530" y2="90" /><line x1="460" y1="120" x2="540" y2="150" />
-                  <line x1="100" y1="30" x2="50" y2="50" /><line x1="500" y1="40" x2="550" y2="25" />
-                </g>
-                <g stroke="rgba(245,197,24,0.2)" strokeWidth="1" strokeDasharray="3,3">
-                  <line x1="180" y1="60" x2="200" y2="180" /><line x1="420" y1="70" x2="400" y2="190" />
-                </g>
-                {/* Nodes — animated with gentle drift */}
-                <style>{`
-                  @keyframes drift1 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(2px,-2px) } }
-                  @keyframes drift2 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-2px,3px) } }
-                  @keyframes drift3 { 0%,100% { transform: translate(0,0) } 50% { transform: translate(3px,1px) } }
-                  .drift1 { animation: drift1 18s ease-in-out infinite }
-                  .drift2 { animation: drift2 22s ease-in-out infinite }
-                  .drift3 { animation: drift3 20s ease-in-out infinite }
-                `}</style>
-                {/* Root */}
-                <circle cx="300" cy="125" r="10" fill="#FFFFFF" className="drift1" />
-                {/* Companies (amber) */}
-                <circle cx="180" cy="60" r="6" fill="#F5C518" className="drift2" />
-                <circle cx="420" cy="70" r="7" fill="#F5C518" className="drift1" />
-                <circle cx="100" cy="30" r="4" fill="#F5C518" className="drift3" />
-                <circle cx="500" cy="40" r="5" fill="#F5C518" className="drift2" />
-                <circle cx="130" cy="210" r="4" fill="#F5C518" className="drift1" />
-                <circle cx="470" cy="220" r="4" fill="#F5C518" className="drift3" />
-                {/* People (green) */}
-                <circle cx="200" cy="180" r="5" fill="#5EE6A1" className="drift3" />
-                <circle cx="400" cy="190" r="6" fill="#5EE6A1" className="drift1" />
-                <circle cx="140" cy="130" r="5" fill="#5EE6A1" className="drift2" />
-                <circle cx="460" cy="120" r="5" fill="#5EE6A1" className="drift3" />
-                <circle cx="120" cy="90" r="4" fill="#5EE6A1" className="drift1" />
-                <circle cx="480" cy="100" r="4" fill="#5EE6A1" className="drift2" />
-                {/* Addresses (gray) */}
-                <circle cx="80" cy="100" r="3" fill="#737373" className="drift2" />
-                <circle cx="530" cy="90" r="3" fill="#737373" className="drift1" />
-                <circle cx="70" cy="160" r="3" fill="#737373" className="drift3" />
-                <circle cx="540" cy="150" r="3" fill="#737373" className="drift2" />
-                <circle cx="160" cy="230" r="3" fill="#737373" className="drift1" />
-                <circle cx="450" cy="170" r="3" fill="#737373" className="drift3" />
-                {/* Outer leaves */}
-                <circle cx="50" cy="50" r="3" fill="#F5C518" className="drift3" />
-                <circle cx="550" cy="25" r="3" fill="#5EE6A1" className="drift2" />
-                {/* Risk halo on one node */}
-                <circle cx="420" cy="70" r="12" fill="none" stroke="#FF4D4D" strokeWidth="1.5" opacity="0.5" className="drift1" />
-              </svg>
-            </div>
-
-            {/* Mock stats row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5">
-              <div className="bg-ink-900 px-6 py-4 text-center">
-                <div className="text-lg font-medium text-ink-50 tabular-nums">847</div>
-                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Entities</div>
-              </div>
-              <div className="bg-ink-900 px-6 py-4 text-center">
-                <div className="text-lg font-medium text-ink-50 tabular-nums">1,203</div>
-                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Connections</div>
-              </div>
-              <div className="bg-ink-900 px-6 py-4 text-center">
-                <div className="text-lg font-medium text-signal-critical tabular-nums">3</div>
-                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Sanctions matches</div>
-              </div>
-              <div className="bg-ink-900 px-6 py-4 text-center">
-                <div className="text-lg font-medium text-signal-medium tabular-nums">42</div>
-                <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-0.5">Risk score</div>
-              </div>
-            </div>
-
-            {/* Mock findings */}
-            <div className="border-t border-white/5">
-              <div className="px-8 py-4 border-b border-white/5 flex items-center gap-4 hover:bg-white/[0.02]">
-                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border bg-signal-critical/15 text-signal-critical border-signal-critical/30">CRITICAL</span>
-                <span className="text-[10px] font-mono text-ink-500">SHELL_NETWORK</span>
-                <span className="text-sm text-ink-300 flex-1 truncate">Director operates 23 micro-entity companies from a single virtual office address</span>
-              </div>
-              <div className="px-8 py-4 border-b border-white/5 flex items-center gap-4 hover:bg-white/[0.02]">
-                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border bg-signal-high/15 text-signal-high border-signal-high/30">HIGH</span>
-                <span className="text-[10px] font-mono text-ink-500">DISQUALIFIED_DIRECTOR</span>
-                <span className="text-sm text-ink-300 flex-1 truncate">John Smith matches a disqualified UK director (87% confidence)</span>
-              </div>
-              <div className="px-8 py-4 flex items-center gap-4 hover:bg-white/[0.02]">
-                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border bg-signal-medium/15 text-signal-medium border-signal-medium/30">MEDIUM</span>
-                <span className="text-[10px] font-mono text-ink-500">PHOENIX_COMPANY</span>
-                <span className="text-sm text-ink-300 flex-1 truncate">Acme Holdings Ltd replaced Acme Trading Ltd within 7 days — shared director and address</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Image placeholder */}
-          <div className="mt-8 border border-dashed border-white/10 bg-ink-900/50 p-12 text-center">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-600 mb-2">/ Placeholder</div>
-            <div className="text-xs text-ink-500">Full product screenshot will go here</div>
-          </div>
-        </div>
-      </section>
-
-      {/* Approach · three numbered cards */}
+      {/* How it works — 3 steps, visual variety */}
       <section id="approach" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 003 · Approach
+            / 002 · How it works
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
-            <Approach
-              n="001"
-              title="Multi-source intelligence"
-              body="UK Companies House, OpenSanctions (4M+ entities), and ICIJ OffshoreLeaks (770K+ officers) unified into one ownership graph with cross-source entity resolution and fuzzy matching."
-            />
-            <Approach
-              n="002"
-              title="Deep ownership tracing"
-              body="Recursive BFS through directors, PSCs, and addresses. UBO chain resolution traces corporate PSCs until reaching the natural person — computing effective ownership through layers."
-            />
-            <Approach
-              n="003"
-              title="20+ risk detectors"
-              body="Shell scoring, filing health, phoenix companies, disqualified directors, jurisdiction risk, cross-directorship conflicts, dormant cycling, mass formation, account regression — every signal explained with evidence."
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-grid">
+            {/* Step 1 */}
+            <div className="scroll-fade-in">
+              <div className="border border-white/5 bg-ink-900 p-8 card-glow border-transparent h-full">
+                <div className="w-10 h-10 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-sm font-bold mb-6">1</div>
+                <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">Enter a company</h3>
+                <p className="text-sm text-ink-300 leading-relaxed mb-6">Search by name or Companies House number. We resolve the entity and begin mapping.</p>
+                <div className="border border-dashed border-white/10 bg-ink-950/50 rounded-sm p-6 flex items-center justify-center min-h-[120px]">
+                  <div className="text-center">
+                    <div className="w-full max-w-[200px] h-8 bg-ink-850 border border-white/10 rounded-sm mx-auto mb-2" />
+                    <div className="text-[9px] font-mono text-ink-600">search bar wireframe</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Step 2 */}
+            <div className="scroll-fade-in">
+              <div className="border border-white/5 bg-ink-900 p-8 card-glow border-transparent h-full">
+                <div className="w-10 h-10 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-sm font-bold mb-6">2</div>
+                <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">Watch the network expand</h3>
+                <p className="text-sm text-ink-300 leading-relaxed mb-6">Directors, PSCs, addresses, and ownership chains are traced recursively across public data sources in real time.</p>
+                <div className="border border-dashed border-white/10 bg-ink-950/50 rounded-sm p-6 flex items-center justify-center min-h-[120px]">
+                  <svg viewBox="0 0 200 100" className="w-full max-w-[200px]" style={{ overflow: 'visible' }}>
+                    <style>{`
+                      @keyframes pulse-ring { 0% { r: 8; opacity: 0.4 } 100% { r: 40; opacity: 0 } }
+                      .pulse-r { animation: pulse-ring 2.5s ease-out infinite }
+                    `}</style>
+                    <circle cx="100" cy="50" r="20" fill="none" stroke="rgba(94,230,161,0.15)" className="pulse-r" />
+                    <line x1="100" y1="50" x2="50" y2="25" stroke="rgba(94,230,161,0.2)" strokeWidth="1" />
+                    <line x1="100" y1="50" x2="150" y2="30" stroke="rgba(94,230,161,0.2)" strokeWidth="1" />
+                    <line x1="100" y1="50" x2="60" y2="75" stroke="rgba(245,197,24,0.2)" strokeWidth="1" />
+                    <line x1="100" y1="50" x2="145" y2="70" stroke="rgba(245,197,24,0.2)" strokeWidth="1" />
+                    <circle cx="100" cy="50" r="5" fill="#F5F5F5" />
+                    <circle cx="50" cy="25" r="3" fill="#F5C518" />
+                    <circle cx="150" cy="30" r="3" fill="#5EE6A1" />
+                    <circle cx="60" cy="75" r="3" fill="#F5C518" />
+                    <circle cx="145" cy="70" r="3" fill="#5EE6A1" />
+                    <circle cx="30" cy="40" r="2" fill="#737373" /><line x1="50" y1="25" x2="30" y2="40" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                    <circle cx="170" cy="50" r="2" fill="#737373" /><line x1="150" y1="30" x2="170" y2="50" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            {/* Step 3 */}
+            <div className="scroll-fade-in">
+              <div className="border border-white/5 bg-ink-900 p-8 card-glow border-transparent h-full">
+                <div className="w-10 h-10 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-sm font-bold mb-6">3</div>
+                <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">Read the risk report</h3>
+                <p className="text-sm text-ink-300 leading-relaxed mb-6">Shell networks, sanctions matches, disqualified directors, filing anomalies — every finding explained with evidence.</p>
+                <div className="border border-white/5 bg-ink-950/50 rounded-sm overflow-hidden">
+                  <div className="px-4 py-2 border-b border-white/5 flex items-center gap-2">
+                    <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded-sm bg-signal-critical/15 text-signal-critical border border-signal-critical/30">CRIT</span>
+                    <span className="text-[10px] text-ink-400 truncate">Shell network detected</span>
+                  </div>
+                  <div className="px-4 py-2 border-b border-white/5 flex items-center gap-2">
+                    <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded-sm bg-signal-high/15 text-signal-high border border-signal-high/30">HIGH</span>
+                    <span className="text-[10px] text-ink-400 truncate">Disqualified director match</span>
+                  </div>
+                  <div className="px-4 py-2 flex items-center gap-2">
+                    <span className="text-[8px] font-mono uppercase tracking-wider px-1 py-0.5 rounded-sm bg-signal-medium/15 text-signal-medium border border-signal-medium/30">MED</span>
+                    <span className="text-[10px] text-ink-400 truncate">Phoenix company pattern</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Data sources */}
-      <section id="sources" className="border-t border-white/5">
+      {/* Product screenshot placeholder */}
+      <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 004 · Data sources
+            / 003 · The investigation
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 border border-white/5 stagger-grid">
-            <Source
-              kind="LIVE API"
-              title="UK Companies House"
-              body="Company profiles, officers, PSC, filing history, charges, disqualified directors register. 600 req/5 min."
-            />
-            <Source
-              kind="4.1M ENTITIES"
-              title="OpenSanctions"
-              body="Global sanctions lists, PEPs, criminal entities. FollowTheMoney schema with fuzzy name matching."
-            />
-            <Source
-              kind="770K+ RECORDS"
-              title="ICIJ OffshoreLeaks"
-              body="Panama Papers, Paradise Papers, Pandora Papers, Bahamas Leaks. Entities, officers, intermediaries."
-            />
-            <Source
-              kind="BUILT-IN"
-              title="Jurisdiction risk DB"
-              body="Three-tier classification of 20+ jurisdictions. BVI, Cayman, Panama flagged HIGH. Jersey, Malta flagged MEDIUM."
-            />
+          <div className="scroll-fade-in border border-dashed border-white/10 bg-ink-900/30 rounded-sm overflow-hidden">
+            <div className="aspect-[16/9] flex flex-col items-center justify-center p-12">
+              <div className="w-16 h-16 rounded-sm bg-ink-850 border border-white/10 flex items-center justify-center mb-6">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" /><path d="M3 9h18M9 3v18" stroke="rgba(255,255,255,0.1)" strokeWidth="1" /></svg>
+              </div>
+              <div className="text-sm text-ink-400 mb-2">Product screenshot</div>
+              <div className="text-[10px] font-mono text-ink-600">Full investigation results view — graph, findings, risk score, entity details</div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Capabilities */}
+      {/* What it detects — merged capabilities */}
       <section id="capabilities" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 005 · Intelligence capabilities
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
+            / 004 · What it detects
           </div>
+          <p className="text-sm text-ink-400 mb-12 max-w-2xl">
+            20+ automated risk signals from three data sources — UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
-            <Capability
-              title="UBO chain resolution"
-              body="Traces corporate PSC chains until reaching a natural person. Computes effective ownership %, flags offshore layers and dead ends."
-            />
-            <Capability
-              title="Filing health analysis"
-              body="Scores filing discipline, detects account-type regression, dormant cycling, and phoenix company patterns from CH filing history."
-            />
-            <Capability
-              title="Disqualified director check"
-              body="Every director is screened against the CH disqualified-officers register with fuzzy name matching. CRITICAL finding on hit."
-            />
-            <Capability
-              title="Cross-directorship conflicts"
-              body="Detects same-SIC competitor conflicts, incestuous director cliques, and dual-sided directors across business relationships."
-            />
-            <Capability
-              title="Watchlist monitoring"
-              body="Save companies to a watchlist and re-investigate on demand. Track risk score changes over time."
-            />
-            <Capability
-              title="Company comparison"
-              body="Compare two investigations side by side. Surfaces shared directors and addresses — hidden connections between supposedly unrelated companies."
-            />
+            <Capability title="Shell company networks" body="Multi-factor scoring: director count, rapid dissolutions, dormant accounts, virtual office addresses, micro-entity filings." />
+            <Capability title="UBO chain resolution" body="Traces corporate PSC chains through ownership layers until reaching a natural person. Computes effective ownership % and flags offshore jurisdictions." />
+            <Capability title="Sanctions & PEP screening" body="Every entity screened against 4.1M OpenSanctions records and 770K ICIJ OffshoreLeaks entries with fuzzy name matching." />
+            <Capability title="Disqualified directors" body="All directors checked against the Companies House disqualified-officers register. CRITICAL finding on match." />
+            <Capability title="Filing & financial health" body="Late filings, account-type regression, dormant cycling, phoenix company patterns, and multi-year filing gaps." />
+            <Capability title="Director network conflicts" body="Same-SIC competitor conflicts, incestuous director cliques, cross-directorship patterns, and dual-sided relationships." />
           </div>
         </div>
       </section>
@@ -587,7 +477,7 @@ export default function Home() {
       <section id="usecases" className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 006 · Built for due diligence
+            / 005 · Built for due diligence
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
             <Approach
@@ -724,15 +614,6 @@ function Approach({ n, title, body }: { n: string; title: string; body: string }
   );
 }
 
-function Source({ kind, title, body }: { kind: string; title: string; body: string }) {
-  return (
-    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors card-glow border border-transparent">
-      <div className="text-[10px] font-mono text-ink-500 tracking-[0.15em] mb-4">{kind}</div>
-      <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
-      <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
-    </div>
-  );
-}
 
 function Capability({ title, body }: { title: string; body: string }) {
   return (
@@ -746,8 +627,7 @@ function Capability({ title, body }: { title: string; body: string }) {
 function MobileMenu() {
   const [open, setOpen] = useState(false);
   const links = [
-    { href: '#approach', label: 'Approach' },
-    { href: '#sources', label: 'Sources' },
+    { href: '#approach', label: 'How it works' },
     { href: '#capabilities', label: 'Capabilities' },
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/compare', label: 'Compare' },
