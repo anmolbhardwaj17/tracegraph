@@ -375,8 +375,11 @@ export default function Home() {
                   <FeatureStrip label="Live expansion" description="Watch your network grow in real time" placeholder="sonar animation" />
                   <FeatureStrip label="Graph explorer" description="Filter by type, search entities, trace paths" placeholder="interactive graph" />
                   <FeatureStrip label="Ownership chains" description="Trace UBO through corporate layers" placeholder="chain diagram" />
-                  <FeatureStrip label="Compare" description="Find shared directors between any two companies" placeholder="comparison view" />
-                  <FeatureStrip label="Monitor" description="Add to watchlist. Re-investigate anytime." placeholder="watchlist view" />
+                  <FeatureStrip label="Intelligence report" description="Professional PDF with verdict, findings, methodology" placeholder="PDF export" />
+                  <FeatureStrip label="Compare" description="Side-by-side risk analysis of two companies" placeholder="comparison view" />
+                  <FeatureStrip label="Monitor" description="Track risk score changes over time" placeholder="watchlist view" />
+                  <FeatureStrip label="Verify" description="One-click links to source data for every finding" placeholder="verification links" />
+                  <FeatureStrip label="Leaderboard" description="UK's riskiest companies ranked by risk score" placeholder="leaderboard view" />
                 </div>
               ))}
             </div>
