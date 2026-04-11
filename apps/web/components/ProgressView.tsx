@@ -257,34 +257,22 @@ type Blip = { angle: number; radiusN: number; bornAt: number; label?: string };
 type Pulse = { startedAt: number; intensity: number };
 
 function DiscoveryFeed({ items }: { items: Discovery[] }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const prevCountRef = useRef(0);
-
-  useEffect(() => {
-    // Auto-scroll to bottom when new items arrive
-    if (items.length > prevCountRef.current && scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }
-    prevCountRef.current = items.length;
-  }, [items.length]);
+  const reversed = [...items].reverse();
 
   return (
-    <div ref={scrollRef} className="max-h-[200px] overflow-y-auto scrollbar-hide">
-      {items.map((d, i) => {
-        const isNew = i === items.length - 1;
-        return (
-          <div
-            key={d.id}
-            className="px-6 py-2.5 flex items-center gap-4 border-b border-white/5 last:border-b-0"
-            style={isNew ? { animation: 'feedIn 0.8s cubic-bezier(0.16,1,0.3,1)' } : undefined}
-          >
-            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-              d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
-            }`} />
-            <span className="text-xs text-ink-300 truncate">{d.reason}</span>
-          </div>
-        );
-      })}
+    <div className="max-h-[200px] overflow-y-auto scrollbar-hide">
+      {reversed.map((d, i) => (
+        <div
+          key={d.id}
+          className="px-6 py-2.5 flex items-center gap-4 border-b border-white/5 last:border-b-0"
+          style={i === 0 ? { animation: 'feedIn 0.8s cubic-bezier(0.16,1,0.3,1)' } : undefined}
+        >
+          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
+          }`} />
+          <span className="text-xs text-ink-300 truncate">{d.reason}</span>
+        </div>
+      ))}
     </div>
   );
 }
