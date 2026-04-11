@@ -103,6 +103,7 @@ export default function Home() {
   function pickCompany(hit: SearchHit) {
     setSelectedHit(hit);
     setShowDropdown(false);
+    setHits([]);
     setQuery(hit.title);
   }
 
