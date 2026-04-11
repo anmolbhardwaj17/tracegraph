@@ -258,10 +258,12 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
     const svg = d3.select(svgEl).attr('viewBox', `0 0 ${width} ${height}`);
     svg.selectAll('*').remove();
 
+    const isLight = document.documentElement.classList.contains('light');
+
     const defs = svg.append('defs');
     const radial = defs.append('radialGradient').attr('id', 'bg-r').attr('cx', '50%').attr('cy', '50%').attr('r', '50%');
-    radial.append('stop').attr('offset', '0%').attr('stop-color', '#171717');
-    radial.append('stop').attr('offset', '100%').attr('stop-color', '#0A0A0A');
+    radial.append('stop').attr('offset', '0%').attr('stop-color', isLight ? '#FFFFFF' : '#171717');
+    radial.append('stop').attr('offset', '100%').attr('stop-color', isLight ? '#F1F5F9' : '#0A0A0A');
     svg.append('rect').attr('width', width).attr('height', height).attr('fill', 'url(#bg-r)');
 
     const root = svg.append('g');
@@ -309,8 +311,11 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
     // Edges
     const linkSel = root.append('g').selectAll('line').data(simLinks).enter().append('line')
       .attr('stroke', (d) => {
-        if (isPath) return 'rgba(94,230,161,0.6)';
+        if (isPath) return isLight ? 'rgba(5,150,105,0.6)' : 'rgba(94,230,161,0.6)';
         if (mode === 'suspicious') return 'rgba(255,77,77,0.3)';
+        if (isLight) {
+          return d.type === 'address' ? 'rgba(100,116,139,0.25)' : d.type === 'psc' ? 'rgba(180,140,20,0.4)' : 'rgba(16,185,129,0.3)';
+        }
         return d.type === 'address' ? 'rgba(115,115,115,0.18)' : d.type === 'psc' ? 'rgba(245,197,24,0.35)' : 'rgba(94,230,161,0.22)';
       })
       .attr('stroke-width', isPath ? 2.5 : 1)
@@ -321,7 +326,7 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
     if (simNodes.length <= 20) {
       const edgeLabels = root.append('g').selectAll('text').data(simLinks).enter().append('text')
         .text((d) => d.type === 'director' ? 'director' : d.type === 'psc' ? 'owner' : d.type === 'address' ? 'address' : d.type)
-        .attr('font-size', 8).attr('fill', 'rgba(255,255,255,0.2)').attr('text-anchor', 'middle').attr('font-family', 'ui-monospace, monospace');
+        .attr('font-size', 8).attr('fill', isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)').attr('text-anchor', 'middle').attr('font-family', 'ui-monospace, monospace');
       sim.on('tick.labels', () => {
         edgeLabels.attr('x', (d) => ((d.source as GraphNode).x! + (d.target as GraphNode).x!) / 2)
           .attr('y', (d) => ((d.source as GraphNode).y! + (d.target as GraphNode).y!) / 2 - 4);
@@ -359,8 +364,8 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
     const isCenter = (d: GraphNode) => d.id === centerId;
     nodeGroup.append('circle')
       .attr('r', (d) => isCenter(d) ? 18 : mode === 'suspicious' && isRisky(d) ? 10 : Math.max(5, Math.min(12, 4 + Math.sqrt(d.degree || 1) * 1.5)))
-      .attr('fill', (d) => isCenter(d) ? ROOT_COLOR : mode === 'suspicious' && isRisky(d) ? RISK_RED : TYPE_COLOR[d.entityType] || '#94A3B8')
-      .attr('stroke', (d) => isCenter(d) ? '#FFF' : 'rgba(0,0,0,0.3)').attr('stroke-width', (d) => isCenter(d) ? 2 : 0.5);
+      .attr('fill', (d) => isCenter(d) ? (isLight ? '#1E293B' : ROOT_COLOR) : mode === 'suspicious' && isRisky(d) ? RISK_RED : TYPE_COLOR[d.entityType] || '#94A3B8')
+      .attr('stroke', (d) => isCenter(d) ? (isLight ? '#1E293B' : '#FFF') : isLight ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.3)').attr('stroke-width', (d) => isCenter(d) ? 2 : 0.5);
 
     // Node images — only for small views (< 30 nodes)
     if (simNodes.length <= 30) {
@@ -398,7 +403,7 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
       .text((d) => d.label.length > 25 ? d.label.slice(0, 23) + '..' : d.label)
       .attr('font-size', (d) => isCenter(d) ? 12 : 9).attr('font-weight', (d) => isCenter(d) ? 600 : 400)
       .attr('text-anchor', 'middle').attr('dy', (d) => (isCenter(d) ? 18 : 10) + 12)
-      .attr('fill', (d) => isCenter(d) ? '#FFF' : '#A0A0A0').attr('font-family', 'ui-monospace, monospace').attr('pointer-events', 'none');
+      .attr('fill', (d) => isCenter(d) ? (isLight ? '#0F172A' : '#FFF') : (isLight ? '#475569' : '#A0A0A0')).attr('font-family', 'ui-monospace, monospace').attr('pointer-events', 'none');
 
     sim.on('tick', () => {
       linkSel.attr('x1', (d) => (d.source as GraphNode).x!).attr('y1', (d) => (d.source as GraphNode).y!).attr('x2', (d) => (d.target as GraphNode).x!).attr('y2', (d) => (d.target as GraphNode).y!);

@@ -230,13 +230,9 @@ html.light input, html.light select {
   color: #1E293B !important;
 }
 
-/* Graph visualization stays dark — it's a data viz, looks better dark */
+/* Graph container in light mode */
 html.light [data-graph-container] {
-  background-color: #0A0A0A !important;
-  border-radius: 4px;
-}
-html.light [data-graph-container] * {
-  /* Don't override D3 SVG colors */
+  background-color: #FFFFFF !important;
 }
 
 /* Question cards in graph sidebar — need proper light styling */
