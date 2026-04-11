@@ -110,6 +110,13 @@ export class GraphExpansionService {
       });
       if (!node) {
         const safeLabel = label && label.trim() ? label : entityId || 'Unknown';
+        // Tag formation agents
+        if (entityType === 'company') {
+          const { isFormationAgent } = require('../../../../packages/shared/src/constants/formation-agents');
+          if (isFormationAgent(safeLabel, entityId)) {
+            metadata.isFormationAgent = true;
+          }
+        }
         node = this.nodes.create({ investigationId, entityType, entityId, label: safeLabel, metadata });
         node = await this.nodes.save(node);
         progress.entitiesDiscovered++;

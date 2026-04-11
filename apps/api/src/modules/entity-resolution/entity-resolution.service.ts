@@ -145,12 +145,24 @@ export class EntityResolutionService {
     events: ResolutionEvents = {},
   ): Promise<{ processed: number; matches: number }> {
     const nodes = await this.nodes.find({ where: { investigationId } });
-    const personNodes = nodes.filter((n) => n.entityType === 'person');
-    const companyNodes = nodes.filter((n) => n.entityType === 'company');
+
+    // FIX 1: Skip unmatchable entities - addresses never match sanctions,
+    // numeric-only names (e.g. "00128058 LIMITED") and short names (<3 chars)
+    // won't produce meaningful fuzzy matches
+    const isScreenable = (label: string) => {
+      if (!label || label.length < 3) return false;
+      // Skip purely numeric names like "00128058 LIMITED"
+      if (/^\d+\s*(LIMITED|LTD|PLC)?$/i.test(label.trim())) return false;
+      return true;
+    };
+
+    const personNodes = nodes.filter((n) => n.entityType === 'person' && isScreenable(n.label));
+    const companyNodes = nodes.filter((n) => n.entityType === 'company' && isScreenable(n.label) && !n.metadata?.isFormationAgent);
 
     let processed = 0;
     let totalMatches = 0;
     const total = personNodes.length + companyNodes.length;
+    this.logger.log(`Resolution for ${investigationId}: screening ${total} of ${nodes.length} entities (${nodes.length - total} skipped as unmatchable)`);
 
     for (const node of personNodes) {
       const source: MatchCandidate = {

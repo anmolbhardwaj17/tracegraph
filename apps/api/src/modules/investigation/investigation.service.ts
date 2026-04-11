@@ -159,6 +159,7 @@ export class InvestigationService {
         addressFlag: n.metadata?.addressAnalysis?.flag,
         jurisdictionRisk: n.metadata?.jurisdictionRisk?.risk,
         jurisdictionName: n.metadata?.jurisdictionRisk?.matched || n.metadata?.jurisdictionRisk?.raw,
+        isFormationAgent: n.metadata?.isFormationAgent || false,
         hasMatch: matchedEntityIds.has(n.entityId),
         metadata: n.metadata,
       })),

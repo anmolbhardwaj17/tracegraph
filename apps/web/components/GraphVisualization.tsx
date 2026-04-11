@@ -13,6 +13,7 @@ export interface GraphNode extends d3.SimulationNodeDatum {
   addressFlag?: string;
   jurisdictionRisk?: 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
   jurisdictionName?: string;
+  isFormationAgent?: boolean;
   metadata?: any;
 }
 export interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
@@ -63,6 +64,7 @@ function isRisky(n: GraphNode): 'critical' | 'warning' | null {
 
 function nodeRadius(n: GraphNode, isRoot: boolean): number {
   if (isRoot) return 14;
+  if (n.isFormationAgent) return 4;
   return Math.max(5, Math.min(22, 4 + Math.sqrt(n.degree || 1) * 2.4));
 }
 
@@ -91,6 +93,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
   const [toolbarOpen, setToolbarOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'ownership' | 'directors' | 'addresses' | 'risk'>('all');
+  const [hideFormationAgents, setHideFormationAgents] = useState(true);
   const [pathFrom, setPathFrom] = useState('');
   const [pathTo, setPathTo] = useState('');
 
@@ -246,6 +249,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
       if (n.entityType === 'person' && !showPeople) return false;
       if (n.entityType === 'address' && !showAddresses) return false;
       if (riskOnly && !isRisky(n)) return false;
+      if (hideFormationAgents && n.isFormationAgent) return false;
       return true;
     });
 
@@ -318,7 +322,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
     }
 
     return { visibleNodes: pool, visibleLinks: vLinks, totalAfterFilters: totalAfter, pathInfo: null };
-  }, [nodes, links, showCompanies, showPeople, showAddresses, riskOnly, search, rootId, activePattern, showAll, adjacency, viewMode, pathFrom, pathTo]);
+  }, [nodes, links, showCompanies, showPeople, showAddresses, riskOnly, search, rootId, activePattern, showAll, adjacency, viewMode, pathFrom, pathTo, hideFormationAgents]);
 
   // ----- D3 render -----
   useEffect(() => {
@@ -737,6 +741,16 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
                 <ToggleRow label="People" count={typeCounts.person} color={TYPE_COLOR.person.fill} checked={showPeople} onChange={setShowPeople} />
                 <ToggleRow label="Addresses" count={typeCounts.address} color={TYPE_COLOR.address.fill} checked={showAddresses} onChange={setShowAddresses} />
               </div>
+              <button
+                onClick={() => setHideFormationAgents(!hideFormationAgents)}
+                className={`w-full text-[10px] font-mono px-2 py-1.5 rounded-sm border transition-colors ${
+                  hideFormationAgents
+                    ? 'bg-white/10 text-ink-50 border-white/30'
+                    : 'bg-ink-900 text-ink-400 border-white/10 hover:border-white/30'
+                }`}
+              >
+                {hideFormationAgents ? 'formation agents hidden' : 'show all entities'}
+              </button>
               <button
                 onClick={() => setRiskOnly(!riskOnly)}
                 className={`w-full text-[10px] font-mono px-2 py-1.5 rounded-sm border transition-colors ${

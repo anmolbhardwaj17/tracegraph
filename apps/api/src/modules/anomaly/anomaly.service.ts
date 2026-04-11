@@ -47,7 +47,7 @@ export class AnomalyDetectionService {
       if (e.relationshipType === 'director' || e.relationshipType === 'appointment') {
         const person = src.entityType === 'person' ? src : tgt.entityType === 'person' ? tgt : null;
         const company = src.entityType === 'company' ? src : tgt.entityType === 'company' ? tgt : null;
-        if (person && company) {
+        if (person && company && !company.metadata?.isFormationAgent) {
           const list = personDirectorships.get(person.id) || [];
           list.push(company);
           personDirectorships.set(person.id, list);

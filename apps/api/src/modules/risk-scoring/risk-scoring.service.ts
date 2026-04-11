@@ -51,7 +51,11 @@ export class RiskScoringService {
     emit('Classifying companies', 'Profiling company types and address clusters');
     await this.classifier.classifyAll(investigationId);
     await this.addressAnalysis.analyze(investigationId);
-    await this.directorRisk.profileAll(investigationId);
+
+    emit('Profiling directors', 'Analyzing appointment patterns and portfolio risk');
+    await this.directorRisk.profileAll(investigationId, (done, total) => {
+      emit('Profiling directors', `${done.toLocaleString()} of ${total.toLocaleString()} directors`);
+    });
 
     emit('Shell company scoring', 'Detecting shell indicators across the network');
     await this.anomaly.scoreShellCompanies(investigationId);
@@ -504,6 +508,22 @@ export class RiskScoringService {
         ],
         affectedEntities: [g.companyId],
         recommendation: 'Identify what triggered the reactivation; check for change of beneficial owner or new commercial activity.',
+      });
+    }
+
+    // ---- FORMATION AGENT (informational) ----
+    for (const n of nodes) {
+      if (n.entityType !== 'company' || !n.metadata?.isFormationAgent) continue;
+      // Only emit if this agent is connected to the root company
+      findings.push({
+        type: 'FORMATION_AGENT',
+        severity: 'LOW',
+        confidence: 'HIGH',
+        title: `${n.label} is a known formation agent`,
+        description: `${n.label} is a registered company formation service. Connections to this entity indicate companies were incorporated via a formation agent, which is common and not inherently suspicious.`,
+        evidence: [`Entity: ${n.label}`, n.entityId ? `Company number: ${n.entityId}` : ''].filter(Boolean),
+        affectedEntities: [n.entityId],
+        recommendation: 'Formation agent connections are informational. Focus due diligence on the beneficial owners and trading activities of the incorporated companies.',
       });
     }
 

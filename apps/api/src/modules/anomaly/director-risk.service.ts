@@ -31,7 +31,7 @@ export class DirectorRiskService {
     @InjectRepository(GraphEdge) private readonly edges: Repository<GraphEdge>,
   ) {}
 
-  async profileAll(investigationId: string): Promise<{ profiled: number; flagged: number }> {
+  async profileAll(investigationId: string, onProgress?: (processed: number, total: number) => void): Promise<{ profiled: number; flagged: number }> {
     const nodes = await this.nodes.find({ where: { investigationId } });
     const edges = await this.edges.find({ where: { investigationId } });
     const byId = new Map(nodes.map((n) => [n.id, n] as const));
@@ -65,6 +65,7 @@ export class DirectorRiskService {
 
     let flagged = 0;
     let profiled = 0;
+    const totalDirectors = personDirectorships.size;
     for (const [personId, portfolio] of personDirectorships.entries()) {
       const person = byId.get(personId);
       if (!person) continue;
@@ -73,6 +74,7 @@ export class DirectorRiskService {
       if (profile.risk === 'NOMINEE_PATTERN' || profile.risk === 'FORMATION_AGENT') flagged++;
       await this.nodes.save(person);
       profiled++;
+      if (profiled % 500 === 0) onProgress?.(profiled, totalDirectors);
     }
 
     this.logger.log(`Profiled ${profiled} directors (${flagged} flagged as nominee/formation)`);
