@@ -459,14 +459,30 @@ export class InvestigationService {
     };
   }
 
-  /** Findings only */
+  /** Findings with relationship context */
   async getFindings(id: string): Promise<any> {
     const inv = await this.investigations.findOne({ where: { id } });
-    if (!inv) return { findings: [] };
+    if (!inv) return { findings: [], entities: { company: [], person: [], address: [] }, relations: {}, targetNodeId: null, targetCompanyName: null };
     const nodes = await this.nodes.find({ where: { investigationId: id } });
     const grouped: Record<string, any[]> = { company: [], person: [], address: [] };
-    for (const n of nodes) (grouped[n.entityType] ||= []).push({ id: n.id, entityId: n.entityId, label: n.label });
-    return { findings: inv.progress?.findings || [], entities: grouped };
+    for (const n of nodes) (grouped[n.entityType] ||= []).push({ id: n.id, entityId: n.entityId, label: n.label, metadata: n.metadata });
+
+    // Compute relations so frontend can group findings by relevance
+    const relations = await this.computeRelations(id);
+    const relationsObj: Record<string, string> = {};
+    for (const [nodeId, rel] of relations) relationsObj[nodeId] = rel;
+
+    // Find target node ID
+    const rootNumber = inv.metadata?.companyNumber;
+    const rootNode = nodes.find((n) => n.entityType === 'company' && n.entityId === rootNumber);
+
+    return {
+      findings: inv.progress?.findings || [],
+      entities: grouped,
+      relations: relationsObj,
+      targetNodeId: rootNode?.id || null,
+      targetCompanyName: inv.metadata?.companyName || inv.query,
+    };
   }
 
   /** Entities - paginated by type, with relationship to target */

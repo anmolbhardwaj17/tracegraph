@@ -198,7 +198,7 @@ export function MatchesTab({ matches, counts }: Props) {
                   <Avatar name={m.reasons?.matchedName || m.matchedEntityId} type={m.sourceEntityType} size={28} />
                   <div className="min-w-0">
                     <div className="text-sm text-ink-50 truncate">{m.reasons?.matchedName || m.matchedEntityId}</div>
-                    <div className="text-[10px] font-mono text-ink-600 truncate">{m.sourceEntityId}</div>
+                    <div className="text-[10px] font-mono text-ink-600 truncate">{m.entityLabel || m.sourceEntityId}</div>
                   </div>
                 </div>
                 <div className="col-span-2">

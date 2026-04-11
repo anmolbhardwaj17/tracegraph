@@ -37,7 +37,7 @@ export function RiskGauge({ score }: { score: number }) {
   );
 }
 
-export function FindingRow({ finding }: { finding: Finding }) {
+export function FindingRow({ finding, resolveEntity }: { finding: Finding; resolveEntity?: (id: string) => string }) {
   const [open, setOpen] = useState(false);
   const sevColors: Record<string, string> = {
     CRITICAL: 'bg-signal-critical/15 text-signal-critical border-signal-critical/40',
@@ -79,7 +79,7 @@ export function FindingRow({ finding }: { finding: Finding }) {
             <div>
               <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Affected entities</div>
               <div className="text-ink-400 text-[10px] font-mono">
-                {finding.affectedEntities.slice(0, 8).join('  ·  ')}
+                {finding.affectedEntities.slice(0, 8).map((e: string) => resolveEntity ? resolveEntity(e) : e).join('  ·  ')}
                 {finding.affectedEntities.length > 8 ? `  +${finding.affectedEntities.length - 8} more` : ''}
               </div>
             </div>

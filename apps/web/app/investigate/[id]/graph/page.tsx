@@ -164,7 +164,7 @@ export default function GraphPage() {
           )}
 
           <div className="mt-4 pt-4 border-t border-white/5 text-[10px] font-mono text-ink-600">
-            {selected.degree} connections - ID: {selected.id.slice(0, 8)}
+            {selected.degree} connections
           </div>
 
           {selected.entityType === 'company' && (
