@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar } from './Avatar';
 import FlipNumbers from 'react-flip-numbers';
 
@@ -239,12 +239,6 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
         <span>{startedAt ? `Started ${new Date(startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(startedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}</span>
       </div>
 
-      <style jsx>{`
-        @keyframes feedIn {
-          0% { opacity: 0; transform: translateY(3px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
@@ -258,21 +252,49 @@ type Pulse = { startedAt: number; intensity: number };
 
 function DiscoveryFeed({ items }: { items: Discovery[] }) {
   const reversed = [...items].reverse();
+  const ROW_H = 36;
+  const maxVisible = 5;
+  const containerH = Math.min(reversed.length, maxVisible) * ROW_H;
+
+  // Track previous count to detect new arrivals and trigger slide
+  const prevCountRef = useRef(items.length);
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    if (items.length > prevCountRef.current) {
+      // New item arrived — start offset at -ROW_H (new row hidden above), then animate to 0
+      setOffset(-ROW_H);
+      // Force a reflow, then set to 0 to trigger the CSS transition
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setOffset(0);
+        });
+      });
+    }
+    prevCountRef.current = items.length;
+  }, [items.length]);
 
   return (
-    <div className="max-h-[200px] overflow-y-auto scrollbar-hide">
-      {reversed.map((d, i) => (
-        <div
-          key={d.id}
-          className="px-6 py-2.5 flex items-center gap-4 border-b border-white/5 last:border-b-0"
-          style={i === 0 ? { animation: 'feedIn 0.8s cubic-bezier(0.16,1,0.3,1)' } : undefined}
-        >
-          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-            d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
-          }`} />
-          <span className="text-xs text-ink-300 truncate">{d.reason}</span>
-        </div>
-      ))}
+    <div className="overflow-hidden" style={{ height: containerH }}>
+      <div
+        style={{
+          transform: `translateY(${offset}px)`,
+          transition: offset === 0 ? 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
+        }}
+      >
+        {reversed.map((d) => (
+          <div
+            key={d.id}
+            className="px-6 flex items-center gap-4 border-b border-white/5 last:border-b-0"
+            style={{ height: ROW_H }}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
+            }`} />
+            <span className="text-xs text-ink-300 truncate">{d.reason}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

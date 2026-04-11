@@ -76,11 +76,44 @@ export default function InvestigatePage() {
         }]);
       }
     });
-    socket.on('resolution_progress', (p: any) => setResolution({ processed: p.processed, total: p.total, matches: p.matches }));
+    socket.on('resolution_progress', (p: any) => {
+      setResolution({ processed: p.processed, total: p.total, matches: p.matches });
+      // Add discovery for new matches found during resolution
+      if (p.matches > 0 && p.latestMatch) {
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        setDiscoveries((prev) => [...prev.slice(-30), {
+          id: `match-${p.processed}`, label: p.latestMatch || 'Entity', entityType: 'match', time: elapsed,
+          reason: `Sanctions match: ${p.latestMatch}`,
+          severity: 'red' as const,
+        }]);
+      }
+    });
     socket.on('resolution_complete', () => setResolution(null));
-    socket.on('scoring_step', (p: any) => setScoringStep({ step: p.step, detail: p.detail }));
+    socket.on('scoring_step', (p: any) => {
+      setScoringStep({ step: p.step, detail: p.detail });
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      setDiscoveries((prev) => [...prev.slice(-30), {
+        id: `score-${elapsed}-${p.step.slice(0, 10)}`, label: p.step, entityType: 'scoring', time: elapsed,
+        reason: p.detail ? `${p.step}: ${p.detail}` : p.step,
+        severity: 'amber' as const,
+      }]);
+    });
     socket.on('status_changed', (p: any) => {
       setData((prev: any) => prev ? { ...prev, status: p.status } : prev);
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      const statusLabels: Record<string, string> = {
+        EXPANDING: 'Network expansion started',
+        RESOLVING: 'Cross-source screening started',
+        SCORING: 'Risk scoring started',
+        COMPLETE: 'Investigation complete',
+      };
+      if (statusLabels[p.status]) {
+        setDiscoveries((prev) => [...prev.slice(-30), {
+          id: `status-${p.status}`, label: statusLabels[p.status], entityType: 'status', time: elapsed,
+          reason: statusLabels[p.status],
+          severity: p.status === 'COMPLETE' ? 'green' as const : 'amber' as const,
+        }]);
+      }
     });
     socket.on('expansion_complete', () => { setScoringStep(null); fetchData(); });
 
