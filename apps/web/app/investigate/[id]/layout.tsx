@@ -24,6 +24,7 @@ export default function InvestigationLayout({ children }: { children: React.Reac
   const id = params?.id as string;
   const [meta, setMeta] = useState<any>(null);
   const [watched, setWatched] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Detect if we're on a tab sub-route or the base page (progress view)
   const pathParts = pathname.split('/');
@@ -126,22 +127,36 @@ export default function InvestigationLayout({ children }: { children: React.Reac
               {watched ? 'Watching' : 'Watch'}
             </button>
             <button
+              disabled={exporting}
               onClick={() => {
+                setExporting(true);
                 const url = `${API}/api/investigations/${id}/export`;
                 fetch(url, { method: 'POST' })
                   .then((r) => r.blob())
                   .then((blob) => {
+                    const name = (meta?.companyName || meta?.rootCompanyNumber || id).replace(/[^a-zA-Z0-9]/g, '_');
+                    const ts = new Date().toISOString().slice(0, 10);
                     const a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
-                    a.download = `tracegraph-${meta?.companyName || id}.pdf`;
+                    a.download = `${name}_${ts}.pdf`;
                     a.click();
                     URL.revokeObjectURL(a.href);
-                  });
+                  })
+                  .finally(() => setExporting(false));
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 rounded-sm text-[10px] font-mono uppercase tracking-wider text-ink-400 hover:text-ink-50 hover:border-white/30 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 rounded-sm text-[10px] font-mono uppercase tracking-wider text-ink-400 hover:text-ink-50 hover:border-white/30 transition-colors disabled:text-ink-600 disabled:border-white/5"
             >
-              <Download size={12} />
-              Export PDF
+              {exporting ? (
+                <>
+                  <div className="w-3 h-3 border border-ink-400 border-t-transparent rounded-full animate-spin" />
+                  Exporting
+                </>
+              ) : (
+                <>
+                  <Download size={12} />
+                  Export PDF
+                </>
+              )}
             </button>
           </div>
         </div>
