@@ -166,6 +166,8 @@ export class InvestigationService {
   }
 
   async graphFor(id: string): Promise<any> {
+    const inv = await this.investigations.findOne({ where: { id } });
+    const rootCompanyNumber = inv?.metadata?.companyNumber;
     const nodes = await this.nodes.find({ where: { investigationId: id } });
     const edges = await this.edges.find({ where: { investigationId: id } });
     const matches = await this.matchesRepo.find({ where: { investigationId: id } });
@@ -178,7 +180,11 @@ export class InvestigationService {
       degree.set(e.targetNodeId, (degree.get(e.targetNodeId) || 0) + 1);
     }
 
+    // Find the root node ID
+    const rootNode = nodes.find((n) => n.entityType === 'company' && n.entityId === rootCompanyNumber);
+
     return {
+      rootNodeId: rootNode?.id || null,
       nodes: nodes.map((n) => ({
         id: n.id,
         entityType: n.entityType,

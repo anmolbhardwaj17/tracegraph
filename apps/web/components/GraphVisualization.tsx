@@ -33,6 +33,7 @@ interface Props {
   nodes: GraphNode[];
   links: GraphLink[];
   findings?: GraphFinding[];
+  rootNodeId?: string;
   height?: number;
   onNodeClick?: (n: GraphNode | null) => void;
 }
@@ -47,7 +48,7 @@ function isRisky(n: GraphNode): boolean {
 
 type ViewMode = 'questions' | 'ownership' | 'directors' | 'suspicious' | 'path' | 'full' | 'spotlight';
 
-export function GraphVisualization({ nodes, links, findings = [], height = 720, onNodeClick }: Props) {
+export function GraphVisualization({ nodes, links, findings = [], rootNodeId, height = 720, onNodeClick }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; node: GraphNode } | null>(null);
@@ -61,9 +62,12 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
   const [legendOpen, setLegendOpen] = useState(false);
 
   const rootId = useMemo(() => {
-    if (nodes.length === 0) return '';
-    return [...nodes].sort((a, b) => (b.degree || 0) - (a.degree || 0))[0].id;
-  }, [nodes]);
+    // Use the explicit root from the API (target company), NOT highest degree
+    if (rootNodeId && nodes.find((n) => n.id === rootNodeId)) return rootNodeId;
+    // Fallback: find the first company node (should rarely happen)
+    const firstCompany = nodes.find((n) => n.entityType === 'company');
+    return firstCompany?.id || (nodes[0]?.id ?? '');
+  }, [nodes, rootNodeId]);
 
   const rootNode = nodes.find((n) => n.id === rootId);
 

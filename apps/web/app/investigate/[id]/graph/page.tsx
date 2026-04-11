@@ -28,6 +28,7 @@ export default function GraphPage() {
         nodes={graph.nodes}
         links={graph.links}
         findings={findings}
+        rootNodeId={graph.rootNodeId}
         height={760}
         onNodeClick={setSelected}
       />
