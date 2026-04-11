@@ -125,12 +125,14 @@ export default function OverviewPage() {
         </div>
 
         {/* Globe */}
-        <div className="lg:col-span-7 border border-white/5 bg-ink-850 relative overflow-hidden min-h-[300px]">
-          <div className="absolute top-5 left-5 z-10 space-y-1">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Geographic footprint</div>
-            <div className="text-xs text-ink-400">{data.addressCount || 0} addresses - {data.jurisdictionCount || 0} jurisdiction{(data.jurisdictionCount || 0) === 1 ? '' : 's'}</div>
+        <div className="lg:col-span-7">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-3">
+            Geographic footprint
+            <span className="text-ink-400 ml-3 normal-case tracking-normal">{data.addressCount || 0} addresses - {data.jurisdictionCount || 0} jurisdiction{(data.jurisdictionCount || 0) === 1 ? '' : 's'}</span>
           </div>
-          <NetworkGlobe />
+          <div className="border border-white/5 bg-ink-850 relative overflow-hidden min-h-[280px]">
+            <NetworkGlobe />
+          </div>
         </div>
       </div>
 
