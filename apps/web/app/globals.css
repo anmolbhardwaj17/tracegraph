@@ -230,5 +230,19 @@ html.light input, html.light select {
   color: #1E293B !important;
 }
 
-/* Map stays dark — override the map container specifically */
-html.light .leaflet-container { filter: none; }
+/* Graph visualization stays dark — it's a data viz, looks better dark */
+html.light [data-graph-container] {
+  background-color: #0A0A0A !important;
+  border-radius: 4px;
+}
+html.light [data-graph-container] * {
+  /* Don't override D3 SVG colors */
+}
+
+/* Question cards in graph sidebar — need proper light styling */
+html.light .bg-ink-900\/40 {
+  background-color: rgba(0,0,0,0.03) !important;
+}
+html.light .hover\:border-white\/15:hover {
+  border-color: rgba(0,0,0,0.15) !important;
+}

@@ -54,7 +54,8 @@ export function AddressMap({ address, height = 220 }: Props) {
         zoomControl: false,
         attributionControl: false,
       }).setView([coords.lat, coords.lng], 16);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      const isLight = document.documentElement.classList.contains('light');
+      L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isLight ? 'light_all' : 'dark_all'}/{z}/{x}/{y}{r}.png`, {
         subdomains: 'abcd',
         maxZoom: 19,
       }).addTo(map);

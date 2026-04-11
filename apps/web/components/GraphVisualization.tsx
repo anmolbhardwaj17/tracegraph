@@ -480,7 +480,7 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
 
       {/* Graph + summary */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div ref={containerRef} className="flex-1 relative bg-ink-900 border border-white/5 overflow-hidden">
+        <div ref={containerRef} data-graph-container className="flex-1 relative bg-ink-900 border border-white/5 overflow-hidden">
           <svg ref={svgRef} className="w-full h-full" />
 
           {/* Tooltip */}
