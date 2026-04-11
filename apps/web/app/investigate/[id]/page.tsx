@@ -172,11 +172,45 @@ export default function InvestigatePage() {
       <main className="min-h-screen">
         <NavBar />
         <div className="max-w-7xl mx-auto px-8 py-8 animate-pulse space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-white/5 rounded-sm" />
-            <div className="h-4 w-48 bg-white/5 rounded-sm" />
+          {/* ROW 1: company card + counters */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="border border-white/5 bg-ink-850 p-6 flex items-center gap-4 lg:w-72 lg:shrink-0">
+              <div className="w-10 h-10 bg-white/5 rounded-sm" />
+              <div className="space-y-2 flex-1">
+                <div className="h-4 w-32 bg-white/5 rounded-sm" />
+              </div>
+            </div>
+            <div className="border border-white/5 bg-ink-850 flex-1 px-6 py-5 flex gap-8">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i}>
+                  <div className="h-6 w-12 bg-white/5 rounded-sm mb-1" />
+                  <div className="h-2 w-16 bg-white/5 rounded-sm" />
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="h-64 bg-white/5 rounded-sm" />
+          {/* ROW 2: sidebar + pipeline + sonar */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="border border-white/5 bg-ink-850 p-6 lg:w-72 lg:shrink-0 space-y-6">
+              <div className="h-3 w-16 bg-white/5 rounded-sm" />
+              <div className="h-8 w-20 bg-white/5 rounded-sm" />
+              <div className="h-3 w-24 bg-white/5 rounded-sm" />
+              <div className="h-1 w-full bg-white/5 rounded-full" />
+            </div>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6 space-y-4">
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-white/5 rounded-full" />
+                    <div className="h-3 flex-1 bg-white/5 rounded-sm" />
+                  </div>
+                ))}
+              </div>
+              <div className="lg:col-span-7 border border-white/5 bg-ink-850 min-h-[360px]" />
+            </div>
+          </div>
+          {/* ROW 3: feed */}
+          <div className="border border-white/5 bg-ink-850 h-16" />
         </div>
       </main>
     );
