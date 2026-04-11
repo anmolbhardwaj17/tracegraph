@@ -88,6 +88,10 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
               <LiveNumber value={live.apiCalls} />
               <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">API calls</div>
             </div>
+            <div className="pr-6">
+              <LiveNumber value={live.depth} />
+              <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">depth</div>
+            </div>
           </div>
           {resolution && resolution.total > 0 && (
             <div className="px-6 pt-5 pb-5 border-t border-white/5">
