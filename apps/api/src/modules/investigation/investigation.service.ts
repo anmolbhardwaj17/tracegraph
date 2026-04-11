@@ -85,6 +85,38 @@ export class InvestigationService {
     return { items: mapped, total, page: opts.page, limit: opts.limit };
   }
 
+  async updateBenchmarks(): Promise<void> {
+    const all = await this.investigations.find({ where: { status: 'COMPLETE' } });
+    const scores = all.map((i) => i.progress?.riskScore).filter((s): s is number => s != null).sort((a, b) => a - b);
+    if (scores.length === 0) return;
+    const total = scores.length;
+    const avg = Math.round(scores.reduce((s, v) => s + v, 0) / total);
+    const median = scores[Math.floor(total / 2)];
+    const low = Math.round((scores.filter((s) => s < 25).length / total) * 100);
+    const medium = Math.round((scores.filter((s) => s >= 25 && s < 50).length / total) * 100);
+    const high = Math.round((scores.filter((s) => s >= 50 && s < 75).length / total) * 100);
+    const critical = Math.round((scores.filter((s) => s >= 75).length / total) * 100);
+    await this.investigations.query(
+      `UPDATE investigation_benchmarks SET "totalInvestigations"=$1, "avgScore"=$2, "medianScore"=$3, "lowPct"=$4, "mediumPct"=$5, "highPct"=$6, "criticalPct"=$7, "updatedAt"=now() WHERE id=1`,
+      [total, avg, median, low, medium, high, critical],
+    );
+  }
+
+  async getBenchmarks(): Promise<any> {
+    try {
+      const rows = await this.investigations.query(`SELECT * FROM investigation_benchmarks WHERE id=1`);
+      return rows[0] || null;
+    } catch { return null; }
+  }
+
+  async getPercentile(score: number): Promise<number> {
+    const all = await this.investigations.find({ where: { status: 'COMPLETE' } });
+    const scores = all.map((i) => i.progress?.riskScore).filter((s): s is number => s != null);
+    if (scores.length < 2) return 0;
+    const below = scores.filter((s) => s < score).length;
+    return Math.round((below / scores.length) * 100);
+  }
+
   async stats(): Promise<any> {
     const total = await this.investigations.count();
     const completed = await this.investigations.count({ where: { status: 'COMPLETE' } });
@@ -232,6 +264,8 @@ export class InvestigationService {
       riskScore: inv.progress?.riskScore,
       findings: inv.progress?.findings || [],
       uboChains: inv.progress?.uboChains || [],
+      benchmarks: await this.getBenchmarks(),
+      percentile: inv.progress?.riskScore != null ? await this.getPercentile(inv.progress.riskScore) : null,
       error: inv.metadata?.error,
       rootCompanyNumber: inv.metadata?.companyNumber,
       counts: {

@@ -159,6 +159,25 @@ export class InvestigationProcessor extends WorkerHost {
         } as any,
       });
       this.gateway.emitComplete(investigationId, result);
+
+      // Update benchmarks after completion
+      try {
+        const all = await this.investigations.find({ where: { status: 'COMPLETE' as any } });
+        const scores = all.map((i) => (i.progress as any)?.riskScore).filter((s: any): s is number => s != null).sort((a: number, b: number) => a - b);
+        if (scores.length > 0) {
+          const total = scores.length;
+          const avg = Math.round(scores.reduce((s: number, v: number) => s + v, 0) / total);
+          const median = scores[Math.floor(total / 2)];
+          const low = Math.round((scores.filter((s: number) => s < 25).length / total) * 100);
+          const medium = Math.round((scores.filter((s: number) => s >= 25 && s < 50).length / total) * 100);
+          const high = Math.round((scores.filter((s: number) => s >= 50 && s < 75).length / total) * 100);
+          const critical = Math.round((scores.filter((s: number) => s >= 75).length / total) * 100);
+          await this.investigations.query(
+            `INSERT INTO investigation_benchmarks (id, "totalInvestigations", "avgScore", "medianScore", "lowPct", "mediumPct", "highPct", "criticalPct", "updatedAt") VALUES (1, $1, $2, $3, $4, $5, $6, $7, now()) ON CONFLICT (id) DO UPDATE SET "totalInvestigations"=$1, "avgScore"=$2, "medianScore"=$3, "lowPct"=$4, "mediumPct"=$5, "highPct"=$6, "criticalPct"=$7, "updatedAt"=now()`,
+            [total, avg, median, low, medium, high, critical],
+          );
+        }
+      } catch (e: any) { this.logger.warn(`Benchmark update failed: ${e?.message}`); }
     } catch (err: any) {
       this.logger.error(`Investigation ${investigationId} failed: ${err?.message}`);
       await this.investigations.update(investigationId, {
