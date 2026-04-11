@@ -67,8 +67,12 @@ export default function InvestigationLayout({ children }: { children: React.Reac
               {meta?.companyName || meta?.query || 'Loading...'}
             </h1>
             {meta?.tier && (
-              <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border border-white/10 text-ink-400">
-                {meta.tier}
+              <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border ${
+                meta.tier === 'DEEP' ? 'bg-signal-medium/15 text-signal-medium border-signal-medium/30' :
+                meta.tier === 'QUICK' ? 'bg-signal-clean/15 text-signal-clean border-signal-clean/30' :
+                'bg-white/10 text-ink-50 border-white/20'
+              }`}>
+                {meta.tier === 'DEEP' ? 'Deep investigation' : meta.tier === 'QUICK' ? 'Quick scan' : 'Standard'}
               </span>
             )}
           </div>
