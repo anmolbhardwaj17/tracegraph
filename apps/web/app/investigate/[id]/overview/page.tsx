@@ -126,7 +126,7 @@ export default function OverviewPage() {
 
         {/* Globe */}
         <div className="lg:col-span-5">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-3">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-6">
             Geographic footprint
           </div>
           <div className="border border-white/5 bg-ink-850 relative overflow-hidden" style={{ minHeight: 280 }}>
