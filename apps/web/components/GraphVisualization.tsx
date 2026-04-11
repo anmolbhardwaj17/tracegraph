@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
+import { Link2, Users, AlertTriangle, Route, Globe } from 'lucide-react';
 
 export interface GraphNode extends d3.SimulationNodeDatum {
   id: string;
@@ -378,11 +379,11 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
   }, [visibleNodes, visibleLinks, height, mode, rootId, spotlightId, showRisk, pathNodes]);
 
   const questions = [
-    { id: 'ownership', icon: '🔗', title: 'Who controls this company?', desc: 'Ownership and PSC structure' },
-    { id: 'directors', icon: '👤', title: 'Who runs this company?', desc: 'Directors and their other companies' },
-    { id: 'suspicious', icon: '⚠', title: "What's suspicious?", desc: 'Entities with risk findings only' },
-    { id: 'path', icon: '🔍', title: 'How are they connected?', desc: 'Find the path between two entities' },
-    { id: 'full', icon: '◉', title: 'Show full network', desc: `All ${nodes.length.toLocaleString()} entities` },
+    { id: 'ownership', Icon: Link2, title: 'Who controls this company?', desc: 'Ownership and PSC structure' },
+    { id: 'directors', Icon: Users, title: 'Who runs this company?', desc: 'Directors and their other companies' },
+    { id: 'suspicious', Icon: AlertTriangle, title: "What's suspicious?", desc: 'Entities with risk findings only' },
+    { id: 'path', Icon: Route, title: 'How are they connected?', desc: 'Find the path between two entities' },
+    { id: 'full', Icon: Globe, title: 'Show full network', desc: `All ${nodes.length.toLocaleString()} entities` },
   ];
 
   return (
@@ -394,10 +395,10 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
           <button key={q.id} onClick={() => { setMode(q.id as ViewMode); setSpotlightId(null); setBreadcrumb([]); }}
             className={`w-full text-left px-3 py-3 rounded-sm border transition-colors ${mode === q.id ? 'bg-ink-900 border-white/20' : 'bg-ink-900/40 border-white/5 hover:border-white/15'}`}>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm">{q.icon}</span>
+              <q.Icon size={14} className={mode === q.id ? 'text-ink-50' : 'text-ink-500'} />
               <span className={`text-xs ${mode === q.id ? 'text-ink-50' : 'text-ink-300'}`}>{q.title}</span>
             </div>
-            <div className="text-[10px] text-ink-500">{q.desc}</div>
+            <div className="text-[10px] text-ink-500 ml-[22px]">{q.desc}</div>
           </button>
         ))}
 
