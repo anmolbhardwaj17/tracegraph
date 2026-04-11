@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Dropdown } from '../../components/Dropdown';
+import { Avatar } from '../../components/Avatar';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -13,6 +14,11 @@ interface CompanySummary {
   findingsCount: number;
   severityBreakdown: { CRITICAL: number; HIGH: number; MEDIUM: number; LOW: number };
   counts: { companies: number; people: number; addresses: number; edges: number };
+  profile: {
+    status: string; companyType: string; incorporationDate: string;
+    filingHealth: string; shellRisk: string; ownershipTransparency: string;
+    directorsCount: number; matchCount: number;
+  };
 }
 
 interface CompareResult {
@@ -25,8 +31,6 @@ interface CompareResult {
 }
 
 export default function ComparePage() {
-  const [queryA, setQueryA] = useState('');
-  const [queryB, setQueryB] = useState('');
   const [investigations, setInvestigations] = useState<any[]>([]);
   const [selectedA, setSelectedA] = useState('');
   const [selectedB, setSelectedB] = useState('');
@@ -39,7 +43,8 @@ export default function ComparePage() {
     try {
       const res = await fetch(`${API}/api/investigations`);
       const data = await res.json();
-      setInvestigations(data.filter((i: any) => i.status === 'COMPLETE'));
+      const items = Array.isArray(data) ? data : data.items || [];
+      setInvestigations(items.filter((i: any) => i.status === 'COMPLETE'));
     } catch {}
     setLoadingInvs(false);
   }
@@ -49,35 +54,35 @@ export default function ComparePage() {
     setLoading(true);
     try {
       const res = await fetch(`${API}/api/investigations/compare?a=${selectedA}&b=${selectedB}`);
-      const data = await res.json();
-      setResult(data);
+      setResult(await res.json());
     } catch {}
     setLoading(false);
   }
 
-  // Load investigations on mount
   if (investigations.length === 0 && !loadingInvs) loadInvestigations();
 
-  const scoreColor = (s: number) =>
-    s >= 75 ? 'text-signal-critical' : s >= 50 ? 'text-signal-high' : s >= 25 ? 'text-signal-medium' : 'text-signal-clean';
-
   return (
-    <main className="min-h-screen bg-ink-950 text-ink-50">
-      <div className="max-w-6xl mx-auto px-8 py-16">
-        <div className="flex items-baseline justify-between mb-10">
-          <div>
-            <h1 className="text-2xl font-medium">Company Comparison</h1>
-            <p className="text-sm text-ink-500 mt-1 font-mono">
-              select two completed investigations to compare side by side
-            </p>
-          </div>
-          <Link href="/" className="text-xs font-mono text-ink-500 hover:text-ink-50 transition-colors">
-            ← back to search
+    <main className="min-h-screen">
+      <nav className="sticky top-0 z-30 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
+            <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
           </Link>
+          <div className="flex items-center gap-6 text-sm text-ink-300">
+            <Link href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</Link>
+            <Link href="/compare" className="text-ink-50">Compare</Link>
+            <Link href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</Link>
+          </div>
         </div>
+      </nav>
+
+      <div className="max-w-6xl mx-auto px-8 py-10">
+        <h1 className="text-2xl font-medium text-ink-50 mb-1">Company Comparison</h1>
+        <p className="text-sm text-ink-500 font-mono mb-8">Side-by-side risk analysis of two companies</p>
 
         {/* Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
             <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-2 block">/ Company A</label>
             <Dropdown
@@ -87,7 +92,7 @@ export default function ComparePage() {
                 { value: '', label: 'Select investigation...' },
                 ...investigations.map((inv: any) => ({
                   value: inv.id,
-                  label: `${inv.companyName || inv.query} (${inv.riskScore != null ? `score ${inv.riskScore}` : 'unscored'})`,
+                  label: `${inv.companyName || inv.query} (score ${inv.riskScore ?? '-'})`,
                 })),
               ]}
             />
@@ -101,7 +106,7 @@ export default function ComparePage() {
                 { value: '', label: 'Select investigation...' },
                 ...investigations.map((inv: any) => ({
                   value: inv.id,
-                  label: `${inv.companyName || inv.query} (${inv.riskScore != null ? `score ${inv.riskScore}` : 'unscored'})`,
+                  label: `${inv.companyName || inv.query} (score ${inv.riskScore ?? '-'})`,
                 })),
               ]}
             />
@@ -111,72 +116,89 @@ export default function ComparePage() {
         <button
           onClick={compare}
           disabled={!selectedA || !selectedB || selectedA === selectedB || loading}
-          className="px-6 py-3 bg-ink-50 text-ink-900 text-sm font-medium rounded-sm hover:bg-ink-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-12"
+          className="px-6 py-3 bg-ink-50 text-ink-900 text-sm font-medium rounded-sm hover:bg-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-10"
         >
-          {loading ? 'Comparing…' : 'Compare'}
+          {loading ? 'Comparing...' : 'Compare'}
         </button>
 
         {result && (
-          <div className="space-y-10">
-            {/* Side-by-side summary */}
-            <section>
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Summary</div>
-              <div className="grid grid-cols-2 gap-6">
-                <SummaryCard data={result.a} label="A" />
-                <SummaryCard data={result.b} label="B" />
+          <div className="space-y-8">
+            {/* Risk score comparison */}
+            <div className="grid grid-cols-2 gap-6">
+              <ScoreCard data={result.a} worse={result.a.riskScore > result.b.riskScore} />
+              <ScoreCard data={result.b} worse={result.b.riskScore > result.a.riskScore} />
+            </div>
+
+            {/* Attribute comparison table */}
+            <section className="border border-white/5">
+              <div className="px-5 py-3 border-b border-white/5 bg-ink-900">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Attribute comparison</span>
               </div>
+              <CompareRow label="Status" a={result.a.profile.status} b={result.b.profile.status} betterFn={(v) => v === 'active'} />
+              <CompareRow label="Type" a={result.a.profile.companyType} b={result.b.profile.companyType} />
+              <CompareRow label="Incorporated" a={result.a.profile.incorporationDate?.slice(0, 4) || '-'} b={result.b.profile.incorporationDate?.slice(0, 4) || '-'} />
+              <CompareRow label="Filing health" a={result.a.profile.filingHealth} b={result.b.profile.filingHealth} betterFn={(v) => v === 'GOOD'} worseFn={(v) => v === 'POOR'} />
+              <CompareRow label="Shell risk" a={result.a.profile.shellRisk} b={result.b.profile.shellRisk} betterFn={(v) => v === 'LOW'} worseFn={(v) => v === 'HIGH' || v === 'CRITICAL'} />
+              <CompareRow label="Ownership" a={result.a.profile.ownershipTransparency} b={result.b.profile.ownershipTransparency} betterFn={(v) => v === 'TRANSPARENT'} worseFn={(v) => v === 'OPAQUE'} />
+              <CompareRow label="Findings" a={String(result.a.findingsCount)} b={String(result.b.findingsCount)} betterFn={(v, o) => Number(v) < Number(o)} />
+              <CompareRow label="Sanctions" a={String(result.a.profile.matchCount)} b={String(result.b.profile.matchCount)} betterFn={(v) => v === '0'} worseFn={(v) => Number(v) > 0} />
+              <CompareRow label="Network size" a={`${result.a.counts.companies} cos`} b={`${result.b.counts.companies} cos`} />
             </section>
 
             {/* Shared connections */}
             <section>
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">
-                / Hidden connections · {result.sharedDirectorsCount + result.sharedAddressesCount} shared
+                / Hidden connections - {result.sharedDirectorsCount + result.sharedAddressesCount} shared
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-white/5 bg-ink-850 p-6">
-                  <div className="text-3xl font-medium text-ink-50 tabular-nums">{result.sharedDirectorsCount}</div>
-                  <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono mb-4">Shared directors</div>
-                  {result.sharedDirectors.length > 0 ? (
-                    <ul className="space-y-1">
-                      {result.sharedDirectors.map((d, i) => (
-                        <li key={i} className="text-sm text-ink-300">› {d.label}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="text-xs font-mono text-ink-600">no shared directors found</div>
-                  )}
+              {result.sharedDirectorsCount + result.sharedAddressesCount === 0 ? (
+                <div className="border border-white/5 bg-ink-850 px-5 py-6 flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-signal-clean" />
+                  <span className="text-sm text-ink-300">No shared directors or addresses found between these companies.</span>
                 </div>
-                <div className="border border-white/5 bg-ink-850 p-6">
-                  <div className="text-3xl font-medium text-ink-50 tabular-nums">{result.sharedAddressesCount}</div>
-                  <div className="text-[10px] uppercase tracking-[0.15em] text-ink-500 mt-1 font-mono mb-4">Shared addresses</div>
-                  {result.sharedAddresses.length > 0 ? (
-                    <ul className="space-y-1">
-                      {result.sharedAddresses.map((a, i) => (
-                        <li key={i} className="text-sm text-ink-300 truncate">› {a.label}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="text-xs font-mono text-ink-600">no shared addresses found</div>
-                  )}
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="border border-white/5 bg-ink-850 p-5">
+                    <div className="text-2xl font-medium text-ink-50 tabular-nums">{result.sharedDirectorsCount}</div>
+                    <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-0.5 font-mono mb-3">Shared directors</div>
+                    {result.sharedDirectors.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {result.sharedDirectors.map((d, i) => (
+                          <li key={i} className="flex items-center gap-2">
+                            <Avatar name={d.label} type="person" size={20} />
+                            <span className="text-xs text-ink-300">{d.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="text-[10px] font-mono text-ink-600">none</div>
+                    )}
+                  </div>
+                  <div className="border border-white/5 bg-ink-850 p-5">
+                    <div className="text-2xl font-medium text-ink-50 tabular-nums">{result.sharedAddressesCount}</div>
+                    <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-0.5 font-mono mb-3">Shared addresses</div>
+                    {result.sharedAddresses.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {result.sharedAddresses.map((a, i) => (
+                          <li key={i} className="text-xs text-ink-300 truncate">{a.label}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="text-[10px] font-mono text-ink-600">none</div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </section>
 
-            {/* Links to full investigations */}
-            <section className="flex items-center gap-4">
-              <Link
-                href={`/investigate/${result.a.id}`}
-                className="text-xs font-mono text-ink-400 hover:text-ink-50 transition-colors"
-              >
-                view {result.a.companyName} investigation →
+            {/* Links */}
+            <div className="flex gap-4">
+              <Link href={`/investigate/${result.a.id}/overview`} className="text-xs font-mono text-ink-400 hover:text-ink-50 transition-colors">
+                View {result.a.companyName} report
               </Link>
-              <Link
-                href={`/investigate/${result.b.id}`}
-                className="text-xs font-mono text-ink-400 hover:text-ink-50 transition-colors"
-              >
-                view {result.b.companyName} investigation →
+              <Link href={`/investigate/${result.b.id}/overview`} className="text-xs font-mono text-ink-400 hover:text-ink-50 transition-colors">
+                View {result.b.companyName} report
               </Link>
-            </section>
+            </div>
           </div>
         )}
       </div>
@@ -184,49 +206,35 @@ export default function ComparePage() {
   );
 }
 
-function SummaryCard({ data, label }: { data: CompanySummary; label: string }) {
-  const scoreColor = (s: number) =>
-    s >= 75 ? 'text-signal-critical' : s >= 50 ? 'text-signal-high' : s >= 25 ? 'text-signal-medium' : 'text-signal-clean';
-
+function ScoreCard({ data, worse }: { data: CompanySummary; worse: boolean }) {
+  const sc = (s: number) => s >= 75 ? 'text-signal-critical' : s >= 50 ? 'text-signal-high' : s >= 25 ? 'text-signal-medium' : 'text-signal-clean';
   return (
-    <div className="border border-white/5 bg-ink-850 p-6 space-y-4">
-      <div>
-        <div className="text-[10px] font-mono uppercase tracking-wider text-ink-500 mb-1">company {label}</div>
-        <div className="text-lg font-medium text-ink-50 truncate">{data.companyName || data.query}</div>
+    <div className={`border bg-ink-850 p-6 ${worse ? 'border-signal-critical/30' : 'border-white/5'}`}>
+      <div className="flex items-center gap-3 mb-4">
+        <Avatar name={data.companyName} type="company" size={32} />
+        <div className="min-w-0">
+          <div className="text-sm text-ink-50 font-medium truncate">{data.companyName}</div>
+          <div className="text-[10px] font-mono text-ink-500">{data.query}</div>
+        </div>
       </div>
+      <div className={`text-4xl font-medium tabular-nums ${sc(data.riskScore || 0)}`}>{data.riskScore ?? '-'}</div>
+      <div className="text-[10px] font-mono text-ink-500 mt-1">{data.findingsCount} findings - {data.counts?.companies || 0} companies</div>
+    </div>
+  );
+}
 
-      <div className="flex items-end gap-6">
-        <div>
-          <div className={`text-4xl font-medium tabular-nums ${scoreColor(data.riskScore || 0)}`}>{data.riskScore ?? '-'}</div>
-          <div className="text-[10px] font-mono text-ink-500 mt-1">risk score</div>
-        </div>
-        <div>
-          <div className="text-lg font-medium text-ink-50 tabular-nums">{data.findingsCount}</div>
-          <div className="text-[10px] font-mono text-ink-500 mt-1">findings</div>
-        </div>
-      </div>
-
-      <div className="flex gap-3 text-[10px] font-mono">
-        {data.severityBreakdown.CRITICAL > 0 && <span className="text-signal-critical">{data.severityBreakdown.CRITICAL} CRIT</span>}
-        {data.severityBreakdown.HIGH > 0 && <span className="text-signal-high">{data.severityBreakdown.HIGH} HIGH</span>}
-        {data.severityBreakdown.MEDIUM > 0 && <span className="text-signal-medium">{data.severityBreakdown.MEDIUM} MED</span>}
-        {data.severityBreakdown.LOW > 0 && <span className="text-ink-400">{data.severityBreakdown.LOW} LOW</span>}
-      </div>
-
-      <div className="grid grid-cols-3 gap-px bg-white/5 border border-white/5 mt-3">
-        <div className="bg-ink-900 p-3 text-center">
-          <div className="text-sm font-medium text-ink-50 tabular-nums">{data.counts?.companies || 0}</div>
-          <div className="text-[9px] font-mono text-ink-500 mt-0.5">companies</div>
-        </div>
-        <div className="bg-ink-900 p-3 text-center">
-          <div className="text-sm font-medium text-ink-50 tabular-nums">{data.counts?.people || 0}</div>
-          <div className="text-[9px] font-mono text-ink-500 mt-0.5">people</div>
-        </div>
-        <div className="bg-ink-900 p-3 text-center">
-          <div className="text-sm font-medium text-ink-50 tabular-nums">{data.counts?.addresses || 0}</div>
-          <div className="text-[9px] font-mono text-ink-500 mt-0.5">addresses</div>
-        </div>
-      </div>
+function CompareRow({ label, a, b, betterFn, worseFn }: {
+  label: string; a: string; b: string;
+  betterFn?: (val: string, other: string) => boolean;
+  worseFn?: (val: string) => boolean;
+}) {
+  const colorA = worseFn?.(a) ? 'text-signal-critical' : betterFn?.(a, b) ? 'text-signal-clean' : 'text-ink-50';
+  const colorB = worseFn?.(b) ? 'text-signal-critical' : betterFn?.(b, a) ? 'text-signal-clean' : 'text-ink-50';
+  return (
+    <div className="grid grid-cols-3 border-b border-white/5 last:border-b-0">
+      <div className="px-5 py-3 text-[10px] font-mono uppercase tracking-wider text-ink-500 flex items-center">{label}</div>
+      <div className={`px-5 py-3 text-sm font-medium ${colorA} border-l border-white/5`}>{a}</div>
+      <div className={`px-5 py-3 text-sm font-medium ${colorB} border-l border-white/5`}>{b}</div>
     </div>
   );
 }

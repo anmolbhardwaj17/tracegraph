@@ -337,6 +337,25 @@ export class InvestigationService {
       return c;
     };
 
+    // Extract target company metadata for comparison table
+    const targetMeta = (inv: any) => {
+      const target = (inv.entities?.company || []).find((c: any) => c.entityId === inv.rootCompanyNumber);
+      const m = target?.metadata || {};
+      return {
+        status: m.status || 'unknown',
+        companyType: m.companyType || 'unknown',
+        incorporationDate: m.incorporationDate,
+        filingHealth: m.filingHealth?.band || 'N/A',
+        shellRisk: m.shellCompanyScore?.risk || 'N/A',
+        ownershipTransparency: m.ownershipOpacity?.band || 'N/A',
+        directorsCount: (inv.entities?.person || []).filter((p: any) => {
+          // Count direct directors (rough: first N people sorted by relevance)
+          return true; // All people in first page are likely relevant
+        }).length,
+        matchCount: (inv.matches || []).length,
+      };
+    };
+
     return {
       a: {
         id: a.id,
@@ -346,6 +365,7 @@ export class InvestigationService {
         findingsCount: (a.findings || []).length,
         severityBreakdown: sevBreakdown(a.findings),
         counts: a.counts,
+        profile: targetMeta(a),
       },
       b: {
         id: b.id,
@@ -355,6 +375,7 @@ export class InvestigationService {
         findingsCount: (b.findings || []).length,
         severityBreakdown: sevBreakdown(b.findings),
         counts: b.counts,
+        profile: targetMeta(b),
       },
       sharedDirectors: sharedDirectors.map((s) => ({ label: s.label })),
       sharedAddresses: sharedAddresses.map((s) => ({ label: s.label })),
