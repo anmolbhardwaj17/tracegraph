@@ -232,18 +232,20 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
             </div>
           ) : (
             <div>
-              {discoveries.slice(-8).reverse().map((d, i) => (
-                <div
-                  key={d.id + i}
-                  className="px-6 py-2.5 flex items-center gap-4 border-b border-white/5 last:border-b-0 animate-[feedIn_0.8s_cubic-bezier(0.16,1,0.3,1)]"
-                >
-                  <span className="text-[10px] font-mono text-ink-600 tabular-nums w-10 shrink-0">{formatMmSs(d.time)}</span>
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
-                  }`} />
-                  <span className="text-xs text-ink-300 truncate">{d.reason}</span>
-                </div>
-              ))}
+              {discoveries.slice(-8).reverse().map((d, i) => {
+                const isNewest = i === 0;
+                return (
+                  <div
+                    key={d.id}
+                    className={`px-6 py-2.5 flex items-center gap-4 border-b border-white/5 last:border-b-0 transition-opacity duration-500 ${isNewest ? 'animate-[feedIn_0.8s_cubic-bezier(0.16,1,0.3,1)]' : ''}`}
+                  >
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
+                    }`} />
+                    <span className="text-xs text-ink-300 truncate">{d.reason}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
