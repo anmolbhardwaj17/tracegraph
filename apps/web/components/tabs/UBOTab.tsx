@@ -226,7 +226,7 @@ export function UBOTab({ chains, findings = [], entities, targetCompanyName }: P
       )}
 
       {/* CHANGE 6: Comparison line */}
-      <div className="text-xs text-ink-500 font-mono px-1">
+      <div className="text-sm text-ink-500 px-1">
         Typical UK private companies have 1-2 ownership layers. This company has {summary?.maxLayers || 0} layer{(summary?.maxLayers || 0) !== 1 ? 's' : ''}.
       </div>
 
@@ -326,7 +326,7 @@ export function UBOTab({ chains, findings = [], entities, targetCompanyName }: P
       )}
 
       {/* CHANGE 5: Former ownership (collapsed) */}
-      <button onClick={() => setShowFormer(!showFormer)} className="text-[10px] font-mono text-ink-500 hover:text-ink-50 transition-colors">
+      <button onClick={() => setShowFormer(!showFormer)} className="text-xs font-mono text-ink-500 hover:text-ink-50 transition-colors">
         {showFormer ? '- Hide' : '+ Show'} previous ownership
       </button>
       {showFormer && (
@@ -343,13 +343,13 @@ function ControlCard({ label, items }: { label: string; items: string[] }) {
     <div className="bg-ink-900 p-3 border border-white/5">
       <div className="text-[10px] font-mono uppercase tracking-wider text-ink-500 mb-2">{label}</div>
       {items.length === 0 ? (
-        <div className="text-[10px] text-ink-600">None identified</div>
+        <div className="text-xs text-ink-600">None identified</div>
       ) : (
         <ul className="space-y-1">
           {items.slice(0, 3).map((item, i) => (
-            <li key={i} className="text-[10px] text-ink-300 truncate">{item}</li>
+            <li key={i} className="text-xs text-ink-300 truncate">{item}</li>
           ))}
-          {items.length > 3 && <li className="text-[10px] text-ink-600">+{items.length - 3} more</li>}
+          {items.length > 3 && <li className="text-xs text-ink-600">+{items.length - 3} more</li>}
         </ul>
       )}
     </div>
