@@ -120,12 +120,12 @@ export default function OverviewPage() {
       {/* ROW 2: AI Insights + Globe */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Insights */}
-        <div className="lg:col-span-7">
+        <div className="lg:col-span-8" style={{ minHeight: 300 }}>
           <Insights investigationId={id} topic="overview" />
         </div>
 
         {/* Globe */}
-        <div className="lg:col-span-5">
+        <div className="lg:col-span-4">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-6">
             Geographic footprint
           </div>
