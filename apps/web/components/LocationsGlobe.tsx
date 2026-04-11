@@ -34,7 +34,16 @@ interface Props {
 
 export function LocationsGlobe({ points, arcs = [], targetLat, targetLng, onPointClick, height = 580 }: Props) {
   const globeRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(800);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver((entries) => setContainerWidth(entries[0].contentRect.width));
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   // Auto-rotate to target on load
   useEffect(() => {
@@ -62,11 +71,11 @@ export function LocationsGlobe({ points, arcs = [], targetLat, targetLng, onPoin
   </div>`, []);
 
   return (
-    <div style={{ height, width: '100%', position: 'relative' }}>
+    <div ref={containerRef} style={{ height, width: '100%', position: 'relative' }}>
       <Globe
         ref={globeRef}
         onGlobeReady={() => setReady(true)}
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+        globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
         bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
         backgroundImageUrl=""
         backgroundColor="rgba(0,0,0,0)"
@@ -99,7 +108,7 @@ export function LocationsGlobe({ points, arcs = [], targetLat, targetLng, onPoin
         ringMaxRadius={2}
         ringPropagationSpeed={1}
         ringRepeatPeriod={1500}
-        width={undefined as any}
+        width={containerWidth}
         height={height}
       />
     </div>
