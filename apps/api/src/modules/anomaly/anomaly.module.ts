@@ -16,6 +16,7 @@ import { CompanyAgeAnomalyService } from './company-age-anomaly.service';
 import { CrossDirectorshipService } from './cross-directorship.service';
 import { OwnershipOpacityService } from './ownership-opacity.service';
 import { DirectorVelocityService } from './director-velocity.service';
+import { FinancialDistressService } from './financial-distress.service';
 import { CompaniesHouseModule } from '../companies-house/companies-house.module';
 
 @Module({
@@ -35,6 +36,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
     CrossDirectorshipService,
     OwnershipOpacityService,
     DirectorVelocityService,
+    FinancialDistressService,
   ],
   exports: [
     AnomalyDetectionService,
@@ -51,6 +53,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
     CrossDirectorshipService,
     OwnershipOpacityService,
     DirectorVelocityService,
+    FinancialDistressService,
   ],
 })
 export class AnomalyModule {}

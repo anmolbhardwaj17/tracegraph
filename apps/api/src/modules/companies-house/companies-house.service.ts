@@ -74,6 +74,18 @@ export class CompaniesHouseService {
     return this.request(`/company/${encodeURIComponent(companyNumber)}/charges`);
   }
 
+  async getDocument(documentId: string): Promise<string | null> {
+    try {
+      const res = await this.http.get(`/document/${documentId}/content`, {
+        responseType: 'text',
+        headers: { Accept: 'application/xhtml+xml,text/html' },
+      });
+      return res.data;
+    } catch {
+      return null;
+    }
+  }
+
   private async request(path: string): Promise<any> {
     const cacheKey = `ch:${path}`;
     const cached = await this.redis.get(cacheKey);

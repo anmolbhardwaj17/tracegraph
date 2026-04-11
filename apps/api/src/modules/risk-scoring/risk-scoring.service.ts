@@ -19,6 +19,7 @@ import { CompanyAgeAnomalyService } from '../anomaly/company-age-anomaly.service
 import { CrossDirectorshipService } from '../anomaly/cross-directorship.service';
 import { OwnershipOpacityService } from '../anomaly/ownership-opacity.service';
 import { DirectorVelocityService } from '../anomaly/director-velocity.service';
+import { FinancialDistressService } from '../anomaly/financial-distress.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -44,6 +45,7 @@ export class RiskScoringService {
     private readonly crossDirectorship: CrossDirectorshipService,
     private readonly ownershipOpacity: OwnershipOpacityService,
     private readonly directorVelocity: DirectorVelocityService,
+    private readonly financialDistress: FinancialDistressService,
   ) {}
 
   async run(
@@ -86,6 +88,9 @@ export class RiskScoringService {
 
     emit('Director velocity scoring', 'Analyzing appointment patterns and churn rates');
     await this.directorVelocity.scoreAll(investigationId);
+
+    emit('Financial distress analysis', 'Checking company accounts for distress signals');
+    await this.financialDistress.analyze(investigationId);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -518,6 +523,29 @@ export class RiskScoringService {
         ],
         affectedEntities: [g.companyId],
         recommendation: 'Identify what triggered the reactivation; check for change of beneficial owner or new commercial activity.',
+      });
+    }
+
+    // ---- FINANCIAL DISTRESS ----
+    for (const n of nodes) {
+      if (n.entityType !== 'company') continue;
+      const fm = n.metadata?.financialMetrics;
+      if (!fm?.distressed) continue;
+      findings.push({
+        type: 'FINANCIAL_DISTRESS',
+        severity: fm.negativeEquity ? 'HIGH' : 'MEDIUM',
+        confidence: fm.filings?.length >= 2 ? 'HIGH' : 'MEDIUM',
+        title: `${n.label} shows financial distress signals`,
+        description: `${n.label} financial analysis: ${fm.reasons.join('. ') || 'Distress indicators detected'}.`,
+        evidence: [
+          ...(fm.totalAssets != null ? [`Total assets: ${fm.totalAssets.toLocaleString()}`] : []),
+          ...(fm.netAssets != null ? [`Net assets: ${fm.netAssets.toLocaleString()}`] : []),
+          ...(fm.assetTrend ? [`Asset trend: ${fm.assetTrend}`] : []),
+          ...(fm.negativeEquity ? ['Negative equity'] : []),
+          ...fm.reasons,
+        ],
+        affectedEntities: [n.entityId],
+        recommendation: 'Review financial statements in detail. Negative equity or rapid asset decline may indicate insolvency risk.',
       });
     }
 
