@@ -53,16 +53,27 @@ export default function OverviewPage() {
   const progress = (score / 100) * circumference;
   const classification = data.riskClassification || (score >= 75 ? 'CRITICAL' : score >= 50 ? 'HIGH' : score >= 25 ? 'MEDIUM' : 'LOW');
 
+  // Fallback: compute breakdown from score if not provided by backend
+  if (!data.scoreBreakdown && score > 0) {
+    const sanctionFindings = (data.findings || []).filter((f: any) => f.type === 'SANCTIONS_PROXIMITY' || f.type === 'HIGH_RISK_JURISDICTION');
+    const directorFindings = (data.findings || []).filter((f: any) => f.type === 'DISQUALIFIED_DIRECTOR' || f.type === 'DIRECTOR_VELOCITY' || f.type === 'DIRECTOR_NOMINEE_PATTERN');
+    data.scoreBreakdown = {
+      sanctions: Math.min(40, sanctionFindings.length * 10),
+      structural: Math.min(40, Math.max(0, score - sanctionFindings.length * 10 - directorFindings.length * 5)),
+      director: Math.min(20, directorFindings.length * 5),
+    };
+  }
+
   const findings = data.findings || [];
   const topActions = findings.filter((f: any) => f.severity === 'CRITICAL' || f.severity === 'HIGH').slice(0, 3);
   const remainingFindings = findings.filter((f: any) => !topActions.includes(f));
 
   return (
     <div className="space-y-8">
-      {/* ROW 1: Score gauge + Network numbers */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* ROW 1: Score gauge (narrow) + Network numbers (wide) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Score gauge */}
-        <div className="border border-white/5 bg-ink-850 p-8 flex items-center gap-8">
+        <div className="lg:col-span-4 border border-white/5 bg-ink-850 p-6 flex items-center gap-6">
           <div className="relative w-28 h-28 shrink-0">
             <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
               <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
@@ -83,9 +94,9 @@ export default function OverviewPage() {
         </div>
 
         {/* Network numbers */}
-        <div className="border border-white/5 bg-ink-850 p-8">
+        <div className="lg:col-span-8 border border-white/5 bg-ink-850 p-6">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">{data.targetCompany}'s network</div>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-4 gap-6">
             <div>
               <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.people || 0}</div>
               <div className="text-[10px] font-mono text-ink-500 mt-1">directors & officers</div>
@@ -107,9 +118,9 @@ export default function OverviewPage() {
       </div>
 
       {/* ROW 2: Score breakdown + Globe */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Score breakdown */}
-        <div className="border border-white/5 bg-ink-850 p-8">
+        <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">Where the risk comes from</div>
           <div className="space-y-4">
             {[
@@ -131,7 +142,7 @@ export default function OverviewPage() {
         </div>
 
         {/* Globe */}
-        <div className="border border-white/5 bg-ink-850 relative overflow-hidden min-h-[220px]">
+        <div className="lg:col-span-7 border border-white/5 bg-ink-850 relative overflow-hidden min-h-[220px]">
           <div className="absolute top-5 left-5 z-10 space-y-1">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Geographic footprint</div>
             <div className="text-xs text-ink-400">{data.addressCount || 0} addresses - {data.jurisdictionCount || 0} jurisdiction{(data.jurisdictionCount || 0) === 1 ? '' : 's'}</div>

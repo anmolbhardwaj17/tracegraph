@@ -183,8 +183,8 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative pt-48 pb-32 px-8 max-w-6xl mx-auto">
-        {/* Ambient network canvas */}
-        <HeroCanvas />
+        {/* Dot grid background */}
+        <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
 
         <div className="relative">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-8 reveal">
