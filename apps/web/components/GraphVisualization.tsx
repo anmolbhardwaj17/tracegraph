@@ -266,14 +266,7 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
     const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.2, 5]).on('zoom', (e) => root.attr('transform', e.transform.toString()));
     svg.call(zoom as any);
 
-    if (visibleNodes.length === 0) {
-      if (mode === 'questions' && rootNode) {
-        // Show just the root node centered
-        root.append('circle').attr('cx', width / 2).attr('cy', height / 2).attr('r', 24).attr('fill', ROOT_COLOR);
-        root.append('text').attr('x', width / 2).attr('y', height / 2 + 40).attr('text-anchor', 'middle')
-          .attr('fill', '#A0A0A0').attr('font-size', 11).attr('font-family', 'ui-monospace, monospace')
-          .text(rootNode.label);
-      }
+    if (visibleNodes.length === 0 || (mode === 'questions' && visibleNodes.length <= 1)) {
       return;
     }
 
