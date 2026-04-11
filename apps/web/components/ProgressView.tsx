@@ -172,7 +172,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
                 })}
               </ol>
             </div>
-            <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.3)' }}>
+            <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col">
               <div className="px-6 pt-6">
                 <div className="flex items-center justify-between">
                   <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
@@ -289,6 +289,17 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       if (!ctx) return;
       const now = performance.now();
       ctx.clearRect(0, 0, W, H);
+
+      // Shadow ellipse behind sonar — dark blurred silhouette offset below
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 40;
+      ctx.shadowOffsetY = 25;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, maxR * 0.85, maxR * 0.85 * 0.62, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
 
       // Background grid
       ctx.strokeStyle = 'rgba(255,255,255,0.04)';
