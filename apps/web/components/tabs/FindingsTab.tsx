@@ -78,13 +78,34 @@ export function FindingsTab({ findings, entities, relations, targetNodeId, targe
     return (raw: string) => m.get(raw) || raw;
   }, [entities]);
 
-  // Build ID-to-relation map
+  // Map from any entity identifier (uuid or entityId) to its node uuid
+  const idToUuid = useMemo(() => {
+    const m = new Map<string, string>();
+    if (entities) {
+      for (const group of ['company', 'person', 'address'] as const) {
+        for (const e of entities[group] || []) {
+          if (e.id) m.set(e.id, e.id);
+          if (e.entityId && e.id) m.set(e.entityId, e.id);
+        }
+      }
+    }
+    return m;
+  }, [entities]);
+
+  // Build ID-to-relation map (resolves both uuid and entityId)
   const relOf = useMemo(() => {
     if (!relations) return (_id: string) => 'Network';
-    return (id: string) => relations[id] || 'Network';
-  }, [relations]);
+    return (id: string) => {
+      // Direct lookup
+      if (relations[id]) return relations[id];
+      // Try resolving entityId to uuid first
+      const uuid = idToUuid.get(id);
+      if (uuid && relations[uuid]) return relations[uuid];
+      return 'Network';
+    };
+  }, [relations, idToUuid]);
 
-  // Build sets of node IDs for target and directors
+  // Build sets that include BOTH uuid and entityId for target and directors
   const { targetIds, directorIds } = useMemo(() => {
     const tIds = new Set<string>();
     const dIds = new Set<string>();
@@ -94,10 +115,18 @@ export function FindingsTab({ findings, entities, relations, targetNodeId, targe
         if (rel === 'Director' || rel === 'PSC/Owner') dIds.add(id);
       }
     }
-    // Also include the explicit targetNodeId
     if (targetNodeId) tIds.add(targetNodeId);
+    // Also add entityId aliases so affectedEntities (which may use company numbers) match
+    if (entities) {
+      for (const group of ['company', 'person', 'address'] as const) {
+        for (const e of entities[group] || []) {
+          if (tIds.has(e.id) && e.entityId) tIds.add(e.entityId);
+          if (dIds.has(e.id) && e.entityId) dIds.add(e.entityId);
+        }
+      }
+    }
     return { targetIds: tIds, directorIds: dIds };
-  }, [relations, targetNodeId]);
+  }, [relations, targetNodeId, entities]);
 
   // Classify each finding into a section
   const { targetFindings, directorFindings, networkFindings } = useMemo(() => {

@@ -5,6 +5,7 @@ import { Link2, Users, AlertTriangle, Route, Globe } from 'lucide-react';
 
 export interface GraphNode extends d3.SimulationNodeDatum {
   id: string;
+  entityId?: string;
   entityType: 'company' | 'person' | 'address';
   label: string;
   degree: number;
