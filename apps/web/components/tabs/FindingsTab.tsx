@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, Shield, ShieldAlert, Users, Globe } from 'lucide-react';
 import { Insights } from '../Insights';
-import { SeverityBar } from '../SeverityBar';
 import { EmptyState } from './shared';
 
 interface Finding {
@@ -13,14 +13,58 @@ interface Finding {
   evidence: string[];
   affectedEntities: string[];
   recommendation: string;
+  businessImpact?: string;
+  legalReference?: string;
+  verificationSteps?: string[];
+}
+
+interface Props {
+  findings: Finding[];
+  entities?: any;
+  relations?: Record<string, string>;
+  targetNodeId?: string | null;
+  targetCompanyName?: string | null;
+  investigationId: string;
 }
 
 const SEV_RANK: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 const ALL_SEVERITIES: Finding['severity'][] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-const ALL_CONFIDENCES: NonNullable<Finding['confidence']>[] = ['HIGH', 'MEDIUM', 'LOW'];
 
-export function FindingsTab({ findings, entities, investigationId }: { findings: Finding[]; entities?: any; investigationId: string }) {
-  // id → label resolver (entities may carry uuid ids that show up in affectedEntities)
+type SevCounts = { CRITICAL: number; HIGH: number; MEDIUM: number; LOW: number };
+
+function countSev(list: Finding[]): SevCounts {
+  const c: SevCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  for (const f of list) c[f.severity]++;
+  return c;
+}
+
+function sevSummary(c: SevCounts): string {
+  const parts: string[] = [];
+  if (c.CRITICAL) parts.push(`${c.CRITICAL} critical`);
+  if (c.HIGH) parts.push(`${c.HIGH} high`);
+  if (c.MEDIUM) parts.push(`${c.MEDIUM} medium`);
+  if (c.LOW) parts.push(`${c.LOW} low`);
+  return parts.join(', ');
+}
+
+function maxSev(c: SevCounts): string {
+  if (c.CRITICAL > 0) return 'critical';
+  if (c.HIGH > 0) return 'high';
+  if (c.MEDIUM > 0) return 'medium';
+  return 'clean';
+}
+
+const BORDER_COLOR: Record<string, string> = {
+  critical: 'border-l-signal-critical',
+  high: 'border-l-signal-high',
+  medium: 'border-l-signal-medium',
+  clean: 'border-l-signal-clean',
+};
+
+export function FindingsTab({ findings, entities, relations, targetNodeId, targetCompanyName, investigationId }: Props) {
+  const targetName = targetCompanyName || 'Target company';
+
+  // Build ID-to-label map
   const labelOf = useMemo(() => {
     const m = new Map<string, string>();
     if (entities) {
@@ -34,20 +78,59 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
     return (raw: string) => m.get(raw) || raw;
   }, [entities]);
 
+  // Build ID-to-relation map
+  const relOf = useMemo(() => {
+    if (!relations) return (_id: string) => 'Network';
+    return (id: string) => relations[id] || 'Network';
+  }, [relations]);
+
+  // Build sets of node IDs for target and directors
+  const { targetIds, directorIds } = useMemo(() => {
+    const tIds = new Set<string>();
+    const dIds = new Set<string>();
+    if (relations) {
+      for (const [id, rel] of Object.entries(relations)) {
+        if (rel === 'Target') tIds.add(id);
+        if (rel === 'Director' || rel === 'PSC/Owner') dIds.add(id);
+      }
+    }
+    // Also include the explicit targetNodeId
+    if (targetNodeId) tIds.add(targetNodeId);
+    return { targetIds: tIds, directorIds: dIds };
+  }, [relations, targetNodeId]);
+
+  // Classify each finding into a section
+  const { targetFindings, directorFindings, networkFindings } = useMemo(() => {
+    const target: Finding[] = [];
+    const director: Finding[] = [];
+    const network: Finding[] = [];
+
+    for (const f of findings) {
+      const affected = f.affectedEntities || [];
+      const hitsTarget = affected.some((id) => targetIds.has(id));
+      const hitsDirector = affected.some((id) => directorIds.has(id));
+
+      if (hitsTarget) target.push(f);
+      else if (hitsDirector) director.push(f);
+      else network.push(f);
+    }
+
+    // Sort each by severity
+    const sorter = (a: Finding, b: Finding) => SEV_RANK[a.severity] - SEV_RANK[b.severity];
+    target.sort(sorter);
+    director.sort(sorter);
+    network.sort(sorter);
+
+    return { targetFindings: target, directorFindings: director, networkFindings: network };
+  }, [findings, targetIds, directorIds]);
+
+  // Filter state
   const [search, setSearch] = useState('');
   const [sevFilter, setSevFilter] = useState<Set<string>>(new Set());
-  const [confFilter, setConfFilter] = useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [entityFilter, setEntityFilter] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'severity' | 'type' | 'title'>('severity');
-  const [showAll, setShowAll] = useState(false);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-
-  const counts = useMemo(() => {
-    const c = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-    for (const f of findings) c[f.severity]++;
-    return c;
-  }, [findings]);
+  const [networkOpen, setNetworkOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const types = useMemo(() => {
     const set = new Set<string>();
@@ -55,26 +138,9 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
     return Array.from(set).sort();
   }, [findings]);
 
-  // Top affected entities - leaderboard (resolved to labels, duplicates collapsed)
-  const topEntities = useMemo(() => {
-    const tally = new Map<string, { count: number; raws: Set<string> }>();
-    for (const f of findings) {
-      for (const raw of f.affectedEntities || []) {
-        const label = labelOf(raw);
-        const cur = tally.get(label) || { count: 0, raws: new Set<string>() };
-        cur.count++;
-        cur.raws.add(raw);
-        tally.set(label, cur);
-      }
-    }
-    return Array.from(tally.entries())
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 10)
-      .map(([label, v]) => ({ label, count: v.count, raws: v.raws }));
-  }, [findings, labelOf]);
-
-  const filtered = useMemo(() => {
-    let result = [...findings];
+  // Apply filters to a list of findings
+  function applyFilters(list: Finding[]): Finding[] {
+    let result = list;
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((f) =>
@@ -85,17 +151,16 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
       );
     }
     if (sevFilter.size > 0) result = result.filter((f) => sevFilter.has(f.severity));
-    if (confFilter.size > 0) result = result.filter((f) => f.confidence && confFilter.has(f.confidence));
     if (typeFilter !== 'all') result = result.filter((f) => f.type === typeFilter);
     if (entityFilter) result = result.filter((f) => (f.affectedEntities || []).some((e) => labelOf(e) === entityFilter));
-
-    result.sort((a, b) => {
-      if (sortBy === 'severity') return SEV_RANK[a.severity] - SEV_RANK[b.severity];
-      if (sortBy === 'type') return a.type.localeCompare(b.type);
-      return a.title.localeCompare(b.title);
-    });
     return result;
-  }, [findings, search, sevFilter, confFilter, typeFilter, entityFilter, sortBy, labelOf]);
+  }
+
+  const filteredTarget = applyFilters(targetFindings);
+  const filteredDirector = applyFilters(directorFindings);
+  const filteredNetwork = applyFilters(networkFindings);
+
+  const hasFilters = !!(search || sevFilter.size > 0 || typeFilter !== 'all' || entityFilter);
 
   function toggle<T>(set: Set<T>, value: T): Set<T> {
     const next = new Set(set);
@@ -104,8 +169,40 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
     return next;
   }
 
-  const visible = showAll ? filtered : filtered.slice(0, 50);
-  const hasFilters = search || sevFilter.size > 0 || confFilter.size > 0 || typeFilter !== 'all' || entityFilter;
+  function toggleExpand(key: string) {
+    setExpanded(toggle(expanded, key));
+  }
+
+  // Leaderboard split into Direct and Network
+  const { directEntities, networkEntities } = useMemo(() => {
+    const directTally = new Map<string, { count: number; relation: string }>();
+    const networkTally = new Map<string, { count: number; relation: string }>();
+
+    for (const f of findings) {
+      for (const raw of f.affectedEntities || []) {
+        const label = labelOf(raw);
+        const rel = relOf(raw);
+        const isDirect = targetIds.has(raw) || directorIds.has(raw);
+        const tally = isDirect ? directTally : networkTally;
+        const cur = tally.get(label) || { count: 0, relation: rel };
+        cur.count++;
+        tally.set(label, cur);
+      }
+    }
+
+    const toList = (m: Map<string, { count: number; relation: string }>) =>
+      Array.from(m.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 8)
+        .map(([label, v]) => ({ label, count: v.count, relation: v.relation }));
+
+    return { directEntities: toList(directTally), networkEntities: toList(networkTally) };
+  }, [findings, labelOf, relOf, targetIds, directorIds]);
+
+  // Severity counts per section
+  const targetCounts = countSev(targetFindings);
+  const directorCounts = countSev(directorFindings);
+  const networkCounts = countSev(networkFindings);
 
   if (findings.length === 0) {
     return <EmptyState message="No risk signals detected." />;
@@ -113,52 +210,40 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
 
   return (
     <div className="space-y-6">
-      {/* A. Severity strip - clickable */}
+      {/* Severity strip - split by section */}
       <section>
         <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">
-          / Severity distribution · {findings.length} total findings · click a band to filter
+          / Risk distribution · {findings.length} total findings
         </div>
-        <SeverityBar
-          counts={counts}
-          active={sevFilter}
-          onToggle={(s) => setSevFilter(toggle(sevFilter, s))}
-        />
+        <div className="space-y-2">
+          <MiniSevBar label={targetName} counts={targetCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
+          <MiniSevBar label="Directors & PSCs" counts={directorCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
+          <MiniSevBar label="Wider network" counts={networkCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
+        </div>
       </section>
 
-      {/* B. AI insights */}
+      {/* AI insights */}
       <Insights investigationId={investigationId} topic="findings" />
 
-      {/* C. Filter bar */}
+      {/* Filter bar */}
       <section>
-        <div className="space-y-3">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              placeholder="Search title, description, evidence…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 px-4 py-3 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
-            />
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-4 py-3 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 focus:outline-none focus:border-white/30 font-mono text-xs"
-            >
-              <option value="all">All types</option>
-              {types.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-4 py-3 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 focus:outline-none focus:border-white/30 font-mono text-xs"
-            >
-              <option value="severity">Sort: severity</option>
-              <option value="type">Sort: type</option>
-              <option value="title">Sort: title</option>
-            </select>
-          </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-[10px] font-mono text-ink-500 uppercase tracking-wider mr-2">severity</span>
+        <div className="flex gap-3 flex-wrap items-center">
+          <input
+            type="text"
+            placeholder="Search findings..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-[200px] px-4 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
+          />
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-3 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-ink-50 focus:outline-none focus:border-white/30 font-mono text-[11px]"
+          >
+            <option value="all">All types</option>
+            {types.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <div className="flex items-center gap-1.5">
             {ALL_SEVERITIES.map((s) => (
               <button
                 key={s}
@@ -172,191 +257,374 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
                 {s}
               </button>
             ))}
-            <span className="text-[10px] font-mono text-ink-500 uppercase tracking-wider mr-2 ml-4">confidence</span>
-            {ALL_CONFIDENCES.map((c) => (
-              <button
-                key={c}
-                onClick={() => setConfFilter(toggle(confFilter, c))}
-                className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border transition-colors ${
-                  confFilter.has(c)
-                    ? 'bg-white/10 text-ink-50 border-white/30'
-                    : 'bg-ink-850 text-ink-400 border-white/10 hover:border-white/30'
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-            {entityFilter && (
-              <span className="text-[10px] font-mono px-2 py-1 rounded-sm border border-white/30 bg-white/10 text-ink-50">
-                entity: {entityFilter} <button onClick={() => setEntityFilter(null)} className="ml-1 text-ink-400 hover:text-ink-50">×</button>
-              </span>
-            )}
-            {hasFilters && (
-              <button
-                onClick={() => { setSearch(''); setSevFilter(new Set()); setConfFilter(new Set()); setTypeFilter('all'); setEntityFilter(null); }}
-                className="ml-auto text-[10px] font-mono text-ink-400 hover:text-ink-50 transition-colors"
-              >
-                clear filters →
-              </button>
-            )}
           </div>
+          {entityFilter && (
+            <span className="text-[10px] font-mono px-2 py-1 rounded-sm border border-white/30 bg-white/10 text-ink-50">
+              {entityFilter} <button onClick={() => setEntityFilter(null)} className="ml-1 text-ink-400 hover:text-ink-50">x</button>
+            </span>
+          )}
+          {hasFilters && (
+            <button
+              onClick={() => { setSearch(''); setSevFilter(new Set()); setTypeFilter('all'); setEntityFilter(null); }}
+              className="text-[10px] font-mono text-ink-400 hover:text-ink-50 transition-colors"
+            >
+              clear filters
+            </button>
+          )}
         </div>
       </section>
 
-      {/* D. Leaderboard + Table */}
+      {/* Main content: Leaderboard + Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:items-start">
-        {/* Affected entity leaderboard */}
-        <aside className="lg:col-span-1 border border-white/5 bg-ink-850 p-5 space-y-4 h-fit">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">/ Most-flagged entities</div>
-            <div className="text-[10px] font-mono text-ink-600">click to filter findings</div>
-          </div>
-          {topEntities.length === 0 ? (
-            <div className="text-xs font-mono text-ink-500 py-4 border border-dashed border-white/5 px-3">
-              no affected entities recorded
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {topEntities.map(({ label, count }) => {
-                const active = entityFilter === label;
-                return (
-                  <button
-                    key={label}
-                    onClick={() => setEntityFilter(active ? null : label)}
-                    className={`w-full text-left px-3 py-2 rounded-sm border transition-colors flex items-center gap-2 ${
-                      active
-                        ? 'bg-ink-900 border-white/30'
-                        : 'bg-ink-900/40 border-white/5 hover:border-white/15'
-                    }`}
-                  >
-                    <span className={`text-xs leading-snug truncate flex-1 ${active ? 'text-ink-50' : 'text-ink-300'}`}>
-                      {label}
-                    </span>
-                    <span className="text-[9px] font-mono text-ink-600 tabular-nums shrink-0">
-                      {count}×
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+        {/* Leaderboard sidebar */}
+        <aside className="lg:col-span-1 space-y-4 h-fit">
+          <LeaderboardSection
+            title="Direct"
+            subtitle="Target + directors"
+            items={directEntities}
+            activeFilter={entityFilter}
+            onFilter={setEntityFilter}
+          />
+          <LeaderboardSection
+            title="Network"
+            subtitle="Wider connections"
+            items={networkEntities}
+            activeFilter={entityFilter}
+            onFilter={setEntityFilter}
+          />
         </aside>
 
-        {/* Table */}
-        <section className="lg:col-span-3">
-        <div className="mb-4">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">
-            / Findings ({filtered.length}{filtered.length !== findings.length ? ` of ${findings.length}` : ''})
-          </div>
-          <div className="text-[10px] font-mono text-ink-600 mt-1">click any row to expand evidence</div>
-        </div>
-        {filtered.length === 0 ? (
-          <EmptyState message="No findings match the current filters." />
-        ) : (
-          <div className="border border-white/5">
-            {/* Header row */}
-            <div className="grid grid-cols-12 gap-3 px-4 py-3 border-b border-white/5 bg-ink-900 text-[10px] font-mono uppercase tracking-wider text-ink-500 items-center">
-              <div className="col-span-2">Severity</div>
-              <div className="col-span-3">Type</div>
-              <div className="col-span-5">Title</div>
-              <div className="col-span-1 text-right">Conf</div>
-              <div className="col-span-1 text-right">Affected</div>
-            </div>
-            {visible.map((f, idx) => {
-              const realIdx = findings.indexOf(f);
-              const isOpen = expanded.has(realIdx);
-              return (
-                <div key={`${f.type}-${idx}`} className="border-b border-white/5 last:border-b-0">
-                  <button
-                    onClick={() => setExpanded(toggle(expanded, realIdx))}
-                    className="w-full grid grid-cols-12 gap-4 px-4 py-3 items-center text-left hover:bg-white/[0.02] transition-colors"
-                  >
-                    <div className="col-span-1">
-                      <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${sevColors[f.severity]}`}>
-                        {f.severity}
-                      </span>
+        {/* Finding sections */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* SECTION A: About the target */}
+          <FindingSection
+            icon={<Shield size={14} />}
+            title={`About ${targetName}`}
+            subtitle={filteredTarget.length > 0
+              ? `${filteredTarget.length} finding${filteredTarget.length > 1 ? 's' : ''} - ${sevSummary(countSev(filteredTarget))}`
+              : undefined
+            }
+            borderColor={BORDER_COLOR[maxSev(targetCounts)]}
+            findings={filteredTarget}
+            expanded={expanded}
+            onToggle={toggleExpand}
+            labelOf={labelOf}
+            relOf={relOf}
+            defaultOpen
+            emptyMessage={`No risk signals detected directly on ${targetName}.`}
+            emptyIsGood
+          />
+
+          {/* SECTION B: About the directors */}
+          <FindingSection
+            icon={<Users size={14} />}
+            title="About the directors"
+            subtitle={filteredDirector.length > 0
+              ? `${filteredDirector.length} finding${filteredDirector.length > 1 ? 's' : ''} - ${sevSummary(countSev(filteredDirector))}`
+              : undefined
+            }
+            borderColor={BORDER_COLOR[maxSev(directorCounts)]}
+            findings={filteredDirector}
+            expanded={expanded}
+            onToggle={toggleExpand}
+            labelOf={labelOf}
+            relOf={relOf}
+            defaultOpen
+            emptyMessage="No risk signals on target company directors."
+            emptyIsGood
+            showRelation
+          />
+
+          {/* SECTION C: Wider network */}
+          <div className={`border border-white/5 border-l-2 ${BORDER_COLOR[maxSev(networkCounts)]}`}>
+            <button
+              onClick={() => setNetworkOpen(!networkOpen)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Globe size={14} className="text-ink-500" />
+                <div className="text-left">
+                  <div className="text-sm text-ink-50 font-medium">Wider network</div>
+                  {filteredNetwork.length > 0 ? (
+                    <div className="text-[10px] font-mono text-ink-500 mt-0.5">
+                      {filteredNetwork.length} additional finding{filteredNetwork.length > 1 ? 's' : ''} - {sevSummary(countSev(filteredNetwork))}
                     </div>
-                    <div className="col-span-3 text-[11px] font-mono text-ink-400 truncate">{f.type}</div>
-                    <div className="col-span-6 text-sm text-ink-50 truncate">{f.title}</div>
-                    <div className="col-span-1 text-right">
-                      {f.confidence && (
-                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${
-                          f.confidence === 'HIGH' ? 'bg-signal-clean' : f.confidence === 'MEDIUM' ? 'bg-signal-medium' : 'bg-ink-500'
-                        }`} title={f.confidence} />
-                      )}
-                    </div>
-                    <div className="col-span-1 text-right text-xs font-mono text-ink-400">
-                      {f.affectedEntities?.length || 0}
-                    </div>
-                  </button>
-                  {isOpen && (
-                    <div className="px-4 pb-4 pt-1 text-sm space-y-3 bg-white/[0.01] border-t border-white/5">
-                      <p className="text-ink-300 leading-relaxed pt-3">{f.description}</p>
-                      {f.evidence?.length > 0 && (
-                        <div>
-                          <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Evidence</div>
-                          <ul className="space-y-1">
-                            {f.evidence.map((e, i) => (
-                              <li key={i} className="text-xs text-ink-300 flex gap-2">
-                                <span className="text-ink-500">›</span>
-                                <span>{e}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {f.affectedEntities?.length > 0 && (
-                        <div>
-                          <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Affected entities</div>
-                          <div className="text-[10px] text-ink-400 font-mono">
-                            {f.affectedEntities.slice(0, 8).join('  ·  ')}
-                            {f.affectedEntities.length > 8 ? `  +${f.affectedEntities.length - 8} more` : ''}
-                          </div>
-                        </div>
-                      )}
-                      <div>
-                        <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Recommendation</div>
-                        <p className="text-xs text-ink-300">{f.recommendation}</p>
-                      </div>
-                      {(f as any).businessImpact && (
-                        <div className="border-t border-white/5 pt-3 mt-3">
-                          <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Business impact</div>
-                          <p className="text-xs text-ink-300 leading-relaxed">{(f as any).businessImpact}</p>
-                          {(f as any).legalReference && (
-                            <div className="text-[10px] font-mono text-ink-500 mt-2">Legal: {(f as any).legalReference}</div>
-                          )}
-                          {(f as any).verificationSteps?.length > 0 && (
-                            <div className="mt-2">
-                              <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-1">/ Verification steps</div>
-                              <ul className="space-y-1">
-                                {(f as any).verificationSteps.map((s: string, si: number) => (
-                                  <li key={si} className="text-xs text-ink-300 flex gap-2">
-                                    <span className="text-ink-500">{si + 1}.</span>
-                                    <span>{s}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  ) : (
+                    <div className="text-[10px] font-mono text-ink-500 mt-0.5">No network findings</div>
                   )}
                 </div>
-              );
-            })}
+              </div>
+              {networkOpen ? <ChevronDown size={14} className="text-ink-500" /> : <ChevronRight size={14} className="text-ink-500" />}
+            </button>
+            {networkOpen && filteredNetwork.length > 0 && (
+              <div className="border-t border-white/5">
+                <FindingsTable
+                  findings={filteredNetwork}
+                  expanded={expanded}
+                  onToggle={toggleExpand}
+                  labelOf={labelOf}
+                  relOf={relOf}
+                  keyPrefix="network"
+                  showRelation
+                />
+              </div>
+            )}
           </div>
-        )}
-        {!showAll && filtered.length > 50 && (
-          <button
-            onClick={() => setShowAll(true)}
-            className="mt-4 w-full py-3 border border-white/10 text-xs font-mono uppercase tracking-wider text-ink-400 hover:bg-white/5 transition-colors"
-          >
-            show all {filtered.length} findings →
-          </button>
-        )}
-      </section>
+        </div>
       </div>
+    </div>
+  );
+}
+
+// --- Sub-components ---
+
+function MiniSevBar({ label, counts, active, onToggle }: {
+  label: string; counts: SevCounts; active: Set<string>; onToggle: (s: string) => void;
+}) {
+  const total = counts.CRITICAL + counts.HIGH + counts.MEDIUM + counts.LOW;
+  const pct = (n: number) => total > 0 ? (n / total) * 100 : 0;
+  const isDimmed = (s: string) => active.size > 0 && !active.has(s);
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-28 text-[10px] font-mono text-ink-500 truncate">{label}</div>
+      <div className="flex-1 h-1.5 flex rounded-sm overflow-hidden bg-white/5">
+        {counts.CRITICAL > 0 && (
+          <button onClick={() => onToggle('CRITICAL')} className={`bg-signal-critical transition-opacity ${isDimmed('CRITICAL') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.CRITICAL)}%` }} />
+        )}
+        {counts.HIGH > 0 && (
+          <button onClick={() => onToggle('HIGH')} className={`bg-signal-high transition-opacity ${isDimmed('HIGH') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.HIGH)}%` }} />
+        )}
+        {counts.MEDIUM > 0 && (
+          <button onClick={() => onToggle('MEDIUM')} className={`bg-signal-medium transition-opacity ${isDimmed('MEDIUM') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.MEDIUM)}%` }} />
+        )}
+        {counts.LOW > 0 && (
+          <button onClick={() => onToggle('LOW')} className={`bg-ink-700 transition-opacity ${isDimmed('LOW') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.LOW)}%` }} />
+        )}
+      </div>
+      <div className="w-8 text-right text-[10px] font-mono text-ink-500 tabular-nums">{total}</div>
+    </div>
+  );
+}
+
+function LeaderboardSection({ title, subtitle, items, activeFilter, onFilter }: {
+  title: string; subtitle: string;
+  items: Array<{ label: string; count: number; relation: string }>;
+  activeFilter: string | null; onFilter: (label: string | null) => void;
+}) {
+  return (
+    <div className="border border-white/5 bg-ink-850 p-4 space-y-3">
+      <div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ {title}</div>
+        <div className="text-[10px] font-mono text-ink-600">{subtitle}</div>
+      </div>
+      {items.length === 0 ? (
+        <div className="text-[10px] font-mono text-ink-600 py-2">no entities</div>
+      ) : (
+        <div className="space-y-0.5">
+          {items.map(({ label, count, relation }) => {
+            const active = activeFilter === label;
+            return (
+              <button
+                key={label}
+                onClick={() => onFilter(active ? null : label)}
+                className={`w-full text-left px-3 py-1.5 rounded-sm border transition-colors flex items-center gap-2 ${
+                  active ? 'bg-ink-900 border-white/30' : 'bg-ink-900/40 border-white/5 hover:border-white/15'
+                }`}
+              >
+                <span className={`text-[11px] leading-snug truncate flex-1 ${active ? 'text-ink-50' : 'text-ink-300'}`}>
+                  {label}
+                </span>
+                <span className="text-[9px] font-mono text-ink-600 shrink-0">{relation}</span>
+                <span className="text-[9px] font-mono text-ink-600 tabular-nums shrink-0">{count}x</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FindingSection({ icon, title, subtitle, borderColor, findings, expanded, onToggle, labelOf, relOf, defaultOpen, emptyMessage, emptyIsGood, showRelation }: {
+  icon: React.ReactNode; title: string; subtitle?: string; borderColor: string;
+  findings: Finding[]; expanded: Set<string>; onToggle: (key: string) => void;
+  labelOf: (id: string) => string; relOf: (id: string) => string;
+  defaultOpen?: boolean; emptyMessage: string; emptyIsGood?: boolean; showRelation?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? true);
+  const keyPrefix = title.replace(/\s/g, '-').toLowerCase();
+
+  return (
+    <div className={`border border-white/5 border-l-2 ${borderColor}`}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-ink-500">{icon}</span>
+          <div className="text-left">
+            <div className="text-sm text-ink-50 font-medium">{title}</div>
+            {subtitle && <div className="text-[10px] font-mono text-ink-500 mt-0.5">{subtitle}</div>}
+          </div>
+        </div>
+        {open ? <ChevronDown size={14} className="text-ink-500" /> : <ChevronRight size={14} className="text-ink-500" />}
+      </button>
+      {open && (
+        <div className="border-t border-white/5">
+          {findings.length === 0 ? (
+            emptyIsGood ? (
+              <div className="px-5 py-6 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-signal-clean" />
+                <span className="text-sm text-ink-300">{emptyMessage}</span>
+              </div>
+            ) : (
+              <div className="px-5 py-6 text-sm text-ink-500 font-mono">{emptyMessage}</div>
+            )
+          ) : (
+            <FindingsTable
+              findings={findings}
+              expanded={expanded}
+              onToggle={onToggle}
+              labelOf={labelOf}
+              relOf={relOf}
+              keyPrefix={keyPrefix}
+              showRelation={showRelation}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FindingsTable({ findings, expanded, onToggle, labelOf, relOf, keyPrefix, showRelation }: {
+  findings: Finding[]; expanded: Set<string>; onToggle: (key: string) => void;
+  labelOf: (id: string) => string; relOf: (id: string) => string;
+  keyPrefix: string; showRelation?: boolean;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? findings : findings.slice(0, 30);
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="grid grid-cols-12 gap-3 px-4 py-2.5 border-b border-white/5 bg-ink-900 text-[10px] font-mono uppercase tracking-wider text-ink-500 items-center">
+        <div className="col-span-1">Sev</div>
+        <div className="col-span-3">Type</div>
+        <div className="col-span-6">Title</div>
+        <div className="col-span-1 text-right">Conf</div>
+        <div className="col-span-1 text-right">Ent</div>
+      </div>
+      {visible.map((f, idx) => {
+        const key = `${keyPrefix}-${idx}`;
+        const isOpen = expanded.has(key);
+        // Resolve primary affected entity for relation display
+        const primaryEntity = showRelation && f.affectedEntities?.[0] ? f.affectedEntities[0] : null;
+        const primaryLabel = primaryEntity ? labelOf(primaryEntity) : null;
+        const primaryRel = primaryEntity ? relOf(primaryEntity) : null;
+
+        return (
+          <div key={key} className="border-b border-white/5 last:border-b-0">
+            <button
+              onClick={() => onToggle(key)}
+              className="w-full grid grid-cols-12 gap-3 px-4 py-3 items-center text-left hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="col-span-1">
+                <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${sevColors[f.severity]}`}>
+                  {f.severity.slice(0, 4)}
+                </span>
+              </div>
+              <div className="col-span-3 text-[11px] font-mono text-ink-400 truncate">{f.type}</div>
+              <div className="col-span-6 min-w-0">
+                <div className="text-sm text-ink-50 truncate">{f.title}</div>
+                {showRelation && primaryLabel && primaryRel && (
+                  <div className="text-[10px] font-mono text-ink-600 mt-0.5 truncate">
+                    {primaryRel} - {primaryLabel}
+                  </div>
+                )}
+              </div>
+              <div className="col-span-1 text-right">
+                {f.confidence && (
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                    f.confidence === 'HIGH' ? 'bg-signal-clean' : f.confidence === 'MEDIUM' ? 'bg-signal-medium' : 'bg-ink-500'
+                  }`} title={f.confidence} />
+                )}
+              </div>
+              <div className="col-span-1 text-right text-xs font-mono text-ink-400">
+                {f.affectedEntities?.length || 0}
+              </div>
+            </button>
+            {isOpen && (
+              <div className="px-4 pb-4 pt-1 text-sm space-y-3 bg-white/[0.01] border-t border-white/5">
+                <p className="text-ink-300 leading-relaxed pt-3">{f.description}</p>
+                {f.evidence?.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Evidence</div>
+                    <ul className="space-y-1">
+                      {f.evidence.map((e, i) => (
+                        <li key={i} className="text-xs text-ink-300 flex gap-2">
+                          <span className="text-ink-500">{'>'}</span>
+                          <span>{e}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {f.affectedEntities?.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Affected entities</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {f.affectedEntities.slice(0, 8).map((e, i) => (
+                        <span key={i} className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-ink-900 border border-white/5 text-ink-300">
+                          {labelOf(e)}
+                        </span>
+                      ))}
+                      {f.affectedEntities.length > 8 && (
+                        <span className="text-[10px] font-mono text-ink-600 px-2 py-0.5">+{f.affectedEntities.length - 8} more</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Recommendation</div>
+                  <p className="text-xs text-ink-300">{f.recommendation}</p>
+                </div>
+                {f.businessImpact && (
+                  <div className="border-t border-white/5 pt-3 mt-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Business impact</div>
+                    <p className="text-xs text-ink-300 leading-relaxed">{f.businessImpact}</p>
+                    {f.legalReference && (
+                      <div className="text-[10px] font-mono text-ink-500 mt-2">Legal: {f.legalReference}</div>
+                    )}
+                    {f.verificationSteps && f.verificationSteps.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-1">/ Verification steps</div>
+                        <ul className="space-y-1">
+                          {f.verificationSteps.map((s, si) => (
+                            <li key={si} className="text-xs text-ink-300 flex gap-2">
+                              <span className="text-ink-500">{si + 1}.</span>
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {!showAll && findings.length > 30 && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="w-full py-3 border-t border-white/5 text-[10px] font-mono uppercase tracking-wider text-ink-400 hover:bg-white/[0.02] transition-colors"
+        >
+          show all {findings.length} findings
+        </button>
+      )}
     </div>
   );
 }

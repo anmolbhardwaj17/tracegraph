@@ -17,5 +17,14 @@ export default function FindingsPage() {
   }, [id]);
 
   if (!data) return <div className="animate-pulse h-64 bg-white/5 rounded-sm" />;
-  return <FindingsTab findings={data.findings || []} entities={data.entities} investigationId={id} />;
+  return (
+    <FindingsTab
+      findings={data.findings || []}
+      entities={data.entities}
+      relations={data.relations || {}}
+      targetNodeId={data.targetNodeId}
+      targetCompanyName={data.targetCompanyName}
+      investigationId={id}
+    />
+  );
 }
