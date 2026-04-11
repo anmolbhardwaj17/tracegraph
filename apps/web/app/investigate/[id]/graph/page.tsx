@@ -23,7 +23,7 @@ export default function GraphPage() {
   if (!graph) return <div className="animate-pulse h-[760px] bg-white/5 rounded-sm" />;
 
   return (
-    <div className="relative -mx-8 -mt-12">
+    <div className="relative -mx-8">
       <GraphVisualization
         nodes={graph.nodes}
         links={graph.links}

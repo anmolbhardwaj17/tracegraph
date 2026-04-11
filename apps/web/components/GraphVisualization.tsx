@@ -390,7 +390,7 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
     <div className="flex flex-col lg:flex-row gap-4" style={{ height }}>
       {/* Left sidebar - questions */}
       <div className="lg:w-64 shrink-0 space-y-2 overflow-y-auto">
-        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-3">/ Investigate</div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-3 mt-2">/ Investigate</div>
         {questions.map((q) => (
           <button key={q.id} onClick={() => { setMode(q.id as ViewMode); setSpotlightId(null); setBreadcrumb([]); }}
             className={`w-full text-left px-3 py-3 rounded-sm border transition-colors ${mode === q.id ? 'bg-ink-900 border-white/20' : 'bg-ink-900/40 border-white/5 hover:border-white/15'}`}>
