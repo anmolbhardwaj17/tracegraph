@@ -164,7 +164,6 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
           <div className="py-4 border-b border-white/5">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Elapsed</div>
             <div className="text-3xl font-medium text-ink-50 tabular-nums">{formatElapsed(elapsed)}</div>
-            <div className="text-[10px] font-mono text-ink-500 mt-1">{estimate}</div>
           </div>
           <div className="py-4 border-b border-white/5">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Stage</div>
