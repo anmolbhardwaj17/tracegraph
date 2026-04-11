@@ -312,33 +312,24 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
   }
 
   return (
-    <div className="space-y-6">
-      {/* Location summary */}
-      {locationSummary && (
-        <div className="border border-white/5 bg-ink-850 px-6 py-4 text-sm text-ink-300 leading-relaxed">
-          {locationSummary}
-        </div>
-      )}
-
-      {/* Stats strip + controls */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-px bg-white/5 border border-white/5">
-          <Stat label="Geocoded" value={`${stats.addressCount} / ${addresses.length}`} />
-          <Stat label="Companies placed" value={String(stats.totalCompanies)} />
-          <Stat
-            label="Top-3 concentration"
-            value={`${stats.concentration}%`}
-            highlight={stats.concentration >= 50}
-            sub={stats.concentration >= 50 ? 'highly concentrated' : 'spread out'}
-          />
-          <Stat label="Virtual offices" value={String(stats.virtualOffices)} highlight={stats.virtualOffices > 0} />
-          <Stat label="Unique regions" value={String(stats.uniqueRegions)} />
+    <div className="space-y-4">
+      {/* Summary + stats in one row */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {locationSummary && (
+          <div className="lg:flex-1 border border-white/5 bg-ink-850 px-5 py-3 text-xs text-ink-300 leading-relaxed flex items-center">
+            {locationSummary}
+          </div>
+        )}
+        <div className="flex gap-px bg-white/5 border border-white/5 shrink-0">
+          <Stat label="Addresses" value={String(stats.addressCount)} />
+          <Stat label="Virtual" value={String(stats.virtualOffices)} highlight={stats.virtualOffices > 0} />
+          <Stat label="Regions" value={String(stats.uniqueRegions)} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:items-start">
         {/* Hot-spots panel */}
-        <aside className="lg:col-span-1 border border-white/5 bg-ink-850 p-5 space-y-5 flex flex-col" style={{ height: 580 }}>
+        <aside className="lg:col-span-1 border border-white/5 bg-ink-850 p-5 space-y-4 flex flex-col" style={{ height: 500 }}>
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">/ Hot spots</div>
             <div className="text-[10px] font-mono text-ink-600">click to fly the map to it</div>
@@ -402,7 +393,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
 
         {/* Map + side detail */}
         <div className="lg:col-span-3 space-y-3">
-          <div className="border border-white/5 bg-ink-900 overflow-hidden relative" style={{ height: 580 }}>
+          <div className="border border-white/5 bg-ink-900 overflow-hidden relative" style={{ height: 500 }}>
             {points.length === 0 ? (
               <div className="h-full flex items-center justify-center text-ink-500 text-sm font-mono">
                 / geocoding addresses… {progress.done} / {progress.total}
