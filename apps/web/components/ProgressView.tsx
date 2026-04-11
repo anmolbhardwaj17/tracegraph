@@ -172,7 +172,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
                 })}
               </ol>
             </div>
-            <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col">
+            <div className="lg:col-span-7 border border-white/5 bg-ink-850 flex flex-col" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.3)' }}>
               <div className="px-6 pt-6">
                 <div className="flex items-center justify-between">
                   <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Network growth</div>
@@ -181,8 +181,6 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
               </div>
               <div className="flex-1 min-h-[360px] relative">
                 <MiniGraph entities={live.entities} edges={live.edges} />
-                {/* Vignette overlay for depth */}
-                <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 60px rgba(0,0,0,0.6), inset 0 0 120px rgba(0,0,0,0.3)' }} />
               </div>
             </div>
           </div>
