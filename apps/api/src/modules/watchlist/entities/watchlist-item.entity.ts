@@ -6,6 +6,8 @@ export class WatchlistItem {
   @Column({ unique: true }) companyNumber: string;
   @Column() companyName: string;
   @Column({ type: 'float', nullable: true }) lastRiskScore: number;
+  @Column({ type: 'float', nullable: true }) previousRiskScore: number;
+  @Column({ default: 'STABLE' }) riskChange: string; // UP / DOWN / STABLE
   @Column({ nullable: true }) lastInvestigationId: string;
   @Column({ type: 'timestamptz', nullable: true }) lastInvestigatedAt: Date;
   @CreateDateColumn() createdAt: Date;

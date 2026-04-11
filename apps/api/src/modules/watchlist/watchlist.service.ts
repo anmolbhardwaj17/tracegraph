@@ -41,6 +41,12 @@ export class WatchlistService {
   async updateAfterInvestigation(companyNumber: string, investigationId: string, riskScore: number): Promise<void> {
     const item = await this.repo.findOne({ where: { companyNumber } });
     if (!item) return;
+    // Track score change
+    if (item.lastRiskScore != null) {
+      item.previousRiskScore = item.lastRiskScore;
+      const delta = riskScore - item.lastRiskScore;
+      item.riskChange = delta > 2 ? 'UP' : delta < -2 ? 'DOWN' : 'STABLE';
+    }
     item.lastInvestigationId = investigationId;
     item.lastRiskScore = riskScore;
     item.lastInvestigatedAt = new Date();

@@ -15,6 +15,13 @@ export class WatchlistController {
     return this.svc.add(body.companyNumber, body.companyName, body.investigationId, body.riskScore);
   }
 
+  @Get(':companyNumber')
+  async check(@Param('companyNumber') companyNumber: string) {
+    const items = await this.svc.list();
+    const item = items.find((i) => i.companyNumber === companyNumber);
+    return { watched: !!item, item: item || null };
+  }
+
   @Delete(':companyNumber')
   remove(@Param('companyNumber') companyNumber: string) {
     return this.svc.remove(companyNumber);

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Download } from 'lucide-react';
+import { Download, Eye, EyeOff } from 'lucide-react';
 import { Avatar } from '../../../components/Avatar';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -23,6 +23,7 @@ export default function InvestigationLayout({ children }: { children: React.Reac
   const pathname = usePathname();
   const id = params?.id as string;
   const [meta, setMeta] = useState<any>(null);
+  const [watched, setWatched] = useState(false);
 
   // Detect if we're on a tab sub-route or the base page (progress view)
   const pathParts = pathname.split('/');
@@ -33,7 +34,15 @@ export default function InvestigationLayout({ children }: { children: React.Reac
     if (!id) return;
     fetch(`${API}/api/investigations/${id}/meta`)
       .then((r) => r.ok ? r.json() : null)
-      .then(setMeta)
+      .then((m) => {
+        setMeta(m);
+        if (m?.rootCompanyNumber) {
+          fetch(`${API}/api/watchlist/${m.rootCompanyNumber}`)
+            .then((r) => r.json())
+            .then((d) => setWatched(d.watched))
+            .catch(() => {});
+        }
+      })
       .catch(() => {});
   }, [id]);
 
@@ -89,6 +98,33 @@ export default function InvestigationLayout({ children }: { children: React.Reac
                 <span className="text-[10px] font-mono text-ink-500">/ 100</span>
               </div>
             )}
+            <button
+              onClick={() => {
+                if (watched) {
+                  fetch(`${API}/api/watchlist/${meta?.rootCompanyNumber}`, { method: 'DELETE' })
+                    .then(() => setWatched(false));
+                } else {
+                  fetch(`${API}/api/watchlist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      companyNumber: meta?.rootCompanyNumber,
+                      companyName: meta?.companyName,
+                      investigationId: id,
+                      riskScore: meta?.riskScore,
+                    }),
+                  }).then(() => setWatched(true));
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-sm text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                watched
+                  ? 'border-signal-clean/30 text-signal-clean hover:border-white/30'
+                  : 'border-white/10 text-ink-400 hover:text-ink-50 hover:border-white/30'
+              }`}
+            >
+              {watched ? <Eye size={12} /> : <EyeOff size={12} />}
+              {watched ? 'Watching' : 'Watch'}
+            </button>
             <button
               onClick={() => {
                 const url = `${API}/api/investigations/${id}/export`;
