@@ -2,6 +2,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const SwimLaneTimeline = dynamic(
+  () => import('../../../../components/SwimLaneTimeline').then((m) => m.SwimLaneTimeline),
+  { ssr: false },
+);
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -190,6 +196,11 @@ export default function TimelinePage() {
           </div>
         </div>
       )}
+
+      {/* Swimlane timeline (for 10+ events, desktop only) */}
+      <div className="hidden lg:block">
+        <SwimLaneTimeline events={events} targetCompany={targetName} height={400} />
+      </div>
 
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
