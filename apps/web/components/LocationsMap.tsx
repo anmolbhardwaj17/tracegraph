@@ -329,7 +329,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:items-start">
         {/* Hot-spots panel */}
-        <aside className="lg:col-span-1 border border-white/5 bg-ink-850 p-5 space-y-4 flex flex-col" style={{ height: 500 }}>
+        <aside className="lg:col-span-1 border border-white/5 bg-ink-850 p-5 space-y-4 flex flex-col" style={{ height: 560 }}>
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">/ Hot spots</div>
             <div className="text-[10px] font-mono text-ink-600">click to fly the map to it</div>
@@ -393,7 +393,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
 
         {/* Map + side detail */}
         <div className="lg:col-span-3 space-y-3">
-          <div className="border border-white/5 bg-ink-900 overflow-hidden relative" style={{ height: 500 }}>
+          <div className="border border-white/5 bg-ink-900 overflow-hidden relative" style={{ height: 560 }}>
             {points.length === 0 ? (
               <div className="h-full flex items-center justify-center text-ink-500 text-sm font-mono">
                 / geocoding addresses… {progress.done} / {progress.total}
@@ -401,6 +401,17 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
             ) : (
               <>
                 <div ref={mapRef} className="w-full h-full" />
+                {/* Legend overlay */}
+                <div className="absolute bottom-3 left-3 z-[400] bg-ink-900/90 backdrop-blur border border-white/10 rounded-sm px-3 py-2 text-[9px] font-mono text-ink-500 flex items-center gap-3">
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full border border-signal-critical bg-signal-critical/30" /> Virtual</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full border border-signal-medium bg-signal-medium/30" /> Density</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full border border-ink-300 bg-ink-300/30" /> Normal</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full border-2 border-white bg-white/15" /> Target</span>
+                  {targetAddress && (
+                    <button onClick={() => { const map = mapInstanceRef.current; if (map) map.flyTo([targetAddress.lat, targetAddress.lng], 14, { duration: 0.8 }); setSelected(targetAddress); }}
+                      className="text-ink-400 hover:text-ink-50 transition-colors ml-1">show target</button>
+                  )}
+                </div>
                 {selected && (
                   <aside className="absolute top-3 right-3 w-72 max-h-[calc(100%-1.5rem)] overflow-auto border border-white/10 bg-ink-900/95 backdrop-blur-md p-5 shadow-2xl z-[400]">
                     <div className="flex items-start justify-between mb-3">
@@ -452,33 +463,6 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
                   </aside>
                 )}
               </>
-            )}
-          </div>
-          <div className="text-[10px] font-mono text-ink-500 flex items-center gap-4 px-1">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full border border-signal-critical bg-signal-critical/30" /> Virtual office
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full border border-signal-medium bg-signal-medium/30" /> High density
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full border border-ink-300 bg-ink-300/30" /> Normal
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full border-2 border-white bg-white/15" /> Target company
-            </span>
-            <span className="text-ink-600">·  marker size scales with company count</span>
-            {targetAddress && (
-              <button
-                onClick={() => {
-                  const map = mapInstanceRef.current;
-                  if (map) map.flyTo([targetAddress.lat, targetAddress.lng], 14, { duration: 0.8 });
-                  setSelected(targetAddress);
-                }}
-                className="text-ink-400 hover:text-ink-50 transition-colors"
-              >
-                show target
-              </button>
             )}
           </div>
         </div>
