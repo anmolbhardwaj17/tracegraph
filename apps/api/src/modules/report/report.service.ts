@@ -394,8 +394,8 @@ export class ReportService {
       } else {
         doc.font('Helvetica').fontSize(10).fillColor(C.text).text(`${targetFindings.length} finding${targetFindings.length > 1 ? 's' : ''} (${consolidatedTarget.length} consolidated):`);
         doc.moveDown(0.8);
-        this.renderFindings(doc, consolidatedTarget.slice(0, 10), companyName);
-        if (consolidatedTarget.length > 10) doc.font('Helvetica').fontSize(8).fillColor(C.gray).text(`  + ${consolidatedTarget.length - 10} more`);
+        this.renderFindings(doc, consolidatedTarget.slice(0, 5), companyName);
+        if (consolidatedTarget.length > 5) doc.font('Helvetica').fontSize(8).fillColor(C.gray).text(`  + ${consolidatedTarget.length - 5} more findings (see full report online)`);
       }
       doc.moveDown(2); doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(C.faint).stroke(); doc.moveDown(1.5);
 
@@ -407,8 +407,8 @@ export class ReportService {
       } else {
         doc.font('Helvetica').fontSize(10).fillColor(C.text).text(`${directorFindings.length} finding${directorFindings.length > 1 ? 's' : ''} (${consolidatedDirector.length} consolidated):`);
         doc.moveDown(0.8);
-        this.renderFindings(doc, consolidatedDirector.slice(0, 8), companyName);
-        if (consolidatedDirector.length > 8) doc.font('Helvetica').fontSize(8).fillColor(C.gray).text(`  + ${consolidatedDirector.length - 8} more`);
+        this.renderFindings(doc, consolidatedDirector.slice(0, 5), companyName);
+        if (consolidatedDirector.length > 5) doc.font('Helvetica').fontSize(8).fillColor(C.gray).text(`  + ${consolidatedDirector.length - 5} more`);
       }
       doc.moveDown(2); doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(C.faint).stroke(); doc.moveDown(1.5);
 
@@ -423,7 +423,8 @@ export class ReportService {
         doc.font('Helvetica').fontSize(10).fillColor(C.text).text(
           `${networkFindings.length.toLocaleString()} findings (${consolidatedNetwork.length} consolidated, ${nCrit} critical, ${nHigh} high). Top 5:`);
         doc.moveDown(0.8);
-        this.renderFindings(doc, consolidatedNetwork.slice(0, 5), companyName);
+        this.renderFindings(doc, consolidatedNetwork.slice(0, 3), companyName);
+        if (consolidatedNetwork.length > 3) doc.font('Helvetica').fontSize(8).fillColor(C.gray).text(`  + ${consolidatedNetwork.length - 3} more network finding types`);
       }
 
       // Matches
@@ -445,7 +446,7 @@ export class ReportService {
 
       // ===================== METHODOLOGY =====================
       doc.moveDown(2);
-      this.checkPageBreak(doc, 200, companyName);
+      this.checkPageBreak(doc, 100, companyName);
       this.sectionTitle(doc, 'Methodology & Sources');
       doc.moveDown(0.8);
       doc.font('Helvetica').fontSize(10).fillColor(C.text).text('This report was generated using publicly available data from the following sources:', { lineGap: 3 });
@@ -474,11 +475,13 @@ export class ReportService {
       doc.moveDown(1);
       doc.font('Helvetica').fontSize(8).fillColor(C.label).text(`Report generated ${new Date().toISOString().slice(0, 10)}  ·  Investigation ${investigationId.slice(0, 8)}  ·  TraceGraph v1.0`);
 
-      // Page numbers
-      const pages = doc.bufferedPageRange();
-      for (let i = pages.start; i < pages.start + pages.count; i++) {
+      // Track last page with content (current page after all content written)
+      const lastContentPage = doc.bufferedPageRange().start + doc.bufferedPageRange().count - 1;
+      // Only number pages up to last content page
+      const totalPages = lastContentPage + 1;
+      for (let i = 0; i < totalPages; i++) {
         doc.switchToPage(i);
-        doc.font('Helvetica').fontSize(7).fillColor(C.gray).text(`Page ${i + 1} of ${pages.count}`, 0, doc.page.height - 40, { width: doc.page.width, align: 'center' });
+        doc.font('Helvetica').fontSize(7).fillColor(C.gray).text(`Page ${i + 1} of ${totalPages}`, 0, doc.page.height - 40, { width: doc.page.width, align: 'center' });
         if (i > 0) doc.font('Helvetica').fontSize(7).fillColor(C.gray).text('TraceGraph Confidential', L, doc.page.height - 40);
       }
       doc.end();
@@ -489,7 +492,7 @@ export class ReportService {
     const sorted = [...findings].sort((a, b) => (SEV_ORDER[a.severity] ?? 3) - (SEV_ORDER[b.severity] ?? 3));
     for (let fi = 0; fi < sorted.length; fi++) {
       const f = sorted[fi];
-      this.checkPageBreak(doc, 80, companyName);
+      this.checkPageBreak(doc, 50, companyName);
       const y = doc.y;
       const badgeW = 55;
       doc.rect(60, y, badgeW, 16).fill(sevBg(f.severity));
@@ -497,15 +500,10 @@ export class ReportService {
       doc.font('Helvetica-Bold').fontSize(10).fillColor(C.dark).text(f.title, 60 + badgeW + 8, y + 1, { width: 475 - badgeW - 8 });
       doc.y = Math.max(doc.y, y + 20);
       doc.moveDown(0.3);
-      const desc = (f.description || '').slice(0, 300) + (f.description?.length > 300 ? '...' : '');
-      doc.font('Helvetica').fontSize(9).fillColor(C.text).text(desc, { lineGap: 2 });
-      doc.moveDown(0.3);
-      if (f.businessImpact) { doc.font('Helvetica').fontSize(8).fillColor(C.label).text(`Impact: ${f.businessImpact.slice(0, 200)}${f.businessImpact.length > 200 ? '...' : ''}`); }
-      if (f.verificationLinks?.length > 0) {
-        for (const link of f.verificationLinks) doc.font('Helvetica').fontSize(8).fillColor(C.blue).text(link.label, { link: link.url, underline: true });
-      }
-      doc.moveDown(1);
-      if (fi < sorted.length - 1) { doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor(C.faint).stroke(); doc.moveDown(1); }
+      const desc = (f.description || '').slice(0, 200) + (f.description?.length > 200 ? '...' : '');
+      doc.font('Helvetica').fontSize(9).fillColor(C.text).text(desc, { lineGap: 1 });
+      doc.moveDown(0.6);
+      if (fi < sorted.length - 1) { doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor(C.faint).stroke(); doc.moveDown(0.6); }
     }
   }
 
