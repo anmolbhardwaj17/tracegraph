@@ -109,7 +109,7 @@ export default function InvestigationLayout({ children }: { children: React.Reac
       </header>
 
       {/* Tab content */}
-      <div className="max-w-7xl mx-auto px-8 py-12">
+      <div className="max-w-7xl mx-auto px-8 py-6">
         {children}
       </div>
     </main>
