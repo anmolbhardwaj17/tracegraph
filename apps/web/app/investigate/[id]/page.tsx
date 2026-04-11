@@ -60,21 +60,24 @@ export default function InvestigatePage() {
 
     async function fetchData() {
       try {
-        const res = await fetch(`${API}/api/investigations/${id}/meta`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
+        const [metaRes, fullRes] = await Promise.all([
+          fetch(`${API}/api/investigations/${id}/meta`),
+          fetch(`${API}/api/investigations/${id}`).catch(() => null),
+        ]);
+        if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
+        const json = await metaRes.json();
+        const full = fullRes?.ok ? await fullRes.json() : null;
         if (cancelled) return;
         setData(json);
         // Seed live counters from persisted progress
-        if (json.counts) {
-          setLive((prev) => ({
-            entities: json.counts.entities || prev.entities,
-            edges: json.counts.edges || prev.edges,
-            depth: prev.depth,
-            apiCalls: prev.apiCalls,
-            matches: prev.matches,
-          }));
-        }
+        const progress = full?.progress || {};
+        setLive((prev) => ({
+          entities: progress.entitiesDiscovered || json.counts?.entities || prev.entities,
+          edges: progress.edgesCreated || json.counts?.edges || prev.edges,
+          depth: progress.currentDepth || prev.depth,
+          apiCalls: progress.apiCallsMade || prev.apiCalls,
+          matches: full?.matches?.length || progress.resolution?.matches || prev.matches,
+        }));
         // If complete, redirect to overview
         if (json.status === 'COMPLETE') {
           router.replace(`/investigate/${id}/overview`);
