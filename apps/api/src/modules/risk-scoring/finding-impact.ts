@@ -258,8 +258,68 @@ const IMPACTS: Record<string, FindingImpact> = {
   },
 };
 
+const CH_BASE = 'https://find-and-update.company-information.service.gov.uk';
+
+function buildVerificationLinks(finding: any): Array<{ label: string; url: string }> {
+  const links: Array<{ label: string; url: string }> = [];
+  const entities = finding.affectedEntities || [];
+  const firstEntity = entities[0] || '';
+
+  // If entity looks like a company number (alphanumeric, 6-8 chars), add CH link
+  const isCompanyNumber = /^[A-Z0-9]{6,8}$/i.test(firstEntity);
+
+  switch (finding.type) {
+    case 'SHELL_NETWORK':
+    case 'SHELF_COMPANY_PURCHASE':
+    case 'RAPID_DISSOLUTION':
+    case 'PHOENIX_COMPANY':
+    case 'COMPANY_AGE_ANOMALY':
+    case 'FINANCIAL_DISTRESS':
+      if (isCompanyNumber) {
+        links.push({ label: `View on Companies House`, url: `${CH_BASE}/company/${firstEntity}` });
+      }
+      break;
+    case 'FILING_HEALTH':
+      if (isCompanyNumber) {
+        links.push({ label: `View filing history`, url: `${CH_BASE}/company/${firstEntity}/filing-history` });
+      }
+      break;
+    case 'DISQUALIFIED_DIRECTOR': {
+      const name = finding.title?.match(/^(.+?) matches/)?.[1] || '';
+      const surname = name.split(',')[0]?.trim() || name.split(' ').pop() || '';
+      if (surname) links.push({ label: `Check disqualified register`, url: `${CH_BASE}/register-of-disqualifications/search?surname=${encodeURIComponent(surname)}` });
+      break;
+    }
+    case 'CIRCULAR_OWNERSHIP':
+    case 'OWNERSHIP_OPACITY':
+      if (isCompanyNumber) {
+        links.push({ label: `View PSC register`, url: `${CH_BASE}/company/${firstEntity}/persons-with-significant-control` });
+      }
+      break;
+    case 'VIRTUAL_OFFICE_CLUSTER': {
+      const postcode = finding.title?.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2}/i)?.[0];
+      if (postcode) links.push({ label: `Search address on Companies House`, url: `${CH_BASE}/search/companies?q=${encodeURIComponent(postcode)}` });
+      break;
+    }
+    case 'SANCTIONS_PROXIMITY': {
+      const entityName = finding.title?.split(' ')[0] || firstEntity;
+      if (entityName) links.push({ label: `Search OpenSanctions`, url: `https://www.opensanctions.org/search/?q=${encodeURIComponent(entityName)}` });
+      break;
+    }
+    default:
+      break;
+  }
+
+  // Always add CH link for company-related findings if we have a company number
+  if (links.length === 0 && isCompanyNumber) {
+    links.push({ label: `View on Companies House`, url: `${CH_BASE}/company/${firstEntity}` });
+  }
+
+  return links;
+}
+
 /**
- * Attach impact context to each finding. Mutates the findings array.
+ * Attach impact context and verification links to each finding. Mutates the findings array.
  */
 export function attachImpacts(findings: any[]): void {
   for (const f of findings) {
@@ -269,5 +329,6 @@ export function attachImpacts(findings: any[]): void {
       f.legalReference = impact.legalReference;
       f.verificationSteps = impact.verificationSteps;
     }
+    f.verificationLinks = buildVerificationLinks(f);
   }
 }

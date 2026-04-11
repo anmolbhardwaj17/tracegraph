@@ -17,6 +17,7 @@ interface Finding {
   businessImpact?: string;
   legalReference?: string;
   verificationSteps?: string[];
+  verificationLinks?: Array<{ label: string; url: string }>;
 }
 
 interface Props {
@@ -607,6 +608,20 @@ function FindingsTable({ findings, expanded, onToggle, labelOf, relOf, keyPrefix
                             </li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+                    {f.verificationLinks && f.verificationLinks.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-1">/ Verify this finding</div>
+                        <div className="flex flex-wrap gap-3">
+                          {f.verificationLinks.map((link, li) => (
+                            <a key={li} href={link.url} target="_blank" rel="noopener noreferrer"
+                              className="text-[10px] font-mono text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                            >
+                              {link.label} <span className="text-[8px]">{'>'}</span>
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
