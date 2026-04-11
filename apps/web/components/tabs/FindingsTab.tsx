@@ -318,6 +318,28 @@ export function FindingsTab({ findings, entities, investigationId }: { findings:
                         <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Recommendation</div>
                         <p className="text-xs text-ink-300">{f.recommendation}</p>
                       </div>
+                      {(f as any).businessImpact && (
+                        <div className="border-t border-white/5 pt-3 mt-3">
+                          <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Business impact</div>
+                          <p className="text-xs text-ink-300 leading-relaxed">{(f as any).businessImpact}</p>
+                          {(f as any).legalReference && (
+                            <div className="text-[10px] font-mono text-ink-500 mt-2">Legal: {(f as any).legalReference}</div>
+                          )}
+                          {(f as any).verificationSteps?.length > 0 && (
+                            <div className="mt-2">
+                              <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-1">/ Verification steps</div>
+                              <ul className="space-y-1">
+                                {(f as any).verificationSteps.map((s: string, si: number) => (
+                                  <li key={si} className="text-xs text-ink-300 flex gap-2">
+                                    <span className="text-ink-500">{si + 1}.</span>
+                                    <span>{s}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -22,6 +22,7 @@ import { DirectorVelocityService } from '../anomaly/director-velocity.service';
 import { FinancialDistressService } from '../anomaly/financial-distress.service';
 import { CrossInvestigationService } from '../anomaly/cross-investigation.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
+import { attachImpacts } from './finding-impact';
 
 @Injectable()
 export class RiskScoringService {
@@ -638,6 +639,9 @@ export class RiskScoringService {
         recommendation: 'Formation agent connections are informational. Focus due diligence on the beneficial owners and trading activities of the incorporated companies.',
       });
     }
+
+    // ---- ATTACH BUSINESS IMPACT CONTEXT ----
+    attachImpacts(findings);
 
     // ---- SORT findings ----
     findings.sort((a, b) => {
