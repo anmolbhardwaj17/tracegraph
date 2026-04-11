@@ -178,3 +178,57 @@ html.light .bg-ink-900\/95.backdrop-blur-md { background-color: rgba(255,255,255
 
 /* White text on dark buttons — keep readable */
 html.light .bg-ink-50.text-ink-900 { background-color: #171717 !important; color: #F5F5F5 !important; }
+
+/* Cards and panels — need visible borders + slight shadow in light mode */
+html.light .bg-ink-850,
+html.light .bg-ink-800 {
+  background-color: #FFFFFF !important;
+  border-color: rgba(0,0,0,0.1) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+}
+
+/* Timeline era sections, location cards, graph question cards */
+html.light .bg-ink-850\/80 { background-color: rgba(255,255,255,0.9) !important; }
+
+/* Ensure all white/X opacity backgrounds work on light */
+html.light .bg-white\/\[0\.01\] { background-color: rgba(0,0,0,0.01) !important; }
+html.light .bg-white\/\[0\.02\] { background-color: rgba(0,0,0,0.02) !important; }
+html.light .bg-white\/\[0\.04\] { background-color: rgba(0,0,0,0.04) !important; }
+html.light .bg-white\/\[0\.06\] { background-color: rgba(0,0,0,0.04) !important; }
+
+/* Signal badge backgrounds stay as-is (they use their own colors) */
+
+/* Scrollbar for location list */
+html.light .bg-ink-900 {
+  background-color: #FAFAFA !important;
+}
+
+/* Fix rgba white borders used in many places */
+html.light [class*="border-white\/"] {
+  border-color: rgba(0,0,0,0.08) !important;
+}
+
+/* Specific override for stronger borders on cards */
+html.light .border.border-white\/5 {
+  border-color: rgba(0,0,0,0.1) !important;
+}
+html.light .border-b.border-white\/5 {
+  border-color: rgba(0,0,0,0.08) !important;
+}
+
+/* Fix text that was light-on-dark, needs to be dark-on-light */
+html.light .text-ink-50 { color: #1E293B !important; }
+html.light .text-ink-300 { color: #475569 !important; }
+
+/* Fix placeholder text */
+html.light .placeholder\:text-ink-500::placeholder { color: #94A3B8 !important; }
+
+/* Input fields */
+html.light input, html.light select {
+  background-color: #FFFFFF !important;
+  border-color: rgba(0,0,0,0.15) !important;
+  color: #1E293B !important;
+}
+
+/* Map stays dark — override the map container specifically */
+html.light .leaflet-container { filter: none; }
