@@ -151,6 +151,19 @@ html.light .bg-white\/10 { background-color: rgba(0,0,0,0.06) !important; }
 html.light .hover\:bg-white\/\[0\.02\]:hover { background-color: rgba(0,0,0,0.03) !important; }
 html.light .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.05) !important; }
 
+/* Additional background overrides */
+html.light .bg-ink-900\/95 { background-color: rgba(255,255,255,0.95) !important; }
+html.light .bg-ink-900\/80 { background-color: rgba(250,250,250,0.85) !important; }
+
+/* Ink-50 used as foreground element on dark — invert for light */
+html.light .bg-ink-50 { background-color: #171717 !important; }
+html.light .text-ink-900.flex { color: #F5F5F5 !important; }
+
+/* Table header rows */
+html.light .bg-ink-900.text-\[10px\] { background-color: #F1F5F9 !important; }
+
+/* Border colors for signal badges stay as-is (they work on both) */
+
 /* Light mode nav */
 html.light .backdrop-blur-md { backdrop-filter: blur(12px); }
 
@@ -159,3 +172,9 @@ html.light .card-glow:hover {
   border-color: rgba(0,0,0,0.15) !important;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
+
+/* Graph panel */
+html.light .bg-ink-900\/95.backdrop-blur-md { background-color: rgba(255,255,255,0.95) !important; }
+
+/* White text on dark buttons — keep readable */
+html.light .bg-ink-50.text-ink-900 { background-color: #171717 !important; color: #F5F5F5 !important; }

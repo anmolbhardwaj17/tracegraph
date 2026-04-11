@@ -56,7 +56,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-ink-950 text-ink-50">
+    <main className="min-h-screen bg-ink-900 text-ink-50">
       <div className="max-w-6xl mx-auto px-8 py-16">
         <div className="flex items-baseline justify-between mb-10">
           <div>
