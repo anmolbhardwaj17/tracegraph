@@ -87,7 +87,18 @@ export default function OverviewPage() {
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">{data.targetCompany}'s risk profile</div>
             <div className={`text-xl font-medium ${scoreColor}`}>{classification}</div>
             {data.percentile != null && data.benchmarks?.totalInvestigations >= 3 && (
-              <div className="text-xs text-ink-400 mt-2">Higher than {data.percentile}% of investigated companies</div>
+              <div className="mt-3">
+                <div className="text-xs text-ink-400">Higher than {data.percentile}% of investigated companies</div>
+                <div className="relative mt-2 h-2 w-48 bg-white/5 rounded-full overflow-hidden">
+                  <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-signal-clean via-signal-medium to-signal-critical rounded-full" style={{ width: '100%', opacity: 0.3 }} />
+                  <div className="absolute top-0 w-1.5 h-full bg-ink-50 rounded-full" style={{ left: `${Math.min(97, data.percentile)}%` }} />
+                </div>
+                <div className="flex justify-between mt-1 text-[8px] font-mono text-ink-600 w-48">
+                  <span>0</span>
+                  <span>{data.benchmarks.totalInvestigations} investigations</span>
+                  <span>100</span>
+                </div>
+              </div>
             )}
             <div className="text-[10px] font-mono text-ink-500 mt-3">{findings.length} findings detected</div>
           </div>

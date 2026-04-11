@@ -102,6 +102,11 @@ export class InvestigationController {
     return this.service.getTimeline(id, parseInt(page || '1', 10), Math.min(parseInt(limit || '200', 10), 500), fullHistory === 'true');
   }
 
+  @Get('benchmarks/current')
+  async benchmarks() {
+    return this.service.getBenchmarks();
+  }
+
   @Post(':id/export')
   async export(@Param('id') id: string, @Res() res: any) {
     const pdf = await this.reports.generatePdf(id);
