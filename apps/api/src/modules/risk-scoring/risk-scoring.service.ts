@@ -57,6 +57,10 @@ export class RiskScoringService {
   ): Promise<{ score: number; findings: Finding[] }> {
     const emit = onStep || (() => {});
 
+    // Look up root company number for PSC parent discount
+    const inv = await this.investigations.findOne({ where: { id: investigationId } });
+    const rootCompanyNumber = inv?.metadata?.companyNumber;
+
     emit('Classifying companies', 'Profiling company types and address clusters');
     await this.classifier.classifyAll(investigationId);
     await this.addressAnalysis.analyze(investigationId);
@@ -67,7 +71,7 @@ export class RiskScoringService {
     });
 
     emit('Shell company scoring', 'Detecting shell indicators across the network');
-    await this.anomaly.scoreShellCompanies(investigationId);
+    await this.anomaly.scoreShellCompanies(investigationId, rootCompanyNumber);
 
     emit('Filing health analysis', 'Checking filing history, late accounts, phoenix patterns');
     const filingHealthResult = await this.filingHealth.analyze(investigationId);

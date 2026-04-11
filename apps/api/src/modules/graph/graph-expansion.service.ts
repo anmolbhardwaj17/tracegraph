@@ -18,12 +18,32 @@ const FORMATION_AGENT_NAMES = new Set([
   'DUPORT ASSOCIATES LIMITED',
 ]);
 const FORMATION_AGENT_NUMBERS = new Set(['01945937', '04733579']);
+
+// Known corporate secretary / legal professional firms
+const LEGAL_PROFESSIONAL_NAMES = new Set([
+  'BURNESS PAULL DIRECTORS LIMITED', 'BURNESS PAULL SECRETARIES LIMITED',
+  'LINKLATERS LLP', 'FRESHFIELDS COMPANY SECRETARIAL LIMITED',
+  'SLAUGHTER AND MAY SERVICES LIMITED', 'CLIFFORD CHANCE SERVICES LIMITED',
+  'ALLEN OVERY SERVICES LIMITED', 'HERBERT SMITH FREEHILLS SERVICES LIMITED',
+  'ASHURST SERVICES LIMITED', 'PINSENT MASONS SECRETARIAL LIMITED',
+  'CMS CAMERON MCKENNA NABARRO OLSWANG LLP',
+]);
+
 function checkFormationAgent(name?: string, companyNumber?: string): boolean {
   if (companyNumber && FORMATION_AGENT_NUMBERS.has(companyNumber)) return true;
   if (!name) return false;
   const n = name.toUpperCase().replace(/[^A-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
   if (FORMATION_AGENT_NAMES.has(n)) return true;
   return n.includes('FORMATION') && (n.includes('LIMITED') || n.includes('LLP') || n.includes('LTD'));
+}
+
+function checkLegalProfessional(name?: string): boolean {
+  if (!name) return false;
+  const n = name.toUpperCase().replace(/[^A-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  if (LEGAL_PROFESSIONAL_NAMES.has(n)) return true;
+  // Heuristic: companies with (Directors), (Secretaries), (Nominees) in name
+  if (/\(DIRECTORS\)|\(SECRETARIES\)|\(NOMINEES\)|\(SECRETARY\)/.test(n)) return true;
+  return false;
 }
 
 export interface ExpansionOptions {
@@ -133,6 +153,9 @@ export class GraphExpansionService {
         if (entityType === 'company') {
           if (checkFormationAgent(safeLabel, entityId)) {
             metadata.isFormationAgent = true;
+          }
+          if (checkLegalProfessional(safeLabel)) {
+            metadata.isLegalProfessional = true;
           }
         }
         node = this.nodes.create({ investigationId, entityType, entityId, label: safeLabel, metadata });

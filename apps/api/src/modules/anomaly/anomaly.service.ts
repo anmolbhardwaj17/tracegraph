@@ -28,11 +28,27 @@ export class AnomalyDetectionService {
     @InjectRepository(GraphEdge) private readonly edges: Repository<GraphEdge>,
   ) {}
 
-  async scoreShellCompanies(investigationId: string): Promise<{ scored: number; high: number; critical: number }> {
+  async scoreShellCompanies(investigationId: string, rootCompanyNumber?: string): Promise<{ scored: number; high: number; critical: number }> {
     const nodes = await this.nodes.find({ where: { investigationId } });
     const edges = await this.edges.find({ where: { investigationId } });
     const byId = new Map<string, GraphNode>();
     for (const n of nodes) byId.set(n.id, n);
+
+    // Build set of companies that are PSCs (owners) of the target - these are holding/parent companies
+    const targetPscCompanyIds = new Set<string>();
+    if (rootCompanyNumber) {
+      const rootNode = nodes.find((n) => n.entityType === 'company' && n.entityId === rootCompanyNumber);
+      if (rootNode) {
+        for (const e of edges) {
+          if (e.relationshipType !== 'psc') continue;
+          // PSC edges go from company -> PSC entity. If a company node is PSC of root, it's a parent
+          const otherId = e.sourceNodeId === rootNode.id ? e.targetNodeId : e.targetNodeId === rootNode.id ? e.sourceNodeId : null;
+          if (!otherId) continue;
+          const other = byId.get(otherId);
+          if (other && other.entityType === 'company') targetPscCompanyIds.add(other.id);
+        }
+      }
+    }
 
     // Build helper maps
     const personDirectorships = new Map<string, GraphNode[]>();
@@ -71,6 +87,7 @@ export class AnomalyDetectionService {
 
     for (const company of companyNodes) {
       const profile: CompanyProfile = company.metadata?.companyProfile || 'SMALL_PRIVATE';
+      const isTargetParent = targetPscCompanyIds.has(company.id);
       const breakdown = this.computeShellScore(
         company,
         profile,
@@ -79,6 +96,7 @@ export class AnomalyDetectionService {
         personDirectorships,
         addressCompanies,
         companyAddress,
+        isTargetParent,
       );
       company.metadata = { ...(company.metadata || {}), shellCompanyScore: breakdown };
       if (breakdown.risk === 'HIGH') high++;
@@ -98,6 +116,7 @@ export class AnomalyDetectionService {
     personDirectorships: Map<string, GraphNode[]>,
     addressCompanies: Map<string, GraphNode[]>,
     companyAddress: Map<string, GraphNode>,
+    isTargetParent = false,
   ): ShellScoreBreakdown {
     // Hard gate: legitimate large/established companies are almost never shells
     if (profile === 'LARGE_PUBLIC' || profile === 'ESTABLISHED_PRIVATE') {
@@ -255,6 +274,13 @@ export class AnomalyDetectionService {
         score += 20;
         reasons.push(`${coIncCount} sibling companies incorporated by the same director within 30 days`);
       }
+    }
+
+    // ---- PARENT COMPANY DISCOUNT ----
+    // If this company is a PSC (owner/holding company) of the target, discount heavily
+    if (isTargetParent && score > 0) {
+      score = Math.max(0, score - 30);
+      reasons.push('Part of target company ownership structure (holding/parent company discount applied)');
     }
 
     // ---- THRESHOLDS BY PROFILE ----

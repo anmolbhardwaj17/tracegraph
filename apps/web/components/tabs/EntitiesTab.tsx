@@ -7,6 +7,7 @@ import { EmptyState, EntityDetailPanel, ProximityDot } from './shared';
 
 interface Props {
   entities?: { company: any[]; person: any[]; address: any[] };
+  totals?: { company: number; person: number; address: number };
   investigationId: string;
 }
 
@@ -32,7 +33,7 @@ function sicLabel(code: string): string {
   return SIC_LABELS[code] || `SIC ${code}`;
 }
 
-export function EntitiesTab({ entities, investigationId }: Props) {
+export function EntitiesTab({ entities, totals, investigationId }: Props) {
   const [selected, setSelected] = useState<{ type: string; entity: any } | null>(null);
   const [explorerOpen, setExplorerOpen] = useState(false);
 
@@ -84,14 +85,14 @@ export function EntitiesTab({ entities, investigationId }: Props) {
         {/* Brief stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5">
           <div className="bg-ink-850 p-5">
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{companies.length.toLocaleString()}</div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{(totals?.company || companies.length).toLocaleString()}</div>
             <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-0.5 font-mono">Companies</div>
             <div className="text-[10px] text-ink-400 mt-2">
               {shellCount > 0 ? <span className="text-signal-critical">{shellCount} shell risk</span> : <span className="text-ink-500">no shell risk flagged</span>}
             </div>
           </div>
           <div className="bg-ink-850 p-5">
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{people.length.toLocaleString()}</div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{(totals?.person || people.length).toLocaleString()}</div>
             <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-0.5 font-mono">People</div>
             <div className="text-[10px] text-ink-400 mt-2">
               <span className="text-ink-300">{leadership.length}</span> direct (directors/PSCs)
@@ -99,7 +100,7 @@ export function EntitiesTab({ entities, investigationId }: Props) {
             </div>
           </div>
           <div className="bg-ink-850 p-5">
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{addresses.length}</div>
+            <div className="text-2xl font-medium text-ink-50 tabular-nums">{(totals?.address || addresses.length)}</div>
             <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-0.5 font-mono">Addresses</div>
             <div className="text-[10px] text-ink-400 mt-2">
               {voCount > 0 ? <span className="text-signal-critical">{voCount} virtual office</span> : null}
@@ -247,7 +248,7 @@ export function EntitiesTab({ entities, investigationId }: Props) {
               <div className="text-left">
                 <div className="text-sm text-ink-50 font-medium">Full Network Explorer</div>
                 <div className="text-[10px] font-mono text-ink-500 mt-0.5">
-                  {companies.length.toLocaleString()} companies · {people.length.toLocaleString()} people · {addresses.length} addresses
+                  {(totals?.company || companies.length).toLocaleString()} companies · {(totals?.person || people.length).toLocaleString()} people · {(totals?.address || addresses.length)} addresses
                 </div>
               </div>
             </div>
@@ -293,7 +294,7 @@ function CompanyCard({ company, address, onSelect }: { company: any; address?: a
   if (meta.accountsType) parts.push(`files ${meta.accountsType} accounts`);
 
   return (
-    <button onClick={() => onSelect(company)} className="w-full text-left hover:bg-white/[0.02] transition-colors -m-2 p-2 rounded-sm">
+    <button onClick={() => onSelect(company)} className="w-full text-left hover:bg-white/[0.02] transition-colors -m-2 p-2 rounded-sm group">
       <div className="flex items-start gap-4">
         <Avatar name={company.label} type="company" size={48} />
         <div className="flex-1 min-w-0">
@@ -331,19 +332,32 @@ function PersonCard({ person, targetName, isSelected, onSelect }: {
   const meta = person.metadata || {};
   const dp = meta.directorProfile || {};
   const dv = meta.directorVelocity || {};
+  const edgeMeta = person.edgeMeta || {};
   const role = person.relationToTarget === 'PSC/Owner' ? 'PSC' : 'Director';
   const dissolved = dp.dissolved || 0;
   const active = dp.active || 0;
   const total = dp.totalAppointments || 0;
+  const isLegal = person.label && /\(DIRECTORS?\)|\(SECRETARIES\)|\(NOMINEES?\)|\(SECRETARY\)/i.test(person.label);
 
   // Track record color
-  const trackGood = dissolved === 0 || (dissolved / total) < 0.3;
-  const riskBad = dp.risk === 'NOMINEE_PATTERN' || dp.risk === 'FORMATION_AGENT';
+  const trackGood = dissolved === 0 || (total > 0 && (dissolved / total) < 0.3);
+  const riskBad = !isLegal && (dp.risk === 'NOMINEE_PATTERN' || dp.risk === 'FORMATION_AGENT');
+
+  // Parse PSC natures of control
+  const controlTypes = (edgeMeta.naturesOfControl || meta.naturesOfControl || []) as string[];
+  const controlSummary = controlTypes
+    .map((c: string) => c.replace(/-/g, ' ').replace(/ownership of shares /i, '').replace(/voting rights /i, 'voting ').replace(/right to appoint and remove directors/i, 'appointment rights'))
+    .slice(0, 2)
+    .join(', ');
+
+  // Appointment date + tenure
+  const appointedOn = edgeMeta.appointedOn;
+  const tenure = appointedOn ? Math.floor((Date.now() - new Date(appointedOn).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
 
   return (
     <button
       onClick={onSelect}
-      className={`w-full text-left px-5 py-4 transition-colors ${isSelected ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
+      className={`w-full text-left px-5 py-4 transition-colors group ${isSelected ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
     >
       <div className="flex items-start gap-4">
         <Avatar name={person.label} type="person" size={36} />
@@ -352,7 +366,12 @@ function PersonCard({ person, targetName, isSelected, onSelect }: {
             <span className="text-sm text-ink-50 font-medium">{person.label}</span>
             <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${
               role === 'PSC' ? 'bg-signal-high/10 text-signal-high border-signal-high/30' : 'bg-white/5 text-ink-300 border-white/10'
-            }`}>{role}</span>
+            }`}>{edgeMeta.role || role}</span>
+            {isLegal && (
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                LEGAL PROFESSIONAL
+              </span>
+            )}
             {riskBad && (
               <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-signal-critical/15 text-signal-critical border border-signal-critical/30">
                 {dp.risk?.replace('_', ' ')}
@@ -364,22 +383,30 @@ function PersonCard({ person, targetName, isSelected, onSelect }: {
               </span>
             )}
           </div>
-          <div className="text-[10px] text-ink-400 mt-1">
-            {meta.nationality && <span>{meta.nationality}</span>}
-            {meta.nationality && total > 0 && <span> · </span>}
-            {total > 0 && (
-              <span className={trackGood ? 'text-ink-400' : 'text-signal-critical'}>
-                {active} active, {dissolved} dissolved ({total} total)
-              </span>
+          <div className="text-[10px] text-ink-400 mt-1.5 space-y-0.5">
+            {/* Line 1: Role context */}
+            {role === 'PSC' && controlSummary && (
+              <div>{controlSummary}</div>
+            )}
+            {/* Line 2: Tenure + track record */}
+            <div>
+              {appointedOn && (
+                <span>{role} since {appointedOn.slice(0, 4)}{tenure !== null ? ` (${tenure}y)` : ''}</span>
+              )}
+              {appointedOn && total > 0 && <span> · </span>}
+              {!appointedOn && meta.nationality && <span>{meta.nationality} · </span>}
+              {total > 0 && (
+                <span className={trackGood ? 'text-ink-400' : 'text-signal-critical'}>
+                  {active} active, {dissolved} dissolved
+                </span>
+              )}
+            </div>
+            {dv.flagged && dv.reasons?.length > 0 && (
+              <div className="text-signal-medium">{dv.reasons[0]}</div>
             )}
           </div>
-          {dv.flagged && dv.reasons?.length > 0 && (
-            <div className="text-[10px] text-signal-medium mt-1">
-              {dv.reasons[0]}
-            </div>
-          )}
         </div>
-        <div className="text-[10px] font-mono text-ink-600 tabular-nums shrink-0">{person.degree} conn</div>
+        <span className="text-[10px] font-mono text-ink-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">details {'>'}</span>
       </div>
     </button>
   );
@@ -411,14 +438,19 @@ function FlaggedGroup({ title, subtitle, items, type, onSelect, selectedId, rend
           <button
             key={entity.id}
             onClick={() => onSelect(entity)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-sm text-left transition-colors ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-sm text-left transition-colors group ${
               selectedId === entity.id ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'
             }`}
           >
             <Avatar name={entity.label} type={type as any} size={24} />
-            <span className="text-xs text-ink-300 truncate flex-1">{entity.label}</span>
-            <span className="text-[9px] font-mono text-ink-600 shrink-0">{entity.relationToTarget}</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs text-ink-300 truncate block">{entity.label}</span>
+              {entity.viaDirector && (
+                <span className="text-[9px] font-mono text-ink-600 truncate block">via {entity.viaDirector}</span>
+              )}
+            </div>
             {renderBadge(entity)}
+            <span className="text-[10px] text-ink-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">{'>'}</span>
           </button>
         ))}
       </div>

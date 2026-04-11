@@ -395,7 +395,7 @@ export class InvestigationService {
       }
     }
 
-    // Depth 2: companies of directors
+    // Depth 2: companies of directors — track which director connects them
     const directorIds = new Set<string>();
     for (const [id, rel] of relations) {
       if (rel === 'Director') directorIds.add(id);
@@ -406,7 +406,11 @@ export class InvestigationService {
       if (!personId) continue;
       const companyId = e.sourceNodeId === personId ? e.targetNodeId : e.sourceNodeId;
       if (!relations.has(companyId)) {
+        const directorNode = nodes.find((n) => n.id === personId);
         relations.set(companyId, "Director's company");
+        // Store the connecting director info for attribution
+        (relations as any).__viaDirector = (relations as any).__viaDirector || {};
+        (relations as any).__viaDirector[companyId] = directorNode?.label || personId;
       }
     }
 
@@ -502,6 +506,21 @@ export class InvestigationService {
     const matches = await this.matchesRepo.find({ where: { investigationId: id } });
     const matchedEntityIds = new Set(matches.map((m) => m.sourceEntityId));
     const relations = await this.computeRelations(id);
+    const viaDirector: Record<string, string> = (relations as any).__viaDirector || {};
+
+    // Build edge metadata lookup for target's direct connections (role, appointedOn, naturesOfControl)
+    const inv = await this.investigations.findOne({ where: { id } });
+    const rootNumber = inv?.metadata?.companyNumber;
+    const allNodesForRoot = rootNumber ? await this.nodes.find({ where: { investigationId: id } }) : [];
+    const rootNode = allNodesForRoot.find((n) => n.entityType === 'company' && n.entityId === rootNumber);
+    const edgeMeta = new Map<string, any>();
+    if (rootNode) {
+      for (const e of edges) {
+        if (e.sourceNodeId !== rootNode.id && e.targetNodeId !== rootNode.id) continue;
+        const otherId = e.sourceNodeId === rootNode.id ? e.targetNodeId : e.sourceNodeId;
+        edgeMeta.set(otherId, { ...e.metadata, edgeType: e.relationshipType });
+      }
+    }
 
     // Sort by relationship relevance
     const REL_ORDER: Record<string, number> = { Target: 0, Director: 1, 'PSC/Owner': 2, Address: 3, Direct: 4, "Director's company": 5, Network: 6 };
@@ -521,6 +540,8 @@ export class InvestigationService {
         metadata: n.metadata, proximityScore: n.proximityScore,
         degree: degree.get(n.id) || 0,
         relationToTarget: relations.get(n.id) || 'Network',
+        viaDirector: viaDirector[n.id] || undefined,
+        edgeMeta: edgeMeta.get(n.id) || undefined,
         matches: matchedEntityIds.has(n.entityId) ? matches.filter((m) => m.sourceEntityId === n.entityId) : [],
       })),
       total, page, limit,
