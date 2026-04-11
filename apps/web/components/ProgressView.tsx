@@ -224,31 +224,14 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Live discoveries</div>
           <div className="text-[10px] font-mono text-ink-600">{(discoveries?.length || 0)} notable</div>
         </div>
-        <div className="max-h-[200px] overflow-y-auto scrollbar-hide">
-          {(!discoveries || discoveries.length === 0) ? (
-            <div className="px-6 py-6 flex items-center gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-signal-clean animate-pulse" />
-              <span className="text-xs text-ink-500 font-mono">Scanning network...</span>
-            </div>
-          ) : (
-            <div>
-              {discoveries.slice(-8).reverse().map((d, i) => {
-                const isNewest = i === 0;
-                return (
-                  <div
-                    key={d.id}
-                    className={`px-6 py-2.5 flex items-center gap-4 border-b border-white/5 last:border-b-0 transition-opacity duration-500 ${isNewest ? 'animate-[feedIn_0.8s_cubic-bezier(0.16,1,0.3,1)]' : ''}`}
-                  >
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
-                    }`} />
-                    <span className="text-xs text-ink-300 truncate">{d.reason}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {(!discoveries || discoveries.length === 0) ? (
+          <div className="px-6 py-6 flex items-center gap-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-signal-clean animate-pulse" />
+            <span className="text-xs text-ink-500 font-mono">Scanning network...</span>
+          </div>
+        ) : (
+          <DiscoveryFeed items={discoveries.slice(-8)} />
+        )}
       </div>
 
       <div className="text-xs font-mono text-ink-600 flex items-center justify-between">
@@ -272,6 +255,39 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
  */
 type Blip = { angle: number; radiusN: number; bornAt: number; label?: string };
 type Pulse = { startedAt: number; intensity: number };
+
+function DiscoveryFeed({ items }: { items: Discovery[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef(0);
+
+  useEffect(() => {
+    // Auto-scroll to bottom when new items arrive
+    if (items.length > prevCountRef.current && scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
+    prevCountRef.current = items.length;
+  }, [items.length]);
+
+  return (
+    <div ref={scrollRef} className="max-h-[200px] overflow-y-auto scrollbar-hide">
+      {items.map((d, i) => {
+        const isNew = i === items.length - 1;
+        return (
+          <div
+            key={d.id}
+            className="px-6 py-2.5 flex items-center gap-4 border-b border-white/5 last:border-b-0"
+            style={isNew ? { animation: 'feedIn 0.8s cubic-bezier(0.16,1,0.3,1)' } : undefined}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
+            }`} />
+            <span className="text-xs text-ink-300 truncate">{d.reason}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function MiniGraph({ entities, edges, discoveries }: { entities: number; edges: number; discoveries?: Discovery[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
