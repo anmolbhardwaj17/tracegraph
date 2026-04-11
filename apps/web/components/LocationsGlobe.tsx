@@ -45,15 +45,20 @@ export function LocationsGlobe({ points, arcs = [], targetLat, targetLng, onPoin
     return () => ro.disconnect();
   }, []);
 
-  // Auto-rotate to target on load
+  // Cinematic entry: start zoomed out showing whole Earth, then fly in
   useEffect(() => {
     if (!ready || !globeRef.current) return;
     const globe = globeRef.current;
-    if (targetLat != null && targetLng != null) {
-      setTimeout(() => {
-        globe.pointOfView({ lat: targetLat, lng: targetLng, altitude: 1.8 }, 1500);
-      }, 500);
-    }
+    // Start fully zoomed out
+    globe.pointOfView({ lat: 20, lng: 0, altitude: 3.5 }, 0);
+    // After a beat, fly to the target location
+    setTimeout(() => {
+      globe.pointOfView({
+        lat: targetLat ?? 54.5,
+        lng: targetLng ?? -2,
+        altitude: 1.6,
+      }, 2500);
+    }, 800);
   }, [ready, targetLat, targetLng]);
 
   const pointColor = useCallback((d: any) => {
