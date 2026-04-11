@@ -357,6 +357,61 @@ export class InvestigationService {
     };
   }
 
+  // ========== HELPERS ==========
+
+  /** Compute each node's relationship to the target company */
+  private async computeRelations(investigationId: string): Promise<Map<string, string>> {
+    const inv = await this.investigations.findOne({ where: { id: investigationId } });
+    const rootNumber = inv?.metadata?.companyNumber;
+    const nodes = await this.nodes.find({ where: { investigationId } });
+    const edges = await this.edges.find({ where: { investigationId } });
+
+    const relations = new Map<string, string>();
+    const rootNode = nodes.find((n) => n.entityType === 'company' && n.entityId === rootNumber);
+    if (!rootNode) return relations;
+
+    relations.set(rootNode.id, 'Target');
+
+    // Direct connections
+    const directEdges = edges.filter((e) => e.sourceNodeId === rootNode.id || e.targetNodeId === rootNode.id);
+    for (const e of directEdges) {
+      const otherId = e.sourceNodeId === rootNode.id ? e.targetNodeId : e.sourceNodeId;
+      const other = nodes.find((n) => n.id === otherId);
+      if (!other || relations.has(otherId)) continue;
+      if (e.relationshipType === 'director' || e.relationshipType === 'appointment') {
+        relations.set(otherId, 'Director');
+      } else if (e.relationshipType === 'psc') {
+        relations.set(otherId, 'PSC/Owner');
+      } else if (e.relationshipType === 'address') {
+        relations.set(otherId, 'Address');
+      } else {
+        relations.set(otherId, 'Direct');
+      }
+    }
+
+    // Depth 2: companies of directors
+    const directorIds = new Set<string>();
+    for (const [id, rel] of relations) {
+      if (rel === 'Director') directorIds.add(id);
+    }
+    for (const e of edges) {
+      if (e.relationshipType !== 'director' && e.relationshipType !== 'appointment') continue;
+      const personId = directorIds.has(e.sourceNodeId) ? e.sourceNodeId : directorIds.has(e.targetNodeId) ? e.targetNodeId : null;
+      if (!personId) continue;
+      const companyId = e.sourceNodeId === personId ? e.targetNodeId : e.sourceNodeId;
+      if (!relations.has(companyId)) {
+        relations.set(companyId, "Director's company");
+      }
+    }
+
+    // Everything else is indirect
+    for (const n of nodes) {
+      if (!relations.has(n.id)) relations.set(n.id, 'Network');
+    }
+
+    return relations;
+  }
+
   // ========== SPLIT ENDPOINTS ==========
 
   /** Lightweight meta - used by the shared layout */
@@ -375,11 +430,14 @@ export class InvestigationService {
     };
   }
 
-  /** Overview: score, breakdown, benchmarks */
+  /** Overview: score, breakdown, benchmarks, target-focused */
   async getOverview(id: string): Promise<any> {
     const inv = await this.investigations.findOne({ where: { id } });
     if (!inv) return null;
+    const targetName = inv.metadata?.companyName || inv.query;
     return {
+      targetCompany: targetName,
+      rootCompanyNumber: inv.metadata?.companyNumber,
       riskScore: inv.progress?.riskScore,
       riskClassification: inv.progress?.riskClassification,
       scoreBreakdown: inv.progress?.scoreBreakdown,
@@ -405,14 +463,12 @@ export class InvestigationService {
     return { findings: inv.progress?.findings || [], entities: grouped };
   }
 
-  /** Entities - paginated by type */
+  /** Entities - paginated by type, with relationship to target */
   async getEntities(id: string, type?: string, page = 1, limit = 50): Promise<any> {
     const where: any = { investigationId: id };
     if (type && ['company', 'person', 'address'].includes(type)) where.entityType = type;
 
-    const [items, total] = await this.nodes.findAndCount({
-      where, skip: (page - 1) * limit, take: limit,
-    });
+    const allNodes = await this.nodes.find({ where });
 
     const edges = await this.edges.find({ where: { investigationId: id } });
     const degree = new Map<string, number>();
@@ -423,29 +479,62 @@ export class InvestigationService {
 
     const matches = await this.matchesRepo.find({ where: { investigationId: id } });
     const matchedEntityIds = new Set(matches.map((m) => m.sourceEntityId));
+    const relations = await this.computeRelations(id);
+
+    // Sort by relationship relevance
+    const REL_ORDER: Record<string, number> = { Target: 0, Director: 1, 'PSC/Owner': 2, Address: 3, Direct: 4, "Director's company": 5, Network: 6 };
+    const sorted = allNodes.sort((a, b) => {
+      const ra = REL_ORDER[relations.get(a.id) || 'Network'] ?? 6;
+      const rb = REL_ORDER[relations.get(b.id) || 'Network'] ?? 6;
+      if (ra !== rb) return ra - rb;
+      return (degree.get(b.id) || 0) - (degree.get(a.id) || 0);
+    });
+
+    const total = sorted.length;
+    const paginated = sorted.slice((page - 1) * limit, page * limit);
 
     return {
-      items: items.map((n) => ({
+      items: paginated.map((n) => ({
         id: n.id, entityId: n.entityId, label: n.label, entityType: n.entityType,
         metadata: n.metadata, proximityScore: n.proximityScore,
         degree: degree.get(n.id) || 0,
+        relationToTarget: relations.get(n.id) || 'Network',
         matches: matchedEntityIds.has(n.entityId) ? matches.filter((m) => m.sourceEntityId === n.entityId) : [],
       })),
       total, page, limit,
     };
   }
 
-  /** Matches only */
+  /** Matches with relation to target */
   async getMatches(id: string): Promise<any> {
     const matches = await this.matchesRepo.find({
       where: { investigationId: id }, order: { confidenceScore: 'DESC' },
     });
+    const relations = await this.computeRelations(id);
+    const nodes = await this.nodes.find({ where: { investigationId: id } });
+    const inv = await this.investigations.findOne({ where: { id } });
+    const targetName = inv?.metadata?.companyName || '';
+
     return {
-      matches: matches.map((m) => ({
-        id: m.id, sourceEntityType: m.sourceEntityType, sourceEntityId: m.sourceEntityId,
-        source: m.matchedSource, matchedEntityId: m.matchedEntityId,
-        confidence: m.confidenceScore, reasons: m.matchReasons,
-      })),
+      targetCompany: targetName,
+      matches: matches.map((m) => {
+        const node = nodes.find((n) => n.entityId === m.sourceEntityId);
+        const rel = node ? (relations.get(node.id) || 'Network') : 'Network';
+        return {
+          id: m.id, sourceEntityType: m.sourceEntityType, sourceEntityId: m.sourceEntityId,
+          source: m.matchedSource, matchedEntityId: m.matchedEntityId,
+          confidence: m.confidenceScore, reasons: m.matchReasons,
+          relationToTarget: rel,
+          entityLabel: node?.label,
+        };
+      }).sort((a, b) => {
+        // Directors first, then by confidence
+        const REL: Record<string, number> = { Target: 0, Director: 1, 'PSC/Owner': 2, Direct: 3, "Director's company": 4, Network: 5 };
+        const ra = REL[a.relationToTarget] ?? 5;
+        const rb = REL[b.relationToTarget] ?? 5;
+        if (ra !== rb) return ra - rb;
+        return b.confidence - a.confidence;
+      }),
     };
   }
 
