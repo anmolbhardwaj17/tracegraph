@@ -136,9 +136,11 @@ function Marker({
     return latLngToVector3(marker.lat, marker.lng, radius * 1.001);
   }, [marker.lat, marker.lng, radius]);
 
-  // Top of the line (where the image is) - positioned further out to prevent going inside globe
+  // Top position along the SAME radial direction (not a separate latLng calc)
   const topPosition = useMemo(() => {
-    return latLngToVector3(marker.lat, marker.lng, radius * 1.18);
+    const surface = latLngToVector3(marker.lat, marker.lng, radius * 1.001);
+    const direction = surface.clone().normalize();
+    return surface.clone().add(direction.multiplyScalar(radius * 0.18));
   }, [marker.lat, marker.lng, radius]);
 
   const lineHeight = topPosition.distanceTo(surfacePosition);
