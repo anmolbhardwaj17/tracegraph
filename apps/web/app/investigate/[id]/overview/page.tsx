@@ -117,32 +117,15 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* ROW 2: Score breakdown + Globe */}
+      {/* ROW 2: AI Insights + Globe */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Score breakdown */}
-        <div className="lg:col-span-5 border border-white/5 bg-ink-850 p-6">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">Where the risk comes from</div>
-          <div className="space-y-4">
-            {[
-              { label: 'Sanctions exposure', value: data.scoreBreakdown?.sanctions, max: 40, color: 'bg-signal-critical' },
-              { label: 'Structural risk', value: data.scoreBreakdown?.structural, max: 40, color: 'bg-signal-high' },
-              { label: 'Director risk', value: data.scoreBreakdown?.director, max: 20, color: 'bg-signal-medium' },
-            ].map((bar) => (
-              <div key={bar.label}>
-                <div className="flex justify-between mb-1.5">
-                  <span className="text-xs text-ink-300">{bar.label}</span>
-                  <span className="text-xs font-mono text-ink-400 tabular-nums">{bar.value || 0} / {bar.max}</span>
-                </div>
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                  <div className={`h-full ${bar.color} rounded-full transition-all`} style={{ width: `${((bar.value || 0) / bar.max) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Insights */}
+        <div className="lg:col-span-5">
+          <Insights investigationId={id} topic="overview" />
         </div>
 
         {/* Globe */}
-        <div className="lg:col-span-7 border border-white/5 bg-ink-850 relative overflow-hidden min-h-[220px]">
+        <div className="lg:col-span-7 border border-white/5 bg-ink-850 relative overflow-hidden min-h-[300px]">
           <div className="absolute top-5 left-5 z-10 space-y-1">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Geographic footprint</div>
             <div className="text-xs text-ink-400">{data.addressCount || 0} addresses - {data.jurisdictionCount || 0} jurisdiction{(data.jurisdictionCount || 0) === 1 ? '' : 's'}</div>
@@ -151,8 +134,25 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* ROW 3: AI Insights */}
-      <Insights investigationId={id} topic="overview" />
+      {/* ROW 3: Score breakdown - compact strip */}
+      <div className="border border-white/5 bg-ink-850 px-6 py-4">
+        <div className="flex items-center gap-8 flex-wrap">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 shrink-0">Risk breakdown</div>
+          {[
+            { label: 'Sanctions', value: data.scoreBreakdown?.sanctions, max: 40, color: 'bg-signal-critical' },
+            { label: 'Structural', value: data.scoreBreakdown?.structural, max: 40, color: 'bg-signal-high' },
+            { label: 'Director', value: data.scoreBreakdown?.director, max: 20, color: 'bg-signal-medium' },
+          ].map((bar) => (
+            <div key={bar.label} className="flex items-center gap-3 flex-1 min-w-[140px]">
+              <span className="text-[10px] text-ink-400 shrink-0">{bar.label}</span>
+              <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className={`h-full ${bar.color} rounded-full`} style={{ width: `${((bar.value || 0) / bar.max) * 100}%` }} />
+              </div>
+              <span className="text-[10px] font-mono text-ink-500 tabular-nums shrink-0">{bar.value || 0}/{bar.max}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* ROW 4: Top 3 actions */}
       {topActions.length > 0 && (
