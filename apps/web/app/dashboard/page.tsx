@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Avatar } from '../../components/Avatar';
 import { Dropdown } from '../../components/Dropdown';
+import { ThemeToggle } from '../../components/ThemeToggle';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -57,14 +58,28 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-ink-900 text-ink-50">
-      <div className="max-w-6xl mx-auto px-8 py-16">
-        <div className="flex items-baseline justify-between mb-10">
+      <nav className="sticky top-0 z-30 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
+            <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
+          </Link>
+          <div className="flex items-center gap-6 text-sm text-ink-300">
+            <Link href="/dashboard" className="text-ink-50">Dashboard</Link>
+            <Link href="/compare" className="hover:text-ink-50 transition-colors">Compare</Link>
+            <Link href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</Link>
+            <ThemeToggle />
+          </div>
+        </div>
+      </nav>
+      <div className="max-w-6xl mx-auto px-8 py-10">
+        <div className="flex items-baseline justify-between mb-8">
           <div>
             <h1 className="text-2xl font-medium">Dashboard</h1>
             <p className="text-sm text-ink-500 mt-1 font-mono">{recentTotal} investigation{recentTotal === 1 ? '' : 's'}</p>
           </div>
           <Link href="/" className="text-xs font-mono text-ink-500 hover:text-ink-50 transition-colors">
-            ← back to search
+            + new investigation
           </Link>
         </div>
 
