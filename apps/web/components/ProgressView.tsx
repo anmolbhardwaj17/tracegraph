@@ -367,9 +367,15 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
 
         const baseAlpha = Math.min(1, alpha * 0.85);
         if (highlight > 0.15) {
+          // Outer glow
+          ctx.fillStyle = `rgba(94,230,161,${highlight * 0.15})`;
+          ctx.beginPath();
+          ctx.arc(x, y, 8 + highlight * 4, 0, Math.PI * 2);
+          ctx.fill();
+          // Inner glow
           ctx.fillStyle = `rgba(94,230,161,${Math.min(1, baseAlpha + highlight)})`;
-          ctx.shadowColor = 'rgba(94,230,161,0.7)';
-          ctx.shadowBlur = 6 * highlight;
+          ctx.shadowColor = 'rgba(94,230,161,0.9)';
+          ctx.shadowBlur = 14 * highlight;
           ctx.beginPath();
           ctx.arc(x, y, 2 + highlight * 1.5, 0, Math.PI * 2);
           ctx.fill();
