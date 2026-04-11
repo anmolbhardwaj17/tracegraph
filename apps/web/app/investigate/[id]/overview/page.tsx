@@ -59,7 +59,7 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-8">
-      {/* ROW 1: Score gauge + Score breakdown */}
+      {/* ROW 1: Score gauge + Network numbers */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Score gauge */}
         <div className="border border-white/5 bg-ink-850 p-8 flex items-center gap-8">
@@ -82,6 +82,32 @@ export default function OverviewPage() {
           </div>
         </div>
 
+        {/* Network numbers */}
+        <div className="border border-white/5 bg-ink-850 p-8">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">{data.targetCompany}'s network</div>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.people || 0}</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">directors & officers</div>
+            </div>
+            <div>
+              <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.companies || 0}</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">connected companies</div>
+            </div>
+            <div>
+              <div className={`text-3xl font-medium tabular-nums ${data.riskyEntityCount > 0 ? 'text-signal-critical' : 'text-signal-clean'}`}>{data.riskyEntityCount || 0}</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">flagged entities</div>
+            </div>
+            <div>
+              <div className={`text-3xl font-medium tabular-nums ${data.sanctionsMatches > 0 ? 'text-signal-critical' : 'text-signal-clean'}`}>{data.sanctionsMatches || 0}</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">sanctions matches</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ROW 2: Score breakdown + Globe */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Score breakdown */}
         <div className="border border-white/5 bg-ink-850 p-8">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">Where the risk comes from</div>
@@ -103,10 +129,7 @@ export default function OverviewPage() {
             ))}
           </div>
         </div>
-      </div>
 
-      {/* ROW 2: Globe + Network summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Globe */}
         <div className="border border-white/5 bg-ink-850 relative overflow-hidden min-h-[220px]">
           <div className="absolute top-5 left-5 z-10 space-y-1">
@@ -114,29 +137,6 @@ export default function OverviewPage() {
             <div className="text-xs text-ink-400">{data.addressCount || 0} addresses - {data.jurisdictionCount || 0} jurisdiction{(data.jurisdictionCount || 0) === 1 ? '' : 's'}</div>
           </div>
           <NetworkGlobe />
-        </div>
-
-        {/* Smart network summary */}
-        <div className="border border-white/5 bg-ink-850 p-8">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">{data.targetCompany}'s network</div>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.people || 0}</div>
-              <div className="text-[10px] font-mono text-ink-500 mt-1">directors & officers</div>
-            </div>
-            <div>
-              <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.companies || 0}</div>
-              <div className="text-[10px] font-mono text-ink-500 mt-1">connected companies</div>
-            </div>
-            <div>
-              <div className={`text-3xl font-medium tabular-nums ${data.riskyEntityCount > 0 ? 'text-signal-critical' : 'text-signal-clean'}`}>{data.riskyEntityCount || 0}</div>
-              <div className="text-[10px] font-mono text-ink-500 mt-1">flagged entities</div>
-            </div>
-            <div>
-              <div className={`text-3xl font-medium tabular-nums ${data.sanctionsMatches > 0 ? 'text-signal-critical' : 'text-signal-clean'}`}>{data.sanctionsMatches || 0}</div>
-              <div className="text-[10px] font-mono text-ink-500 mt-1">sanctions matches</div>
-            </div>
-          </div>
         </div>
       </div>
 
