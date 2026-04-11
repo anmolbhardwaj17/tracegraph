@@ -105,35 +105,97 @@ export class InsightsService {
     };
 
     if (topic === 'findings') {
-      const bySeverity: Record<string, number> = {};
-      const byType: Record<string, number> = {};
-      for (const f of findings) {
-        bySeverity[f.severity] = (bySeverity[f.severity] || 0) + 1;
-        byType[f.type] = (byType[f.type] || 0) + 1;
+      // Compute relations to split findings into target / directors / network
+      const rootNumber = inv.metadata?.companyNumber;
+      const targetName = inv.metadata?.companyName || inv.query;
+      const rootNode = companies.find((n) => n.entityId === rootNumber);
+
+      // Build entity ID sets for target and directors
+      const targetIds = new Set<string>();
+      const directorIds = new Set<string>();
+      const directorNames = new Map<string, string>(); // id -> name
+      if (rootNode) {
+        targetIds.add(rootNode.id);
+        targetIds.add(rootNode.entityId);
       }
-      // Most affected entities
-      const entityCount: Record<string, number> = {};
+      // Simple: directors/PSCs are people nodes connected to target
+      // We'll use affectedEntities containing target id as proxy
+      const nodeById = new Map<string, GraphNode>();
+      const nodeByEid = new Map<string, GraphNode>();
+      for (const n of [...companies, ...people, ...addresses]) {
+        nodeById.set(n.id, n);
+        if (n.entityId) nodeByEid.set(n.entityId, n);
+      }
+      // Find people who appear with the target in findings
       for (const f of findings) {
-        for (const e of f.affectedEntities || []) {
-          entityCount[e] = (entityCount[e] || 0) + 1;
+        const ae = f.affectedEntities || [];
+        const hitsTarget = ae.some((id: string) => targetIds.has(id));
+        if (hitsTarget) {
+          for (const id of ae) {
+            const node = nodeById.get(id) || nodeByEid.get(id);
+            if (node && node.entityType === 'person') {
+              directorIds.add(node.id);
+              if (node.entityId) directorIds.add(node.entityId);
+              directorNames.set(node.id, node.label);
+            }
+          }
         }
       }
-      const topAffected = Object.entries(entityCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([id, count]) => ({ id, findingCount: count }));
+      // Also include all people nodes as potential directors
+      for (const p of people) {
+        directorIds.add(p.id);
+        if (p.entityId) directorIds.add(p.entityId);
+        directorNames.set(p.id, p.label);
+      }
+
+      // Classify findings
+      const targetFindings: any[] = [];
+      const directorFindings: any[] = [];
+      const networkFindings: any[] = [];
+      for (const f of findings) {
+        const ae = f.affectedEntities || [];
+        if (ae.some((id: string) => targetIds.has(id))) targetFindings.push(f);
+        else if (ae.some((id: string) => directorIds.has(id))) directorFindings.push(f);
+        else networkFindings.push(f);
+      }
+
+      // Severity breakdown per section
+      const sevOf = (list: any[]) => {
+        const s: Record<string, number> = {};
+        for (const f of list) s[f.severity] = (s[f.severity] || 0) + 1;
+        return s;
+      };
+
+      // Top affected entities with resolved names
+      const entityCount: Record<string, { count: number; name: string }> = {};
+      for (const f of [...targetFindings, ...directorFindings]) {
+        for (const id of f.affectedEntities || []) {
+          const node = nodeById.get(id) || nodeByEid.get(id);
+          const name = node?.label || id;
+          if (!entityCount[name]) entityCount[name] = { count: 0, name };
+          entityCount[name].count++;
+        }
+      }
+      const topAffected = Object.values(entityCount)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
       return {
         ...baseTarget,
+        targetName,
         totalFindings: findings.length,
-        severityBreakdown: bySeverity,
-        typeBreakdown: byType,
-        topFindings: findings.slice(0, 6).map((f: any) => ({
-          severity: f.severity,
-          type: f.type,
-          title: f.title,
-          confidence: f.confidence,
+        targetFindingsCount: targetFindings.length,
+        directorFindingsCount: directorFindings.length,
+        networkFindingsCount: networkFindings.length,
+        targetSeverity: sevOf(targetFindings),
+        directorSeverity: sevOf(directorFindings),
+        targetFindingSummary: targetFindings.slice(0, 5).map((f: any) => ({
+          severity: f.severity, type: f.type, title: f.title,
         })),
-        mostAffectedEntities: topAffected,
+        directorFindingSummary: directorFindings.slice(0, 5).map((f: any) => ({
+          severity: f.severity, type: f.type, title: f.title,
+        })),
+        topAffectedEntities: topAffected,
       };
     }
 
@@ -201,7 +263,12 @@ export class InsightsService {
 
   private buildPrompt(topic: InsightTopic, briefing: any): string {
     if (topic === 'findings') {
-      return `You are a senior corporate intelligence analyst. Given this breakdown of risk findings, produce 3 to 4 sharp insights about PATTERNS across the findings — what dominates, which entities cluster the most, what the severity distribution implies. Each insight is a JSON object: title (max 8 words), body (1-2 sentences explaining the so-what), severity (CRITICAL, HIGH, MEDIUM, or INFO). Return ONLY a JSON array, no prose.
+      return `You are a senior corporate intelligence analyst. The investigation target is "${briefing.targetName}". Given this findings breakdown, produce 3 to 4 sharp insights focused on what matters for the TARGET COMPANY specifically:
+- Does the target company itself have direct risk signals? If not, say so clearly.
+- What about the people who run it (directors/PSCs) - are they individually risky?
+- Is there anything in the wider network that reflects back on the target?
+Do NOT just restate counts. Explain the "so what" for someone deciding whether to do business with ${briefing.targetName}.
+Each insight: JSON object with title (max 8 words), body (1-2 sentences), severity (CRITICAL, HIGH, MEDIUM, or INFO). Return ONLY a JSON array, no prose.
 
 BRIEFING:
 ${JSON.stringify(briefing, null, 2)}`;
@@ -221,40 +288,75 @@ ${JSON.stringify(briefing, null, 2)}`;
   private fallbackInsights(topic: InsightTopic, briefing: any): Insight[] {
     if (topic === 'findings') {
       const insights: Insight[] = [];
-      const sev = briefing.severityBreakdown || {};
-      const totalCritical = (sev.CRITICAL || 0);
-      const totalHigh = (sev.HIGH || 0);
-      if (totalCritical > 0) {
-        insights.push({
-          severity: 'CRITICAL',
-          title: `${totalCritical} critical findings raised`,
-          body: 'Critical findings indicate converging signals — review each immediately.',
-        });
-      }
-      const types = Object.entries(briefing.typeBreakdown || {}).sort((a: any, b: any) => b[1] - a[1]);
-      if (types.length > 0) {
-        const [topType, topCount] = types[0] as [string, number];
+      const targetName = briefing.targetName || 'Target company';
+      const targetCount = briefing.targetFindingsCount || 0;
+      const directorCount = briefing.directorFindingsCount || 0;
+      const networkCount = briefing.networkFindingsCount || 0;
+      const targetSev = briefing.targetSeverity || {};
+
+      // Insight 1: Target company status
+      if (targetCount === 0) {
         insights.push({
           severity: 'INFO',
-          title: `${topType} dominates`,
-          body: `${topCount} of ${briefing.totalFindings} findings are of type ${topType}.`,
+          title: `${targetName} has no direct risk signals`,
+          body: `No findings were raised directly against the target company. All ${briefing.totalFindings.toLocaleString()} findings relate to the wider network.`,
         });
+      } else {
+        const critCount = targetSev.CRITICAL || 0;
+        const highCount = targetSev.HIGH || 0;
+        if (critCount > 0) {
+          insights.push({
+            severity: 'CRITICAL',
+            title: `${targetName} has ${critCount} critical finding${critCount > 1 ? 's' : ''}`,
+            body: `The target company itself is flagged with critical risk signals - review these before the wider network.`,
+          });
+        } else {
+          insights.push({
+            severity: highCount > 0 ? 'HIGH' : 'MEDIUM',
+            title: `${targetCount} finding${targetCount > 1 ? 's' : ''} on ${targetName}`,
+            body: `The target company has ${highCount > 0 ? highCount + ' high-severity' : 'moderate'} findings - these are your primary concern.`,
+          });
+        }
       }
-      if (briefing.mostAffectedEntities?.length > 0) {
-        const top = briefing.mostAffectedEntities[0];
+
+      // Insight 2: Director risk
+      if (directorCount > 0) {
+        const dirSev = briefing.directorSeverity || {};
+        const dirCrit = dirSev.CRITICAL || 0;
         insights.push({
-          severity: 'HIGH',
-          title: 'Single entity carries most risk',
-          body: `One entity (${top.id}) appears in ${top.findingCount} different findings.`,
+          severity: dirCrit > 0 ? 'CRITICAL' : 'HIGH',
+          title: `${directorCount} findings about directors`,
+          body: `People running ${targetName} have ${directorCount} risk signals across their other appointments${dirCrit > 0 ? ', including critical findings' : ''}.`,
         });
-      }
-      if (totalHigh > 3 && totalCritical === 0) {
+      } else {
         insights.push({
-          severity: 'HIGH',
-          title: 'Pattern of elevated risk without critical signals',
-          body: `${totalHigh} HIGH findings without any CRITICAL — typical of structural patterns rather than acute exposure.`,
+          severity: 'INFO',
+          title: 'Directors appear clean',
+          body: `No risk signals detected on directors or PSCs of ${targetName}.`,
         });
       }
+
+      // Insight 3: Network context
+      if (networkCount > 0) {
+        insights.push({
+          severity: 'INFO',
+          title: `${networkCount.toLocaleString()} findings in wider network`,
+          body: `These are about companies and people beyond the target's immediate circle - relevant for deep due diligence but not primary concerns.`,
+        });
+      }
+
+      // Insight 4: Most flagged entity (with resolved name)
+      if (briefing.topAffectedEntities?.length > 0) {
+        const top = briefing.topAffectedEntities[0];
+        if (top.count > 3) {
+          insights.push({
+            severity: 'HIGH',
+            title: `${top.name} is the most flagged entity`,
+            body: `Appears in ${top.count} different findings - investigate this entity's role in the network.`,
+          });
+        }
+      }
+
       return insights;
     }
 

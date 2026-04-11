@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Shield, ShieldAlert, Users, Globe } from 'lucide-react';
+import { Insights } from '../Insights';
 import { EmptyState } from './shared';
 
 interface Finding {
@@ -236,13 +237,26 @@ export function FindingsTab({ findings, entities, relations, targetNodeId, targe
     return <EmptyState message="No risk signals detected." />;
   }
 
+  // Severity counts for the stat strip
+  const criticalCount = findings.filter((f) => f.severity === 'CRITICAL').length;
+  const highCount = findings.filter((f) => f.severity === 'HIGH').length;
+
   return (
     <div className="space-y-5">
-      {/* One-line summary + filter bar */}
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-white/5 border border-white/5">
+        <StatBox label="Total" value={findings.length.toLocaleString()} />
+        <StatBox label={targetName} value={String(targetFindings.length)} highlight={targetFindings.some((f) => f.severity === 'CRITICAL')} />
+        <StatBox label="Directors" value={String(directorFindings.length)} highlight={directorFindings.some((f) => f.severity === 'CRITICAL')} />
+        <StatBox label="Critical" value={String(criticalCount)} highlight={criticalCount > 0} />
+        <StatBox label="High" value={String(highCount)} />
+      </div>
+
+      {/* AI insights - now target-focused */}
+      <Insights investigationId={investigationId} topic="findings" />
+
+      {/* Filter bar */}
       <section>
-        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-3">
-          / {findings.length.toLocaleString()} findings · <span className="text-ink-300">{targetFindings.length}</span> target · <span className="text-ink-300">{directorFindings.length}</span> directors · <span className="text-ink-300">{networkFindings.length.toLocaleString()}</span> network
-        </div>
         <div className="flex gap-3 flex-wrap items-center">
           <input
             type="text"
@@ -612,6 +626,15 @@ function FindingsTable({ findings, expanded, onToggle, labelOf, relOf, keyPrefix
           show all {findings.length} findings
         </button>
       )}
+    </div>
+  );
+}
+
+function StatBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className={`bg-ink-850 px-4 py-3 ${highlight ? 'border-l-2 border-signal-critical' : ''}`}>
+      <div className={`text-2xl font-medium tabular-nums ${highlight ? 'text-signal-critical' : 'text-ink-50'}`}>{value}</div>
+      <div className="text-[9px] uppercase tracking-[0.15em] text-ink-500 mt-0.5 font-mono truncate">{label}</div>
     </div>
   );
 }
