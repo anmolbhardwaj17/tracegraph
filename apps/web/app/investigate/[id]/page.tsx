@@ -12,6 +12,7 @@ import { LocationsMap } from '../../../components/LocationsMap';
 import { NetworkGlobe } from '../../../components/NetworkGlobe';
 import { FindingsTab } from '../../../components/tabs/FindingsTab';
 import { UBOTab } from '../../../components/tabs/UBOTab';
+import { TimelineTab } from '../../../components/tabs/TimelineTab';
 import { EntitiesTab } from '../../../components/tabs/EntitiesTab';
 import { MatchesTab } from '../../../components/tabs/MatchesTab';
 import { EmptyState, ProximityDot } from '../../../components/tabs/shared';
@@ -45,7 +46,7 @@ interface Investigation {
   error?: string;
 }
 
-type Tab = 'overview' | 'graph' | 'locations' | 'ubo' | 'findings' | 'entities' | 'matches';
+type Tab = 'overview' | 'graph' | 'locations' | 'ubo' | 'timeline' | 'findings' | 'entities' | 'matches';
 
 export default function InvestigatePage() {
   const params = useParams();
@@ -182,7 +183,7 @@ export default function InvestigatePage() {
         {/* Tabs */}
         <div className="max-w-7xl mx-auto px-8">
           <nav className="flex gap-8">
-            {(['overview', 'graph', 'locations', 'ubo', 'findings', 'entities', 'matches'] as Tab[]).map((t) => (
+            {(['overview', 'graph', 'locations', 'ubo', 'timeline', 'findings', 'entities', 'matches'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -209,6 +210,7 @@ export default function InvestigatePage() {
         {tab === 'graph' && <GraphTab graph={graph} onSelect={setSelectedNode} selected={selectedNode} data={data} />}
         {tab === 'locations' && <LocationsMap addresses={data.entities?.address || []} edges={data.edges || []} allEntities={data.entities} />}
         {tab === 'ubo' && <UBOTab chains={(data as any).uboChains || []} />}
+        {tab === 'timeline' && <TimelineTab entities={data.entities} findings={data.findings} edges={data.edges} />}
         {tab === 'findings' && <FindingsTab findings={data.findings || []} entities={data.entities} investigationId={id} />}
         {tab === 'entities' && <EntitiesTab entities={data.entities} investigationId={id} />}
         {tab === 'matches' && <MatchesTab matches={data.matches || []} counts={data.counts} />}
