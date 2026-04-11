@@ -119,26 +119,8 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
               <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">depth</div>
             </div>
           </div>
-          {resolution && resolution.total > 0 && (
-            <div className="px-6 pt-5 pb-5 border-t border-white/5">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Screening entities against sanctions databases</div>
-                <div className="text-[10px] font-mono text-ink-400 tabular-nums">{resolution.processed.toLocaleString()} / {resolution.total.toLocaleString()} - {resolution.matches} match{resolution.matches === 1 ? '' : 'es'}</div>
-              </div>
-              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                <div className="h-full bg-signal-clean rounded-full transition-all duration-500" style={{ width: `${Math.round((resolution.processed / resolution.total) * 100)}%` }} />
-              </div>
-            </div>
-          )}
-          {scoringStep && (
-            <div className="px-6 py-4 border-t border-white/5 flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-ink-50">{scoringStep.step}</div>
-                {scoringStep.detail && <div className="text-[10px] font-mono text-ink-500 mt-0.5">{scoringStep.detail}</div>}
-              </div>
-            </div>
-          )}
+          {/* Stage-level progress bar — always visible when running */}
+          <StageProgress status={status} live={live} tier={tier} resolution={resolution} scoringStep={scoringStep} />
         </div>
       </div>
 
@@ -248,6 +230,71 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
  */
 type Blip = { angle: number; radiusN: number; bornAt: number; label?: string };
 type Pulse = { startedAt: number; intensity: number };
+
+const SCORING_STEPS = ['Classifying companies', 'Profiling directors', 'Shell company scoring', 'Filing health', 'Disqualified director', 'Jurisdiction risk', 'Cross-directorship', 'Ownership opacity', 'Director velocity', 'Anomaly detection', 'Financial distress'];
+
+function StageProgress({ status, live, tier, resolution, scoringStep }: {
+  status: string;
+  live: { entities: number; edges: number; depth: number; apiCalls: number; matches: number };
+  tier?: string;
+  resolution?: { processed: number; total: number; matches: number } | null;
+  scoringStep?: { step: string; detail?: string } | null;
+}) {
+  // Determine what to show based on current status
+  let label = '';
+  let detail = '';
+  let pct: number | null = null;
+
+  if (status === 'FETCHING') {
+    label = 'Fetching company profile';
+    // No progress data — indeterminate
+  } else if (status === 'EXPANDING') {
+    label = 'Expanding ownership network';
+    const tierCap = tier === 'QUICK' ? 100 : tier === 'DEEP' ? 3000 : 1000;
+    pct = Math.min(95, Math.round((live.entities / tierCap) * 100));
+    detail = `${live.entities.toLocaleString()} entities discovered`;
+  } else if (status === 'RESOLVING' && resolution && resolution.total > 0) {
+    label = 'Screening against sanctions databases';
+    pct = Math.round((resolution.processed / resolution.total) * 100);
+    detail = `${resolution.processed.toLocaleString()} / ${resolution.total.toLocaleString()} entities · ${resolution.matches} match${resolution.matches === 1 ? '' : 'es'}`;
+  } else if (status === 'RESOLVING') {
+    label = 'Preparing cross-source matching';
+  } else if (status === 'SCORING' && scoringStep) {
+    label = scoringStep.step;
+    detail = scoringStep.detail || '';
+    const matchIdx = SCORING_STEPS.findIndex((s) => scoringStep.step.toLowerCase().includes(s.toLowerCase()));
+    if (matchIdx >= 0) pct = Math.round(((matchIdx + 1) / SCORING_STEPS.length) * 100);
+  } else if (status === 'SCORING') {
+    label = 'Risk scoring';
+  } else {
+    return null;
+  }
+
+  return (
+    <div className="px-6 py-4 border-t border-white/5">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-signal-clean animate-pulse shrink-0" />
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400">{label}</span>
+        </div>
+        {detail && <span className="text-[10px] font-mono text-ink-500 tabular-nums">{detail}</span>}
+      </div>
+      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+        {pct != null ? (
+          <div className="h-full bg-signal-clean rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+        ) : (
+          <div className="h-full bg-signal-clean/40 rounded-full animate-[indeterminate_1.5s_ease-in-out_infinite]" style={{ width: '30%' }} />
+        )}
+      </div>
+      <style jsx>{`
+        @keyframes indeterminate {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 function DiscoveryFeed({ items }: { items: Discovery[] }) {
   const reversed = [...items].reverse();
