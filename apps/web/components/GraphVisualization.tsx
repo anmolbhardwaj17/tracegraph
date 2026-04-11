@@ -186,6 +186,12 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
     for (const n of nodes) {
       if (n.hasMatch && !labels.has(n.id)) labels.set(n.id, 'MATCHED');
     }
+
+    // Opacity label for highly opaque companies
+    for (const n of nodes) {
+      if ((n as any).ownershipOpacity >= 50 && !labels.has(n.id)) labels.set(n.id, 'OPAQUE');
+    }
+
     return labels;
   }, [nodes, findings, labelToId, rootId]);
 
@@ -547,6 +553,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
         if (tag === 'MATCHED' || tag === 'OFFSHORE') return '#FF4D4D';
         if (tag === 'SHELL' || tag === 'BRIDGE') return '#FF8A3D';
         if (tag === 'HUB') return '#5EE6A1';
+        if (tag === 'OPAQUE') return '#A78BFA';
         return '#FFFFFF';
       })
       .attr('font-family', 'ui-monospace, monospace')
@@ -664,6 +671,7 @@ export function GraphVisualization({ nodes, links, findings = [], height = 720, 
             <div className="flex justify-between"><span className="text-signal-medium">BRIDGE</span><span className="text-ink-600">spans clusters</span></div>
             <div className="flex justify-between"><span className="text-signal-medium">SHELL</span><span className="text-ink-600">shell company</span></div>
             <div className="flex justify-between"><span className="text-signal-critical">MATCHED</span><span className="text-ink-600">sanctions hit</span></div>
+            <div className="flex justify-between"><span style={{ color: '#A78BFA' }}>OPAQUE</span><span className="text-ink-600">low transparency</span></div>
           </div>
         </div>
 
