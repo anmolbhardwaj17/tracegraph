@@ -69,6 +69,59 @@ export class OpenSanctionsService {
     };
   }
 
+  /**
+   * Batch fuzzy search: insert all names into a temp table, run ONE join.
+   * Returns a map of lowercase name -> array of matching entities.
+   */
+  async batchSearchByNames(names: string[]): Promise<Map<string, Array<{ entity: SanctionsEntity; similarity: number }>>> {
+    const result = new Map<string, Array<{ entity: SanctionsEntity; similarity: number }>>();
+    if (names.length === 0) return result;
+
+    try {
+      const mgr = this.repo.manager;
+      await mgr.query(`CREATE TEMP TABLE IF NOT EXISTS _batch_names (name text NOT NULL)`);
+      await mgr.query(`TRUNCATE _batch_names`);
+
+      // Insert in chunks of 500
+      for (let i = 0; i < names.length; i += 500) {
+        const chunk = names.slice(i, i + 500);
+        const values = chunk.map((n) => `(${mgr.connection.driver.escape(n.toLowerCase().trim())})`).join(',');
+        await mgr.query(`INSERT INTO _batch_names (name) VALUES ${values}`);
+      }
+
+      await mgr.query(`SET LOCAL pg_trgm.similarity_threshold = 0.15`);
+      const rows = await mgr.query(`
+        SELECT s.*, bn.name AS query_name, similarity(s."searchText", bn.name) AS sim
+        FROM sanctions_entities s
+        JOIN _batch_names bn ON s."searchText" % bn.name
+        WHERE similarity(s."searchText", bn.name) > 0.15
+        ORDER BY sim DESC
+      `);
+
+      for (const r of rows) {
+        const key = r.query_name;
+        const list = result.get(key) || [];
+        if (list.length < 5) {
+          list.push({
+            entity: {
+              id: r.id, schemaType: r.schemaType, names: r.names,
+              birthDates: r.birthDates, nationalities: r.nationalities,
+              countries: r.countries, topics: r.topics, datasets: r.datasets,
+              properties: r.properties, sourceUrl: r.sourceUrl, searchText: r.searchText,
+            } as SanctionsEntity,
+            similarity: parseFloat(r.sim),
+          });
+        }
+        result.set(key, list);
+      }
+
+      await mgr.query(`DROP TABLE IF EXISTS _batch_names`);
+    } catch (e: any) {
+      this.logger.warn(`Batch sanctions search failed, falling back to sequential: ${e?.message}`);
+    }
+    return result;
+  }
+
   /** Fuzzy search by name using trigram similarity (pg_trgm). */
   async searchByName(name: string, limit = 10): Promise<Array<{ entity: SanctionsEntity; similarity: number }>> {
     const q = name.toLowerCase().trim();

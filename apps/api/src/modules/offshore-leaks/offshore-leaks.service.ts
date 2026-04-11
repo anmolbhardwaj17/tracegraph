@@ -134,6 +134,45 @@ export class OffshoreLeaksService {
     }
   }
 
+  /**
+   * Batch fuzzy search against a table. Returns map of name -> hits.
+   */
+  async batchSearch(table: 'offshore_entities' | 'offshore_officers', names: string[]): Promise<Map<string, any[]>> {
+    const result = new Map<string, any[]>();
+    if (names.length === 0) return result;
+    try {
+      const mgr = this.entities.manager;
+      await mgr.query(`CREATE TEMP TABLE IF NOT EXISTS _batch_offshore (name text NOT NULL)`);
+      await mgr.query(`TRUNCATE _batch_offshore`);
+
+      for (let i = 0; i < names.length; i += 500) {
+        const chunk = names.slice(i, i + 500);
+        const values = chunk.map((n) => `(${mgr.connection.driver.escape(n.toLowerCase().trim())})`).join(',');
+        await mgr.query(`INSERT INTO _batch_offshore (name) VALUES ${values}`);
+      }
+
+      const rows = await mgr.query(`
+        SELECT t.*, bn.name AS query_name, similarity(t."searchText", bn.name) AS sim
+        FROM ${table} t
+        JOIN _batch_offshore bn ON t."searchText" % bn.name
+        WHERE similarity(t."searchText", bn.name) > 0.15
+        ORDER BY sim DESC
+      `);
+
+      for (const r of rows) {
+        const key = r.query_name;
+        const list = result.get(key) || [];
+        if (list.length < 5) list.push({ entity: r, similarity: parseFloat(r.sim) });
+        result.set(key, list);
+      }
+
+      await mgr.query(`DROP TABLE IF EXISTS _batch_offshore`);
+    } catch (e: any) {
+      // silent fallback
+    }
+    return result;
+  }
+
   async searchEntitiesByName(name: string, limit = 10) {
     return this.trgmSearch('offshore_entities', name, limit);
   }

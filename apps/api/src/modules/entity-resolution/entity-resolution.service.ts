@@ -159,11 +159,33 @@ export class EntityResolutionService {
     const personNodes = nodes.filter((n) => n.entityType === 'person' && isScreenable(n.label));
     const companyNodes = nodes.filter((n) => n.entityType === 'company' && isScreenable(n.label) && !n.metadata?.isFormationAgent);
 
-    let processed = 0;
     let totalMatches = 0;
     const total = personNodes.length + companyNodes.length;
     this.logger.log(`Resolution for ${investigationId}: screening ${total} of ${nodes.length} entities (${nodes.length - total} skipped as unmatchable)`);
 
+    // FIX 2: Batch fuzzy matching - collect all names, run batch queries,
+    // then iterate results instead of one query per entity
+    const personNames = personNodes.map((n) => n.label);
+    const companyNames = companyNodes.map((n) => n.label);
+
+    // Batch sanctions search (persons only)
+    events.onProgress?.({ processed: 0, total, matches: 0 });
+    this.logger.log(`Batch sanctions search for ${personNames.length} persons...`);
+    const sanctionsBatch = await this.sanctions.batchSearchByNames(personNames);
+    this.logger.log(`Batch sanctions search complete: ${sanctionsBatch.size} names with hits`);
+
+    // Batch offshore officers (persons)
+    this.logger.log(`Batch offshore officers search for ${personNames.length} persons...`);
+    const offshoreOfficersBatch = await this.offshore.batchSearch('offshore_officers', personNames);
+    this.logger.log(`Batch offshore officers complete: ${offshoreOfficersBatch.size} names with hits`);
+
+    // Batch offshore entities (companies)
+    this.logger.log(`Batch offshore entities search for ${companyNames.length} companies...`);
+    const offshoreEntitiesBatch = await this.offshore.batchSearch('offshore_entities', companyNames);
+    this.logger.log(`Batch offshore entities complete: ${offshoreEntitiesBatch.size} names with hits`);
+
+    // Now iterate results and score
+    let processed = 0;
     for (const node of personNodes) {
       const source: MatchCandidate = {
         id: node.entityId,
@@ -171,10 +193,10 @@ export class EntityResolutionService {
         birthYear: node.metadata?.dateOfBirth?.year,
         nationality: node.metadata?.nationality,
       };
+      const nameKey = node.label.toLowerCase().trim();
 
-      // Sanctions
-      const sanctionsHits = await this.sanctions.searchByName(node.label, 5);
-      for (const hit of sanctionsHits) {
+      // Sanctions hits
+      for (const hit of sanctionsBatch.get(nameKey) || []) {
         const cand: MatchCandidate = {
           id: hit.entity.id,
           names: hit.entity.names || [],
@@ -184,56 +206,48 @@ export class EntityResolutionService {
         const { score, reasons } = this.score(source, cand);
         if (this.classify(score) !== 'none') {
           await this.persistMatch(investigationId, 'person', node.entityId, 'opensanctions', hit.entity.id, score, {
-            ...reasons,
-            trigramSimilarity: hit.similarity,
-            matchedName: hit.entity.names?.[0],
-            topics: hit.entity.topics,
+            ...reasons, trigramSimilarity: hit.similarity, matchedName: hit.entity.names?.[0], topics: hit.entity.topics,
           }, events);
           totalMatches++;
         }
       }
 
-      // OffshoreLeaks officers
-      const offshoreHits = await this.offshore.searchOfficersByName(node.label, 5);
-      for (const hit of offshoreHits) {
-        const cand: MatchCandidate = {
-          id: hit.entity.id,
-          names: [hit.entity.name],
-          nationality: hit.entity.country,
-        };
+      // Offshore officer hits
+      for (const hit of offshoreOfficersBatch.get(nameKey) || []) {
+        const cand: MatchCandidate = { id: hit.entity.id, names: [hit.entity.name], nationality: hit.entity.country };
         const { score, reasons } = this.score(source, cand);
         if (this.classify(score) !== 'none') {
           await this.persistMatch(investigationId, 'person', node.entityId, 'offshore_leaks', hit.entity.id, score, {
-            ...reasons,
-            matchedName: hit.entity.name,
-            sourceid: hit.entity.sourceid,
+            ...reasons, matchedName: hit.entity.name, sourceid: hit.entity.sourceid,
           }, events);
           totalMatches++;
         }
       }
 
       processed++;
-      events.onProgress?.({ processed, total, matches: totalMatches });
+      if (processed % 200 === 0 || processed === personNodes.length) {
+        events.onProgress?.({ processed, total, matches: totalMatches });
+      }
     }
 
     for (const node of companyNodes) {
       const source: MatchCandidate = { id: node.entityId, names: [node.label] };
-      const offshoreHits = await this.offshore.searchEntitiesByName(node.label, 5);
-      for (const hit of offshoreHits) {
+      const nameKey = node.label.toLowerCase().trim();
+
+      for (const hit of offshoreEntitiesBatch.get(nameKey) || []) {
         const cand: MatchCandidate = { id: hit.entity.id, names: [hit.entity.name] };
         const { score, reasons } = this.score(source, cand);
         if (this.classify(score) !== 'none') {
           await this.persistMatch(investigationId, 'company', node.entityId, 'offshore_leaks', hit.entity.id, score, {
-            ...reasons,
-            matchedName: hit.entity.name,
-            jurisdiction: hit.entity.jurisdiction,
-            sourceid: hit.entity.sourceid,
+            ...reasons, matchedName: hit.entity.name, jurisdiction: hit.entity.jurisdiction, sourceid: hit.entity.sourceid,
           }, events);
           totalMatches++;
         }
       }
       processed++;
-      events.onProgress?.({ processed, total, matches: totalMatches });
+      if (processed % 200 === 0 || processed === total) {
+        events.onProgress?.({ processed, total, matches: totalMatches });
+      }
     }
 
     this.logger.log(`Resolution for ${investigationId}: ${processed} nodes, ${totalMatches} matches`);
