@@ -1,7 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Shield, ShieldAlert, Users, Globe } from 'lucide-react';
-import { Insights } from '../Insights';
 import { EmptyState } from './shared';
 
 interface Finding {
@@ -239,31 +238,11 @@ export function FindingsTab({ findings, entities, relations, targetNodeId, targe
 
   return (
     <div className="space-y-5">
-      {/* Compact risk summary + severity strip */}
-      <section className="border border-white/5 bg-ink-850 p-5">
-        <div className="flex items-start justify-between gap-6 mb-4">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-2">/ Risk distribution</div>
-            <div className="text-sm text-ink-300">
-              <span className="text-ink-50 font-medium">{targetFindings.length}</span> about {targetName},{' '}
-              <span className="text-ink-50 font-medium">{directorFindings.length}</span> about directors,{' '}
-              <span className="text-ink-50 font-medium">{networkFindings.length.toLocaleString()}</span> in wider network
-            </div>
-          </div>
-          <div className="text-[10px] font-mono text-ink-500 tabular-nums shrink-0">{findings.length} total</div>
-        </div>
-        <div className="space-y-1.5">
-          <MiniSevBar label={targetName} counts={targetCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
-          <MiniSevBar label="Directors" counts={directorCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
-          <MiniSevBar label="Network" counts={networkCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
-        </div>
-      </section>
-
-      {/* AI insights */}
-      <Insights investigationId={investigationId} topic="findings" />
-
-      {/* Filter bar */}
+      {/* One-line summary + filter bar */}
       <section>
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-3">
+          / {findings.length.toLocaleString()} findings · <span className="text-ink-300">{targetFindings.length}</span> target · <span className="text-ink-300">{directorFindings.length}</span> directors · <span className="text-ink-300">{networkFindings.length.toLocaleString()}</span> network
+        </div>
         <div className="flex gap-3 flex-wrap items-center">
           <input
             type="text"
@@ -414,35 +393,6 @@ export function FindingsTab({ findings, entities, relations, targetNodeId, targe
 }
 
 // --- Sub-components ---
-
-function MiniSevBar({ label, counts, active, onToggle }: {
-  label: string; counts: SevCounts; active: Set<string>; onToggle: (s: string) => void;
-}) {
-  const total = counts.CRITICAL + counts.HIGH + counts.MEDIUM + counts.LOW;
-  const pct = (n: number) => total > 0 ? (n / total) * 100 : 0;
-  const isDimmed = (s: string) => active.size > 0 && !active.has(s);
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="w-24 text-[10px] font-mono text-ink-500 truncate">{label}</div>
-      <div className="w-48 h-1.5 flex rounded-sm overflow-hidden bg-white/5 shrink-0">
-        {counts.CRITICAL > 0 && (
-          <button onClick={() => onToggle('CRITICAL')} className={`bg-signal-critical transition-opacity ${isDimmed('CRITICAL') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.CRITICAL)}%` }} />
-        )}
-        {counts.HIGH > 0 && (
-          <button onClick={() => onToggle('HIGH')} className={`bg-signal-high transition-opacity ${isDimmed('HIGH') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.HIGH)}%` }} />
-        )}
-        {counts.MEDIUM > 0 && (
-          <button onClick={() => onToggle('MEDIUM')} className={`bg-signal-medium transition-opacity ${isDimmed('MEDIUM') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.MEDIUM)}%` }} />
-        )}
-        {counts.LOW > 0 && (
-          <button onClick={() => onToggle('LOW')} className={`bg-ink-700 transition-opacity ${isDimmed('LOW') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.LOW)}%` }} />
-        )}
-      </div>
-      <div className="text-[10px] font-mono text-ink-600 tabular-nums">{total}</div>
-    </div>
-  );
-}
 
 function LeaderboardSection({ title, subtitle, items, activeFilter, onFilter }: {
   title: string; subtitle: string;
