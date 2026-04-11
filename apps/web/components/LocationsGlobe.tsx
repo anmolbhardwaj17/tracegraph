@@ -45,31 +45,41 @@ export function LocationsGlobe({ points, arcs = [], targetLat, targetLng, onPoin
     return () => ro.disconnect();
   }, []);
 
-  // Cinematic entry: start zoomed out showing whole Earth, then fly in
+  // Cinematic entry: start showing whole Earth, then fly in close to target
   useEffect(() => {
     if (!ready || !globeRef.current) return;
     const globe = globeRef.current;
-    // Start fully zoomed out
-    globe.pointOfView({ lat: 20, lng: 0, altitude: 3.5 }, 0);
-    // After a beat, fly to the target location
-    setTimeout(() => {
+    // Start zoomed out
+    globe.pointOfView({ lat: 20, lng: 0, altitude: 2.5 }, 0);
+    // Fly in close to target
+    const flyIn = () => {
       globe.pointOfView({
         lat: targetLat ?? 54.5,
         lng: targetLng ?? -2,
-        altitude: 1.6,
-      }, 2500);
-    }, 800);
+        altitude: 0.5,
+      }, 3000);
+    };
+    const timer = setTimeout(flyIn, 600);
+    return () => clearTimeout(timer);
   }, [ready, targetLat, targetLng]);
 
+  // Re-fly when points data arrives (geocoding may finish after initial load)
+  useEffect(() => {
+    if (!ready || !globeRef.current || points.length === 0) return;
+    if (targetLat != null && targetLng != null) {
+      globeRef.current.pointOfView({ lat: targetLat, lng: targetLng, altitude: 0.5 }, 2000);
+    }
+  }, [points.length]);
+
   const pointColor = useCallback((d: any) => {
-    if (d.isTarget) return '#FFFFFF';
+    if (d.isTarget) return '#5EE6A1';
     if (d.flag === 'VIRTUAL_OFFICE') return '#EF4444';
     if (d.flag === 'HIGH_DENSITY') return '#F59E0B';
-    return '#6B7280';
+    return '#60A5FA';
   }, []);
 
-  const pointAlt = useCallback((d: any) => d.isTarget ? 0.04 : d.flag ? 0.025 : 0.01, []);
-  const pointRadius = useCallback((d: any) => d.isTarget ? 0.5 : Math.max(0.15, Math.min(0.6, 0.1 + Math.sqrt(d.density) * 0.08)), []);
+  const pointAlt = useCallback((d: any) => d.isTarget ? 0.06 : d.flag ? 0.04 : 0.02, []);
+  const pointRadius = useCallback((d: any) => d.isTarget ? 0.6 : Math.max(0.2, Math.min(0.8, 0.15 + Math.sqrt(d.density) * 0.12)), []);
   const pointLabel = useCallback((d: any) => `<div style="font-family:ui-monospace,monospace;font-size:11px;color:#F5F5F5;background:rgba(10,10,10,0.9);padding:6px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:2px;">
     <div style="font-weight:500;margin-bottom:2px;">${d.label}</div>
     <div style="color:#737373;font-size:9px;">${d.density} compan${d.density === 1 ? 'y' : 'ies'}${d.flag ? ' - ' + d.flag.replace('_', ' ').toLowerCase() : ''}</div>
