@@ -53,6 +53,9 @@ export default function InvestigatePage() {
     socket.on('resolution_progress', (p: any) => setResolution({ processed: p.processed, total: p.total, matches: p.matches }));
     socket.on('resolution_complete', () => setResolution(null));
     socket.on('scoring_step', (p: any) => setScoringStep({ step: p.step, detail: p.detail }));
+    socket.on('status_changed', (p: any) => {
+      setData((prev: any) => prev ? { ...prev, status: p.status } : prev);
+    });
     socket.on('expansion_complete', () => { setScoringStep(null); fetchData(); });
 
     async function fetchData() {

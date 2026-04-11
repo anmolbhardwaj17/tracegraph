@@ -52,6 +52,7 @@ export class InvestigationProcessor extends WorkerHost {
 
     try {
       await this.investigations.update(investigationId, { status: 'FETCHING' });
+      this.gateway.emitStatusChanged(investigationId, 'FETCHING');
 
       const companyNumber = await this.resolveCompanyNumber(query);
       if (!companyNumber) throw new Error('Company not found');
@@ -67,6 +68,7 @@ export class InvestigationProcessor extends WorkerHost {
         status: 'EXPANDING',
         metadata: { companyNumber, companyName, tier } as any,
       });
+      this.gateway.emitStatusChanged(investigationId, 'EXPANDING');
 
       const result = await this.expansion.expand(
         investigationId,
@@ -116,6 +118,7 @@ export class InvestigationProcessor extends WorkerHost {
 
       if (opts.runResolution) {
         await this.investigations.update(investigationId, { status: 'RESOLVING' });
+        this.gateway.emitStatusChanged(investigationId, 'RESOLVING');
         await new Promise((r) => setTimeout(r, 400));
         resolutionResult = await this.resolution.resolveInvestigation(investigationId, {
           onEntityMatched: (m) =>
@@ -137,6 +140,7 @@ export class InvestigationProcessor extends WorkerHost {
 
       if (opts.runScoring) {
         await this.investigations.update(investigationId, { status: 'SCORING' });
+        this.gateway.emitStatusChanged(investigationId, 'SCORING');
         // Brief breath so the UI can render the stage transition even on tiny graphs
         await new Promise((r) => setTimeout(r, 400));
         riskResult = await this.riskScoring.run(investigationId, (step, detail) => {

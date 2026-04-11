@@ -51,4 +51,8 @@ export class InvestigationGateway implements OnGatewayDisconnect {
   emitScoringStep(investigationId: string, payload: { step: string; detail?: string }) {
     this.server?.to(`inv:${investigationId}`).emit('scoring_step', payload);
   }
+
+  emitStatusChanged(investigationId: string, status: string) {
+    this.server?.to(`inv:${investigationId}`).emit('status_changed', { status });
+  }
 }
