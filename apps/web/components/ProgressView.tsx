@@ -231,11 +231,11 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
               <span className="text-xs text-ink-500 font-mono">Scanning network...</span>
             </div>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div>
               {discoveries.slice(-8).reverse().map((d, i) => (
                 <div
                   key={d.id + i}
-                  className="px-6 py-2.5 flex items-center gap-4 animate-[slideIn_0.3s_ease-out]"
+                  className="px-6 py-2.5 flex items-center gap-4 border-b border-white/5 last:border-b-0 animate-[feedIn_0.8s_cubic-bezier(0.16,1,0.3,1)]"
                 >
                   <span className="text-[10px] font-mono text-ink-600 tabular-nums w-10 shrink-0">{formatMmSs(d.time)}</span>
                   <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -255,9 +255,9 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
       </div>
 
       <style jsx>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes feedIn {
+          0% { opacity: 0; transform: translateY(3px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
