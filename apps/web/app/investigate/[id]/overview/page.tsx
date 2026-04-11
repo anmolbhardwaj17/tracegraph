@@ -51,7 +51,9 @@ export default function OverviewPage() {
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">
               {data.targetCompany}'s risk profile
             </div>
-            <div className={`text-xl font-medium ${scoreColor}`}>{data.riskClassification || 'N/A'}</div>
+            <div className={`text-xl font-medium ${scoreColor}`}>
+              {data.riskClassification || (score >= 75 ? 'CRITICAL' : score >= 50 ? 'HIGH' : score >= 25 ? 'MEDIUM' : 'LOW')}
+            </div>
             {data.percentile != null && data.benchmarks?.totalInvestigations >= 3 && (
               <div className="text-xs text-ink-400 mt-2">
                 Higher than {data.percentile}% of investigated companies
@@ -62,8 +64,11 @@ export default function OverviewPage() {
 
         {/* Globe / geographic context */}
         <div className="border border-white/5 bg-ink-850 relative overflow-hidden min-h-[200px]">
-          <div className="absolute top-5 left-5 z-10">
+          <div className="absolute top-5 left-5 z-10 space-y-1">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Geographic footprint</div>
+            <div className="text-xs text-ink-400">
+              {data.counts?.addresses || 0} addresses
+            </div>
           </div>
           <NetworkGlobe />
         </div>
