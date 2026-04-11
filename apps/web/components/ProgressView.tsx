@@ -230,41 +230,9 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
     return () => ro.disconnect();
   }, []);
 
-  // React to entity count change: spawn blips + a pulse wave.
-  // On first non-zero value (including reload), seed blips proportional to current count.
-  useEffect(() => {
-    const delta = entities - lastEntitiesRef.current;
-    if (entities > 0 && (delta > 0 || lastEntitiesRef.current === 0)) {
-      const now = performance.now();
-      // Fire a pulse
-      pulsesRef.current.push({
-        startedAt: now,
-        intensity: Math.min(1, 0.4 + Math.log10((delta || entities) + 1) * 0.3),
-      });
-      // On first load (lastEntities was 0), seed many blips based on total count.
-      // On incremental updates, add proportional to delta.
-      const isInitialSeed = lastEntitiesRef.current === 0 && entities > 10;
-      const blipsToAdd = isInitialSeed
-        ? Math.min(120, Math.floor(entities / 10))
-        : Math.min(25, Math.max(1, Math.ceil(Math.sqrt(delta))));
-      for (let i = 0; i < blipsToAdd; i++) {
-        const rawR = Math.random();
-        blipsRef.current.push({
-          angle: Math.random() * Math.PI * 2,
-          radiusN: 0.12 + Math.sqrt(rawR) * 0.86,
-          // Stagger birth times on initial seed so they don't all appear at once
-          bornAt: isInitialSeed ? now - Math.random() * 3000 : now,
-        });
-      }
-      if (blipsRef.current.length > 500) {
-        blipsRef.current.splice(0, blipsRef.current.length - 500);
-      }
-      if (pulsesRef.current.length > 6) {
-        pulsesRef.current.splice(0, pulsesRef.current.length - 6);
-      }
-    }
-    lastEntitiesRef.current = entities;
-  }, [entities]);
+  // Store latest entity count in ref - animation loop reads this at its own pace
+  const latestEntitiesRef = useRef(entities);
+  latestEntitiesRef.current = entities;
 
   useEffect(() => {
     if (size.w === 0 || size.h === 0) return;
@@ -310,10 +278,41 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       ctx.moveTo(cx, cy - maxR * 0.62); ctx.lineTo(cx, cy + maxR * 0.62);
       ctx.stroke();
 
-      // Auto-pulse every 2s to keep the sonar alive
+      // Auto-pulse every 2s + sync blip spawning to the sweep cycle
       if (now - lastAutoPulseRef.current > 2000) {
         lastAutoPulseRef.current = now;
-        pulsesRef.current.push({ startedAt: now, intensity: 0.35 });
+
+        const currentEntities = latestEntitiesRef.current;
+        const delta = currentEntities - lastEntitiesRef.current;
+
+        if (currentEntities > 0 && (delta > 0 || lastEntitiesRef.current === 0)) {
+          // Spawn a data-driven pulse (brighter than idle)
+          pulsesRef.current.push({
+            startedAt: now,
+            intensity: Math.min(1, 0.4 + Math.log10((delta || currentEntities) + 1) * 0.3),
+          });
+
+          const isInitialSeed = lastEntitiesRef.current === 0 && currentEntities > 10;
+          const blipsToAdd = isInitialSeed
+            ? Math.min(120, Math.floor(currentEntities / 10))
+            : Math.min(20, Math.max(1, Math.ceil(Math.sqrt(Math.abs(delta)))));
+          for (let i = 0; i < blipsToAdd; i++) {
+            const rawR = Math.random();
+            blipsRef.current.push({
+              angle: Math.random() * Math.PI * 2,
+              radiusN: 0.12 + Math.sqrt(rawR) * 0.86,
+              bornAt: isInitialSeed ? now - Math.random() * 3000 : now,
+            });
+          }
+          if (blipsRef.current.length > 400) {
+            blipsRef.current.splice(0, blipsRef.current.length - 400);
+          }
+          lastEntitiesRef.current = currentEntities;
+        } else {
+          // Idle pulse (no new data)
+          pulsesRef.current.push({ startedAt: now, intensity: 0.35 });
+        }
+
         if (pulsesRef.current.length > 6) pulsesRef.current.splice(0, pulsesRef.current.length - 6);
       }
 
@@ -393,15 +392,27 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       }
       blipsRef.current = liveBlips;
 
-      // Center node
-      const breath = 0.5 + 0.5 * Math.sin((now - startedAtRef.current) / 600);
-      ctx.fillStyle = `rgba(94,230,161,${0.12 + breath * 0.1})`;
-      ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = `rgba(94,230,161,${0.18 + breath * 0.18})`;
-      ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fill();
+      // Center node - glow synced with latest pulse
+      let centerGlow = 0;
+      for (const p of livePulses) {
+        const age = (now - p.startedAt) / PULSE_DURATION;
+        if (age < 0.3) centerGlow = Math.max(centerGlow, (1 - age / 0.3) * p.intensity);
+      }
+      // Wide outer glow (flares when pulse fires, fades)
+      if (centerGlow > 0.05) {
+        ctx.fillStyle = `rgba(94,230,161,${centerGlow * 0.12})`;
+        ctx.beginPath(); ctx.arc(cx, cy, 35 + centerGlow * 15, 0, Math.PI * 2); ctx.fill();
+      }
+      // Green halo
+      ctx.fillStyle = `rgba(94,230,161,${0.08 + centerGlow * 0.15})`;
+      ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI * 2); ctx.fill();
+      // Inner green ring
+      ctx.fillStyle = `rgba(94,230,161,${0.15 + centerGlow * 0.25})`;
+      ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+      // White core with glow
       ctx.fillStyle = '#F5F5F5';
-      ctx.shadowColor = 'rgba(245,245,245,0.8)';
-      ctx.shadowBlur = 14;
+      ctx.shadowColor = `rgba(94,230,161,${0.5 + centerGlow * 0.5})`;
+      ctx.shadowBlur = 10 + centerGlow * 20;
       ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
 
@@ -410,7 +421,7 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
 
     rafRef.current = requestAnimationFrame(frame);
     return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
-  }, [size, edges]);
+  }, [size]);
 
   return (
     <div ref={containerRef} className="absolute inset-0">
