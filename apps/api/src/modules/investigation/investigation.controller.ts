@@ -98,8 +98,8 @@ export class InvestigationController {
   }
 
   @Get(':id/timeline')
-  async timeline(@Param('id') id: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.service.getTimeline(id, parseInt(page || '1', 10), Math.min(parseInt(limit || '100', 10), 500));
+  async timeline(@Param('id') id: string, @Query('page') page?: string, @Query('limit') limit?: string, @Query('fullHistory') fullHistory?: string) {
+    return this.service.getTimeline(id, parseInt(page || '1', 10), Math.min(parseInt(limit || '200', 10), 500), fullHistory === 'true');
   }
 
   @Post(':id/export')

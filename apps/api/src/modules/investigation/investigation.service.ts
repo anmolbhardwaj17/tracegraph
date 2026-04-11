@@ -471,37 +471,171 @@ export class InvestigationService {
     };
   }
 
-  /** Timeline events - paginated */
-  async getTimeline(id: string, page = 1, limit = 100): Promise<any> {
+  /** Timeline events - scoped to target company + direct connections only */
+  async getTimeline(id: string, page = 1, limit = 200, fullHistory = false): Promise<any> {
     const inv = await this.investigations.findOne({ where: { id } });
-    if (!inv) return { events: [], total: 0 };
+    if (!inv) return { events: [], total: 0, keyMoments: [] };
 
+    const rootCompanyNumber = inv.metadata?.companyNumber;
     const nodes = await this.nodes.find({ where: { investigationId: id } });
     const edges = await this.edges.find({ where: { investigationId: id } });
-    const events: any[] = [];
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
-    // Company events
-    for (const n of nodes) {
-      if (n.entityType !== 'company') continue;
-      if (n.metadata?.incorporationDate) events.push({ date: n.metadata.incorporationDate, type: 'incorporation', title: `${n.label} incorporated`, severity: 'info' });
-      if (n.metadata?.dissolutionDate) events.push({ date: n.metadata.dissolutionDate, type: 'dissolution', title: `${n.label} dissolved`, severity: 'warning' });
+    // Find the root company node
+    const rootNode = nodes.find((n) => n.entityType === 'company' && n.entityId === rootCompanyNumber);
+    if (!rootNode) return { events: [], total: 0, keyMoments: [] };
+
+    // Build depth-1 set: root company + its direct connections
+    const directEdges = edges.filter((e) => e.sourceNodeId === rootNode.id || e.targetNodeId === rootNode.id);
+    const depth1Ids = new Set<string>([rootNode.id]);
+    for (const e of directEdges) {
+      depth1Ids.add(e.sourceNodeId);
+      depth1Ids.add(e.targetNodeId);
     }
 
-    // Director events
+    // Directors of the root company
+    const rootDirectorIds = new Set<string>();
+    for (const e of directEdges) {
+      if (e.relationshipType !== 'director' && e.relationshipType !== 'appointment') continue;
+      const other = e.sourceNodeId === rootNode.id ? e.targetNodeId : e.sourceNodeId;
+      const otherNode = nodeById.get(other);
+      if (otherNode?.entityType === 'person') rootDirectorIds.add(other);
+    }
+
+    // Companies of root directors (for track record context)
+    const directorCompanyIds = new Set<string>();
+    const directorCompanyCount = new Map<string, number>();
     for (const e of edges) {
       if (e.relationshipType !== 'director' && e.relationshipType !== 'appointment') continue;
-      const person = nodes.find((n) => n.id === e.sourceNodeId && n.entityType === 'person') || nodes.find((n) => n.id === e.targetNodeId && n.entityType === 'person');
-      const company = nodes.find((n) => n.id === e.sourceNodeId && n.entityType === 'company') || nodes.find((n) => n.id === e.targetNodeId && n.entityType === 'company');
-      if (e.metadata?.appointedOn) events.push({ date: e.metadata.appointedOn, type: 'appointment', title: `${person?.label || 'Director'} appointed`, detail: company?.label, severity: 'info' });
-      if (e.metadata?.resignedOn) events.push({ date: e.metadata.resignedOn, type: 'resignation', title: `${person?.label || 'Director'} resigned`, detail: company?.label, severity: 'info' });
+      const personId = nodeById.get(e.sourceNodeId)?.entityType === 'person' ? e.sourceNodeId
+        : nodeById.get(e.targetNodeId)?.entityType === 'person' ? e.targetNodeId : null;
+      const companyId = e.sourceNodeId === personId ? e.targetNodeId : e.sourceNodeId;
+      if (!personId || !rootDirectorIds.has(personId)) continue;
+      directorCompanyIds.add(companyId);
+      directorCompanyCount.set(personId, (directorCompanyCount.get(personId) || 0) + 1);
     }
 
-    // Findings as events
+    // Affected entity IDs from findings (for depth 2+ inclusion)
+    const findingEntityIds = new Set<string>();
     for (const f of inv.progress?.findings || []) {
-      events.push({ date: '', type: 'anomaly', title: f.title, detail: f.type, severity: f.severity === 'CRITICAL' ? 'critical' : f.severity === 'HIGH' ? 'warning' : 'info' });
+      for (const eid of f.affectedEntities || []) {
+        const node = nodes.find((n) => n.entityId === eid);
+        if (node) findingEntityIds.add(node.id);
+      }
     }
 
-    events.sort((a, b) => {
+    // Time window: 2 years before incorporation to now
+    const incDate = rootNode.metadata?.incorporationDate ? new Date(rootNode.metadata.incorporationDate).getTime() : 0;
+    const windowStart = fullHistory ? 0 : (incDate ? incDate - 2 * 365 * 24 * 60 * 60 * 1000 : 0);
+    const windowEnd = Date.now();
+
+    const events: any[] = [];
+
+    // 1. Target company events
+    if (rootNode.metadata?.incorporationDate) {
+      events.push({
+        date: rootNode.metadata.incorporationDate, type: 'incorporation', severity: 'info',
+        title: `${rootNode.label} incorporated`,
+        context: directorCompanyCount.size > 0 ? `By directors with ${[...directorCompanyCount.values()].reduce((a, b) => a + b, 0)} total company appointments` : undefined,
+      });
+    }
+    if (rootNode.metadata?.dissolutionDate) {
+      events.push({ date: rootNode.metadata.dissolutionDate, type: 'dissolution', severity: 'critical', title: `${rootNode.label} dissolved` });
+    }
+
+    // 2. Director appointments/resignations AT the target company
+    for (const e of directEdges) {
+      if (e.relationshipType !== 'director' && e.relationshipType !== 'appointment') continue;
+      const personId = nodeById.get(e.sourceNodeId)?.entityType === 'person' ? e.sourceNodeId : e.targetNodeId;
+      const person = nodeById.get(personId);
+      if (!person) continue;
+      const otherCount = directorCompanyCount.get(personId) || 0;
+
+      if (e.metadata?.appointedOn) {
+        events.push({
+          date: e.metadata.appointedOn, type: 'appointment', severity: 'info',
+          title: `${person.label} appointed as director`,
+          context: otherCount > 1 ? `Also serves as director of ${otherCount - 1} other companies` : undefined,
+        });
+      }
+      if (e.metadata?.resignedOn) {
+        events.push({
+          date: e.metadata.resignedOn, type: 'resignation', severity: 'warning',
+          title: `${person.label} resigned as director`,
+        });
+      }
+    }
+
+    // 3. PSC changes at target company
+    for (const e of directEdges) {
+      if (e.relationshipType !== 'psc') continue;
+      const pscId = e.sourceNodeId === rootNode.id ? e.targetNodeId : e.sourceNodeId;
+      const psc = nodeById.get(pscId);
+      if (!psc) continue;
+      events.push({
+        date: e.metadata?.notifiedOn || '', type: 'psc', severity: 'info',
+        title: `${psc.label} registered as PSC`,
+        context: psc.metadata?.kind?.includes('corporate') ? 'Corporate entity - not a natural person' : undefined,
+      });
+    }
+
+    // 4. Director's OTHER companies: incorporation + dissolution (track record)
+    for (const compId of directorCompanyIds) {
+      if (compId === rootNode.id) continue;
+      const comp = nodeById.get(compId);
+      if (!comp) continue;
+
+      // Find which director connects this company
+      const directorLabel = (() => {
+        for (const e of edges) {
+          if (e.relationshipType !== 'director' && e.relationshipType !== 'appointment') continue;
+          const pId = nodeById.get(e.sourceNodeId)?.entityType === 'person' ? e.sourceNodeId : e.targetNodeId;
+          const cId = e.sourceNodeId === pId ? e.targetNodeId : e.sourceNodeId;
+          if (cId === compId && rootDirectorIds.has(pId)) return nodeById.get(pId)?.label;
+        }
+        return null;
+      })();
+
+      if (comp.metadata?.incorporationDate) {
+        events.push({
+          date: comp.metadata.incorporationDate, type: 'incorporation', severity: 'info',
+          title: `${comp.label} incorporated`,
+          context: directorLabel ? `Directed by ${directorLabel} who is also director of ${rootNode.label}` : undefined,
+        });
+      }
+      if (comp.metadata?.dissolutionDate) {
+        const lifespanMs = comp.metadata.incorporationDate
+          ? new Date(comp.metadata.dissolutionDate).getTime() - new Date(comp.metadata.incorporationDate).getTime()
+          : 0;
+        const lifespanMonths = lifespanMs > 0 ? Math.round(lifespanMs / (30 * 24 * 60 * 60 * 1000)) : 0;
+        events.push({
+          date: comp.metadata.dissolutionDate, type: 'dissolution', severity: 'warning',
+          title: `${comp.label} dissolved`,
+          context: directorLabel
+            ? `Directed by ${directorLabel} who is also director of ${rootNode.label}${lifespanMonths > 0 ? `. Company lasted ${lifespanMonths} months` : ''}`
+            : undefined,
+        });
+      }
+    }
+
+    // 5. Findings as anomaly events
+    for (const f of inv.progress?.findings || []) {
+      events.push({
+        date: '', type: 'anomaly',
+        severity: f.severity === 'CRITICAL' ? 'critical' : f.severity === 'HIGH' ? 'warning' : 'info',
+        title: f.title, context: f.type,
+      });
+    }
+
+    // Apply time window filter
+    const filtered = events.filter((e) => {
+      if (!e.date) return true; // anomalies without dates always included
+      const t = new Date(e.date).getTime();
+      return t >= windowStart && t <= windowEnd;
+    });
+
+    // Sort by date (newest first for recent relevance, anomalies at end)
+    filtered.sort((a, b) => {
       const ta = a.date ? new Date(a.date).getTime() : 0;
       const tb = b.date ? new Date(b.date).getTime() : 0;
       if (ta && tb) return ta - tb;
@@ -509,8 +643,25 @@ export class InvestigationService {
       return 1;
     });
 
-    const total = events.length;
-    const paginated = events.slice((page - 1) * limit, page * limit);
-    return { events: paginated, total, page, limit };
+    const total = filtered.length;
+    const capped = filtered.slice(0, Math.min(limit, 200));
+
+    // Key moments: target company only
+    const keyMoments: any[] = [];
+    const rootInc = events.find((e) => e.type === 'incorporation' && e.title.includes(rootNode.label));
+    if (rootInc) keyMoments.push(rootInc);
+    const rootDiss = events.find((e) => e.type === 'dissolution' && e.title.includes(rootNode.label));
+    if (rootDiss) keyMoments.push(rootDiss);
+    const criticals = events.filter((e) => e.severity === 'critical' && e.type === 'anomaly').slice(0, 3);
+    keyMoments.push(...criticals);
+
+    return {
+      events: capped.slice((page - 1) * limit, page * limit),
+      total,
+      capped: total > 200,
+      keyMoments: keyMoments.slice(0, 5),
+      page, limit,
+      targetCompany: rootNode.label,
+    };
   }
 }
