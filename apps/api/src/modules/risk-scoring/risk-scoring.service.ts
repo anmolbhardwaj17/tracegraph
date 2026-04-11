@@ -18,6 +18,7 @@ import { JurisdictionRiskService } from '../anomaly/jurisdiction-risk.service';
 import { CompanyAgeAnomalyService } from '../anomaly/company-age-anomaly.service';
 import { CrossDirectorshipService } from '../anomaly/cross-directorship.service';
 import { OwnershipOpacityService } from '../anomaly/ownership-opacity.service';
+import { DirectorVelocityService } from '../anomaly/director-velocity.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -42,6 +43,7 @@ export class RiskScoringService {
     private readonly companyAge: CompanyAgeAnomalyService,
     private readonly crossDirectorship: CrossDirectorshipService,
     private readonly ownershipOpacity: OwnershipOpacityService,
+    private readonly directorVelocity: DirectorVelocityService,
   ) {}
 
   async run(
@@ -81,6 +83,9 @@ export class RiskScoringService {
 
     emit('Ownership opacity analysis', 'Scoring beneficial ownership transparency');
     await this.ownershipOpacity.scoreAll(investigationId, uboChains);
+
+    emit('Director velocity scoring', 'Analyzing appointment patterns and churn rates');
+    await this.directorVelocity.scoreAll(investigationId);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -513,6 +518,23 @@ export class RiskScoringService {
         ],
         affectedEntities: [g.companyId],
         recommendation: 'Identify what triggered the reactivation; check for change of beneficial owner or new commercial activity.',
+      });
+    }
+
+    // ---- DIRECTOR VELOCITY ----
+    for (const n of nodes) {
+      if (n.entityType !== 'person') continue;
+      const vel = n.metadata?.directorVelocity;
+      if (!vel?.flagged) continue;
+      findings.push({
+        type: 'DIRECTOR_VELOCITY',
+        severity: 'HIGH',
+        confidence: vel.totalAppointments >= 10 ? 'HIGH' : 'MEDIUM',
+        title: `${n.label}: ${vel.totalAppointments} appointments in ${vel.yearsActive} years, ${vel.resignationRate}% resignation rate`,
+        description: `${n.label} shows high directorship velocity: ${vel.appointmentsPerYear} appointments/year, ${vel.resignationRate}% resigned, average tenure ${vel.avgTenureMonths} months. Pattern is consistent with nominee directors or formation agent operatives.`,
+        evidence: vel.reasons,
+        affectedEntities: [n.entityId],
+        recommendation: 'Verify the commercial rationale for the high turnover. Cross-reference with formation agent connections.',
       });
     }
 

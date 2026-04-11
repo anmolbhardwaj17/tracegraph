@@ -81,7 +81,7 @@ describe('RiskScoringService integration', () => {
       stubDirector as any,
       stubFilingHealth as any,
       stubDisqualified as any,
-      stubJurisdiction as any, {} as any, {} as any, {} as any,
+      stubJurisdiction as any, {} as any, {} as any, {} as any, {} as any,
     );
 
     const result = await svc.run('inv');
