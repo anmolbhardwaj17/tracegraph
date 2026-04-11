@@ -305,10 +305,12 @@ export class ReportService {
           doc.font('Helvetica').fontSize(8).fillColor(C.gray).text(`  + ${targetFindings.length - 15} more findings (see full report online)`);
         }
       }
+      doc.moveDown(3);
+      doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(C.faint).stroke();
       doc.moveDown(2);
 
       // Director findings
-      this.checkPageBreak(doc, 80, companyName);
+      this.checkPageBreak(doc, 100, companyName);
       this.sectionTitle(doc, 'Findings on Directors');
       doc.moveDown(0.5);
       if (directorFindings.length === 0) {
@@ -321,10 +323,12 @@ export class ReportService {
           doc.font('Helvetica').fontSize(8).fillColor(C.gray).text(`  + ${directorFindings.length - 10} more director findings`);
         }
       }
+      doc.moveDown(3);
+      doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(C.faint).stroke();
       doc.moveDown(2);
 
       // Network summary
-      this.checkPageBreak(doc, 80, companyName);
+      this.checkPageBreak(doc, 100, companyName);
       this.sectionTitle(doc, 'Network Findings Summary');
       doc.moveDown(0.5);
       if (networkFindings.length === 0) {

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { ThemeToggle } from '../components/ThemeToggle';
 const EncryptedText = dynamic(
   () => import('../components/ui/encrypted-text').then((m) => m.EncryptedText),
   { ssr: false, loading: () => <span className="text-ink-400">Uncover everything.</span> },
@@ -177,6 +178,7 @@ export default function Home() {
             <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
             <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
             <a href="/leaderboard" className="hover:text-ink-50 transition-colors">Leaderboard</a>
+            <ThemeToggle />
           </nav>
           {/* Mobile hamburger */}
           <MobileMenu />
