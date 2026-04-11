@@ -500,10 +500,18 @@ export class ReportService {
       doc.font('Helvetica-Bold').fontSize(10).fillColor(C.dark).text(f.title, 60 + badgeW + 8, y + 1, { width: 475 - badgeW - 8 });
       doc.y = Math.max(doc.y, y + 20);
       doc.moveDown(0.3);
-      const desc = (f.description || '').slice(0, 200) + (f.description?.length > 200 ? '...' : '');
-      doc.font('Helvetica').fontSize(9).fillColor(C.text).text(desc, { lineGap: 1 });
-      doc.moveDown(0.6);
-      if (fi < sorted.length - 1) { doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor(C.faint).stroke(); doc.moveDown(0.6); }
+      const desc = (f.description || '').slice(0, 300) + (f.description?.length > 300 ? '...' : '');
+      doc.font('Helvetica').fontSize(9).fillColor(C.text).text(desc, { lineGap: 2 });
+      doc.moveDown(0.3);
+      if (f.businessImpact) {
+        const impact = f.businessImpact.slice(0, 200) + (f.businessImpact.length > 200 ? '...' : '');
+        doc.font('Helvetica').fontSize(8).fillColor(C.label).text(`Impact: ${impact}`);
+      }
+      if (f.verificationLinks?.length > 0) {
+        for (const link of f.verificationLinks) doc.font('Helvetica').fontSize(8).fillColor(C.blue).text(link.label, { link: link.url, underline: true });
+      }
+      doc.moveDown(1);
+      if (fi < sorted.length - 1) { doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor(C.faint).stroke(); doc.moveDown(1); }
     }
   }
 
