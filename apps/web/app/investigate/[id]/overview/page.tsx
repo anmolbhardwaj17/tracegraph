@@ -118,18 +118,18 @@ export default function OverviewPage() {
       </div>
 
       {/* ROW 2: AI Insights + Globe */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Insights */}
-        <div className="lg:col-span-6">
+        <div className="lg:col-span-7">
           <Insights investigationId={id} topic="overview" />
         </div>
 
         {/* Globe */}
-        <div className="lg:col-span-6">
+        <div className="lg:col-span-5">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-3">
             Geographic footprint
           </div>
-          <div className="border border-white/5 bg-ink-850 relative overflow-hidden min-h-[280px]">
+          <div className="border border-white/5 bg-ink-850 relative overflow-hidden" style={{ minHeight: 280 }}>
             <div className="absolute top-5 left-5 z-10">
               <div className="text-sm text-ink-300">{data.addressCount || 0} addresses - {data.jurisdictionCount || 0} jurisdiction{(data.jurisdictionCount || 0) === 1 ? '' : 's'}</div>
             </div>
