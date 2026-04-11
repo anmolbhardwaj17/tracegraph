@@ -316,7 +316,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
       {/* Summary + stats in one row */}
       <div className="flex flex-col lg:flex-row gap-4">
         {locationSummary && (
-          <div className="lg:flex-1 border border-white/5 bg-ink-850 px-5 py-3 text-xs text-ink-300 leading-relaxed flex items-center">
+          <div className="lg:flex-1 border border-white/5 bg-ink-850 px-6 py-4 text-sm text-ink-300 leading-relaxed flex items-center">
             {locationSummary}
           </div>
         )}
