@@ -12,9 +12,33 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/api/investigations/${id}/overview`)
-      .then((r) => r.json())
-      .then(setData)
+    Promise.all([
+      fetch(`${API}/api/investigations/${id}/overview`).then((r) => r.json()),
+      fetch(`${API}/api/investigations/${id}/locations`).then((r) => r.json()).catch(() => null),
+      fetch(`${API}/api/investigations/${id}/matches`).then((r) => r.json()).catch(() => null),
+    ])
+      .then(([overview, locations, matchData]) => {
+        const addresses = locations?.addresses || [];
+        const jurisdictions = new Set<string>();
+        for (const a of addresses) {
+          const country = a.metadata?.geo?.displayName?.split(',').pop()?.trim() || a.metadata?.country || a.label?.split(',').pop()?.trim();
+          if (country && country.length > 1) jurisdictions.add(country.toLowerCase());
+        }
+        // Count risky entities from findings
+        const riskyEntities = new Set<string>();
+        for (const f of overview.findings || []) {
+          if (f.severity === 'CRITICAL' || f.severity === 'HIGH') {
+            for (const eid of f.affectedEntities || []) riskyEntities.add(eid);
+          }
+        }
+        setData({
+          ...overview,
+          addressCount: addresses.length,
+          jurisdictionCount: jurisdictions.size,
+          sanctionsMatches: (matchData?.matches || []).length,
+          riskyEntityCount: riskyEntities.size,
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
@@ -24,114 +48,143 @@ export default function OverviewPage() {
 
   const score = data.riskScore ?? 0;
   const scoreColor = score >= 75 ? 'text-signal-critical' : score >= 50 ? 'text-signal-high' : score >= 25 ? 'text-signal-medium' : 'text-signal-clean';
+  const ringColor = score >= 75 ? '#FF4D4D' : score >= 50 ? '#FF8A3D' : score >= 25 ? '#F5C518' : '#5EE6A1';
   const circumference = 2 * Math.PI * 45;
   const progress = (score / 100) * circumference;
+  const classification = data.riskClassification || (score >= 75 ? 'CRITICAL' : score >= 50 ? 'HIGH' : score >= 25 ? 'MEDIUM' : 'LOW');
+
+  const findings = data.findings || [];
+  const topActions = findings.filter((f: any) => f.severity === 'CRITICAL' || f.severity === 'HIGH').slice(0, 3);
+  const remainingFindings = findings.filter((f: any) => !topActions.includes(f));
 
   return (
     <div className="space-y-8">
-      {/* Hero: Score gauge + Company context */}
+      {/* ROW 1: Score gauge + Score breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Score with circular gauge */}
+        {/* Score gauge */}
         <div className="border border-white/5 bg-ink-850 p-8 flex items-center gap-8">
           <div className="relative w-28 h-28 shrink-0">
             <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
               <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
-              <circle
-                cx="50" cy="50" r="45" fill="none"
-                stroke={score >= 75 ? '#FF4D4D' : score >= 50 ? '#FF8A3D' : score >= 25 ? '#F5C518' : '#5EE6A1'}
-                strokeWidth="6" strokeLinecap="round"
-                strokeDasharray={`${progress} ${circumference}`}
-              />
+              <circle cx="50" cy="50" r="45" fill="none" stroke={ringColor} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${progress} ${circumference}`} />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <span className={`text-3xl font-medium tabular-nums ${scoreColor}`}>{score}</span>
             </div>
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">
-              {data.targetCompany}'s risk profile
-            </div>
-            <div className={`text-xl font-medium ${scoreColor}`}>
-              {data.riskClassification || (score >= 75 ? 'CRITICAL' : score >= 50 ? 'HIGH' : score >= 25 ? 'MEDIUM' : 'LOW')}
-            </div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">{data.targetCompany}'s risk profile</div>
+            <div className={`text-xl font-medium ${scoreColor}`}>{classification}</div>
             {data.percentile != null && data.benchmarks?.totalInvestigations >= 3 && (
-              <div className="text-xs text-ink-400 mt-2">
-                Higher than {data.percentile}% of investigated companies
-              </div>
+              <div className="text-xs text-ink-400 mt-2">Higher than {data.percentile}% of investigated companies</div>
             )}
+            <div className="text-[10px] font-mono text-ink-500 mt-3">{findings.length} findings detected</div>
           </div>
         </div>
 
-        {/* Globe / geographic context */}
-        <div className="border border-white/5 bg-ink-850 relative overflow-hidden min-h-[200px]">
-          <div className="absolute top-5 left-5 z-10 space-y-1">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Geographic footprint</div>
-            <div className="text-xs text-ink-400">
-              {data.counts?.addresses || 0} addresses
-            </div>
-          </div>
-          <NetworkGlobe />
-        </div>
-      </div>
-
-      {/* Score breakdown */}
-      {data.scoreBreakdown && (
-        <div className="border border-white/5 bg-ink-850 p-6">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">
-            {data.targetCompany} - score breakdown
-          </div>
-          <div className="space-y-3">
+        {/* Score breakdown */}
+        <div className="border border-white/5 bg-ink-850 p-8">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">Where the risk comes from</div>
+          <div className="space-y-4">
             {[
-              { label: 'Sanctions exposure', value: data.scoreBreakdown.sanctions, max: 40, color: 'bg-signal-critical' },
-              { label: 'Structural risk', value: data.scoreBreakdown.structural, max: 40, color: 'bg-signal-high' },
-              { label: 'Director risk', value: data.scoreBreakdown.director, max: 20, color: 'bg-signal-medium' },
+              { label: 'Sanctions exposure', value: data.scoreBreakdown?.sanctions, max: 40, color: 'bg-signal-critical' },
+              { label: 'Structural risk', value: data.scoreBreakdown?.structural, max: 40, color: 'bg-signal-high' },
+              { label: 'Director risk', value: data.scoreBreakdown?.director, max: 20, color: 'bg-signal-medium' },
             ].map((bar) => (
               <div key={bar.label}>
-                <div className="flex justify-between mb-1">
-                  <span className="text-xs text-ink-400">{bar.label}</span>
-                  <span className="text-xs font-mono text-ink-300 tabular-nums">{bar.value || 0} / {bar.max}</span>
+                <div className="flex justify-between mb-1.5">
+                  <span className="text-xs text-ink-300">{bar.label}</span>
+                  <span className="text-xs font-mono text-ink-400 tabular-nums">{bar.value || 0} / {bar.max}</span>
                 </div>
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                   <div className={`h-full ${bar.color} rounded-full transition-all`} style={{ width: `${((bar.value || 0) / bar.max) * 100}%` }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* AI Insights */}
-      <Insights investigationId={id} topic="overview" />
-
-      {/* Network composition */}
-      <div className="border border-white/5 bg-ink-850 p-6">
-        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">
-          {data.targetCompany}'s network
+      {/* ROW 2: Globe + Network summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Globe */}
+        <div className="border border-white/5 bg-ink-850 relative overflow-hidden min-h-[220px]">
+          <div className="absolute top-5 left-5 z-10 space-y-1">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">Geographic footprint</div>
+            <div className="text-xs text-ink-400">{data.addressCount || 0} addresses - {data.jurisdictionCount || 0} jurisdiction{(data.jurisdictionCount || 0) === 1 ? '' : 's'}</div>
+          </div>
+          <NetworkGlobe />
         </div>
-        <div className="grid grid-cols-3 gap-px bg-white/5">
-          <div className="bg-ink-900 p-5 text-center">
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{data.counts?.companies || 0}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">companies</div>
-          </div>
-          <div className="bg-ink-900 p-5 text-center">
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{data.counts?.people || 0}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">people</div>
-          </div>
-          <div className="bg-ink-900 p-5 text-center">
-            <div className="text-2xl font-medium text-ink-50 tabular-nums">{data.counts?.addresses || 0}</div>
-            <div className="text-[9px] font-mono text-ink-500 uppercase tracking-wider mt-1">addresses</div>
+
+        {/* Smart network summary */}
+        <div className="border border-white/5 bg-ink-850 p-8">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">{data.targetCompany}'s network</div>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.people || 0}</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">directors & officers</div>
+            </div>
+            <div>
+              <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.companies || 0}</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">connected companies</div>
+            </div>
+            <div>
+              <div className={`text-3xl font-medium tabular-nums ${data.riskyEntityCount > 0 ? 'text-signal-critical' : 'text-signal-clean'}`}>{data.riskyEntityCount || 0}</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">flagged entities</div>
+            </div>
+            <div>
+              <div className={`text-3xl font-medium tabular-nums ${data.sanctionsMatches > 0 ? 'text-signal-critical' : 'text-signal-clean'}`}>{data.sanctionsMatches || 0}</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">sanctions matches</div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Key risk entities */}
-      {(data.findings || []).length > 0 && (
+      {/* ROW 3: AI Insights */}
+      <Insights investigationId={id} topic="overview" />
+
+      {/* ROW 4: Top 3 actions */}
+      {topActions.length > 0 && (
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Immediate attention required</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {topActions.map((f: any, i: number) => (
+              <div key={i} className="border border-white/5 bg-ink-850 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${
+                    f.severity === 'CRITICAL' ? 'bg-signal-critical/15 text-signal-critical border-signal-critical/30' :
+                    'bg-signal-high/15 text-signal-high border-signal-high/30'
+                  }`}>{f.severity}</span>
+                  <span className="text-[9px] font-mono text-ink-600">{f.type}</span>
+                </div>
+                <div className="text-sm text-ink-50 mb-3 leading-snug">{f.title}</div>
+                {f.businessImpact && (
+                  <p className="text-[11px] text-ink-400 leading-relaxed mb-3">{f.businessImpact.slice(0, 150)}...</p>
+                )}
+                {f.verificationSteps && f.verificationSteps.length > 0 && (
+                  <div className="space-y-1">
+                    {f.verificationSteps.slice(0, 2).map((s: string, si: number) => (
+                      <div key={si} className="text-[10px] text-ink-500 flex gap-1.5">
+                        <span className="text-ink-600 shrink-0">{si + 1}.</span>
+                        <span>{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ROW 5: Remaining findings */}
+      {remainingFindings.length > 0 && (
         <div className="border border-white/5 bg-ink-850 p-6">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">
-            Key risk signals in {data.targetCompany}'s network
+            Key risk signals in {data.targetCompany}'s network ({remainingFindings.length})
           </div>
           <div className="space-y-2">
-            {(data.findings || []).slice(0, 8).map((f: any, i: number) => (
+            {remainingFindings.slice(0, 10).map((f: any, i: number) => (
               <div key={i} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-b-0">
                 <span className={`text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border shrink-0 ${
                   f.severity === 'CRITICAL' ? 'bg-signal-critical/15 text-signal-critical border-signal-critical/30' :
@@ -142,6 +195,9 @@ export default function OverviewPage() {
                 <span className="text-xs text-ink-300 truncate">{f.title}</span>
               </div>
             ))}
+            {remainingFindings.length > 10 && (
+              <div className="text-[10px] font-mono text-ink-500 pt-2">+ {remainingFindings.length - 10} more findings</div>
+            )}
           </div>
         </div>
       )}
@@ -156,8 +212,11 @@ function Skeleton() {
         <div className="h-48 bg-white/5 rounded-sm" />
         <div className="h-48 bg-white/5 rounded-sm" />
       </div>
-      <div className="h-32 bg-white/5 rounded-sm" />
-      <div className="h-48 bg-white/5 rounded-sm" />
+      <div className="grid grid-cols-2 gap-6">
+        <div className="h-56 bg-white/5 rounded-sm" />
+        <div className="h-56 bg-white/5 rounded-sm" />
+      </div>
+      <div className="h-40 bg-white/5 rounded-sm" />
     </div>
   );
 }
