@@ -181,6 +181,8 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
               </div>
               <div className="flex-1 min-h-[360px] relative">
                 <MiniGraph entities={live.entities} edges={live.edges} />
+                {/* Vignette overlay for depth */}
+                <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 60px rgba(0,0,0,0.6), inset 0 0 120px rgba(0,0,0,0.3)' }} />
               </div>
             </div>
           </div>
