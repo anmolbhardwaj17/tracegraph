@@ -18,6 +18,10 @@ const C = {
   bg: '#F8FAFC',
 };
 
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function sevColor(sev: string): string {
   return sev === 'CRITICAL' ? C.red : sev === 'HIGH' ? C.orange : sev === 'MEDIUM' ? C.amber : C.muted;
 }
@@ -159,11 +163,11 @@ export class ReportService {
       this.sectionTitle(doc, 'Company Profile');
       doc.moveDown(0.3);
       const fields: [string, string][] = [];
-      if (meta.status) fields.push(['Status', meta.status]);
-      if (meta.companyType) fields.push(['Type', meta.companyType]);
+      if (meta.status) fields.push(['Status', titleCase(meta.status)]);
+      if (meta.companyType) fields.push(['Type', titleCase(meta.companyType)]);
       if (meta.incorporationDate) fields.push(['Incorporated', meta.incorporationDate]);
-      if (meta.accountsType) fields.push(['Accounts', meta.accountsType]);
-      if (meta.jurisdiction) fields.push(['Jurisdiction', meta.jurisdiction]);
+      if (meta.accountsType) fields.push(['Accounts', titleCase(meta.accountsType)]);
+      if (meta.jurisdiction) fields.push(['Jurisdiction', titleCase(meta.jurisdiction.replace(/-/g, ' '))]);
       if (meta.filingHealth) fields.push(['Filing health', `${meta.filingHealth.band} (${meta.filingHealth.score}/100)`]);
       if (meta.shellCompanyScore) fields.push(['Shell risk', `${meta.shellCompanyScore.risk} (${meta.shellCompanyScore.score}/100)`]);
       if (meta.ownershipOpacity) fields.push(['Ownership transparency', `${meta.ownershipOpacity.band} (${meta.ownershipOpacity.score}/100)`]);
@@ -183,38 +187,49 @@ export class ReportService {
         doc.fontSize(10).fillColor(C.gray).text('No UBO chains resolved. Ownership data may be limited.');
       } else {
         for (const chain of uboChains.slice(0, 3)) {
-          this.checkPageBreak(doc, 100);
+          this.checkPageBreak(doc, 120);
           const path = chain.path || [];
-          const ubo = path[0]; // first in path is the UBO (natural person at top)
-          doc.fontSize(11).fillColor(C.dark).text(`UBO: ${ubo?.name || 'Unknown'}`, { continued: true });
-          if (chain.effectiveOwnershipPct != null) {
-            doc.fontSize(9).fillColor(C.gray).text(`  (${chain.effectiveOwnershipPct}% effective ownership)`);
-          } else {
-            doc.text('');
-          }
-          doc.moveDown(0.3);
+          const ubo = path[0];
 
-          // Ownership chain as indented tree
+          // UBO header
+          doc.fontSize(12).fillColor(C.dark).text(`Ultimate Beneficial Owner: ${ubo?.name || 'Unknown'}`);
+          if (chain.effectiveOwnershipPct != null) {
+            doc.fontSize(9).fillColor(C.gray).text(`${chain.effectiveOwnershipPct}% effective ownership`);
+          }
+          doc.moveDown(1);
+
+          // Ownership chain — each node gets a clear row with box-style layout
           for (let i = 0; i < path.length; i++) {
             const node = path[i];
-            const indent = i * 20;
-            const arrow = i > 0 ? '|__ ' : '';
-            const kindBadge = node.kind === 'person' ? '[Person]' : '[Company]';
-            doc.fontSize(9).fillColor(C.text).text(`${arrow}${node.name}`, 80 + indent, doc.y, { continued: true });
-            doc.fontSize(8).fillColor(C.muted).text(`  ${kindBadge}`);
-            if (node.ownershipPct) {
-              doc.fontSize(8).fillColor(C.gray).text(`${' '.repeat(arrow.length)}${node.ownershipPct}% ownership`, 80 + indent);
-            }
-            if (node.jurisdiction) {
-              doc.fontSize(8).fillColor(C.gray).text(`${' '.repeat(arrow.length)}Jurisdiction: ${node.jurisdiction}`, 80 + indent);
-            }
-          }
-          doc.moveDown(1);
+            const indent = i * 30;
+            const x = 70 + indent;
 
-          if (chain.terminationReason) {
-            doc.fontSize(8).fillColor(C.muted).text(`Chain terminated: ${chain.terminationReason}`);
+            // Connector line
+            if (i > 0) {
+              doc.fontSize(9).fillColor(C.light).text('|', x - 12, doc.y);
+              doc.moveDown(0.2);
+            }
+
+            // Node name (bold for person, regular for company)
+            const isPerson = node.kind === 'person';
+            const badge = isPerson ? 'Person' : 'Company';
+            doc.fontSize(10).fillColor(C.dark).text(node.name, x);
+
+            // Details on next line
+            const details: string[] = [badge];
+            if (node.ownershipPct) details.push(`${node.ownershipPct}% ownership`);
+            if (node.jurisdiction) details.push(node.jurisdiction);
+            if (node.companyNumber) details.push(node.companyNumber);
+            doc.fontSize(8).fillColor(C.gray).text(details.join('  ·  '), x);
+
+            doc.moveDown(0.6);
           }
-          doc.moveDown(1);
+
+          doc.moveDown(0.5);
+          if (chain.terminationReason) {
+            doc.fontSize(8).fillColor(C.muted).text(`Chain resolved: ${chain.terminationReason}`);
+          }
+          doc.moveDown(2);
         }
       }
 
@@ -427,8 +442,10 @@ export class ReportService {
   }
 
   private renderFindings(doc: any, findings: any[]) {
-    for (let fi = 0; fi < findings.length; fi++) {
-      const f = findings[fi];
+    const SEV_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+    const sorted = [...findings].sort((a, b) => (SEV_ORDER[a.severity] ?? 3) - (SEV_ORDER[b.severity] ?? 3));
+    for (let fi = 0; fi < sorted.length; fi++) {
+      const f = sorted[fi];
       this.checkPageBreak(doc, 80);
 
       // Severity badge + title on one line
@@ -455,10 +472,10 @@ export class ReportService {
       }
 
       // Divider between findings
-      doc.moveDown(0.5);
-      if (fi < findings.length - 1) {
+      doc.moveDown(0.8);
+      if (fi < sorted.length - 1) {
         doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor('#F1F5F9').stroke();
-        doc.moveDown(0.5);
+        doc.moveDown(0.8);
       }
     }
   }
