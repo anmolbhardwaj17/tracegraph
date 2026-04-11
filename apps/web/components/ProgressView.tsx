@@ -335,7 +335,8 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       }
       pulsesRef.current = livePulses;
 
-      // Blips - permanent, never fade out
+      // Blips - permanent, slowly orbiting
+      const orbitOffset = ((now - startedAtRef.current) / 1000) * (Math.PI * 2 / 75); // full rotation every 75s
       const liveBlips: Blip[] = [];
       for (const b of blipsRef.current) {
         const age = now - b.bornAt;
@@ -343,8 +344,9 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
         liveBlips.push(b);
 
         const r = b.radiusN * maxR;
-        const baseX = cx + Math.cos(b.angle) * r;
-        const baseY = cy + Math.sin(b.angle) * r * 0.62;
+        const angle = b.angle + orbitOffset;
+        const baseX = cx + Math.cos(angle) * r;
+        const baseY = cy + Math.sin(angle) * r * 0.62;
 
         let highlight = 0;
         let waveOffset = 0;
