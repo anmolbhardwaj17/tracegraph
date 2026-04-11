@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { GraphVisualization, GraphNode } from '../../../../components/GraphVisualization';
+import { Avatar } from '../../../../components/Avatar';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -44,7 +45,10 @@ export default function GraphPage() {
             }`}>{selected.entityType}</div>
             <button onClick={() => setSelected(null)} className="text-ink-500 hover:text-ink-50 transition-colors text-lg leading-none">x</button>
           </div>
-          <h3 className="font-medium text-ink-50 break-words text-base">{selected.label}</h3>
+          <div className="flex items-center gap-3 mb-1">
+            <Avatar name={selected.label} type={selected.entityType as any} size={40} />
+            <h3 className="font-medium text-ink-50 break-words text-sm flex-1">{selected.label}</h3>
+          </div>
 
           {/* Risk indicators */}
           <div className="flex gap-2 flex-wrap mt-3">
