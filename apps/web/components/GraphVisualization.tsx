@@ -157,18 +157,24 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
       const otherCoCount = pool.filter((n) => n.entityType === 'company' && n.id !== rootId).length;
       summaryText = `${rootNode?.label} has ${dirCount} directors who collectively direct ${otherCoCount} other companies.`;
     } else if (mode === 'suspicious') {
-      // Only entities in findings
-      const flaggedIds = new Set<string>();
+      // Only entities in findings — use indexed lookup, not linear scan
+      const entityIdToNodeId = new Map<string, string>();
+      for (const n of nodes) {
+        entityIdToNodeId.set(n.entityId || n.id, n.id);
+        entityIdToNodeId.set(n.id, n.id);
+      }
+      const flaggedIds = new Set<string>([rootId]);
       for (const f of findings) {
-        for (const eid of f.affectedEntities || []) {
-          const node = nodes.find((n) => n.entityId === eid || n.id === eid);
-          if (node) flaggedIds.add(node.id);
+        if (f.severity !== 'CRITICAL' && f.severity !== 'HIGH') continue; // Only show serious findings
+        for (const eid of (f.affectedEntities || []).slice(0, 10)) { // Cap per finding
+          const nodeId = entityIdToNodeId.get(eid);
+          if (nodeId) flaggedIds.add(nodeId);
         }
       }
-      flaggedIds.add(rootId);
-      // Include edges between flagged
       pool = nodes.filter((n) => flaggedIds.has(n.id));
-      summaryText = `${findings.length} risk signals detected. ${flaggedIds.size - 1} entities flagged in ${rootNode?.label}'s network.`;
+      // Cap at 50 to prevent hanging
+      if (pool.length > 50) pool = pool.slice(0, 50);
+      summaryText = `${findings.filter((f) => f.severity === 'CRITICAL' || f.severity === 'HIGH').length} serious risk signals. ${flaggedIds.size - 1} entities flagged in ${rootNode?.label}'s network.`;
     } else if (mode === 'path') {
       const fromNode = pathFrom ? (nodes.find((n) => n.label?.toLowerCase().includes(pathFrom.toLowerCase())) || null) : null;
       const toNode = pathTo ? (nodes.find((n) => n.label?.toLowerCase().includes(pathTo.toLowerCase())) || null) : null;
