@@ -176,6 +176,7 @@ export default function Home() {
             <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
             <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
             <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
+            <a href="/leaderboard" className="hover:text-ink-50 transition-colors">Leaderboard</a>
           </nav>
           {/* Mobile hamburger */}
           <MobileMenu />
@@ -469,6 +470,7 @@ export default function Home() {
                 <li><a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a></li>
                 <li><a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a></li>
                 <li><a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a></li>
+                <li><a href="/leaderboard" className="hover:text-ink-50 transition-colors">Leaderboard</a></li>
               </ul>
             </div>
 
