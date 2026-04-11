@@ -521,6 +521,26 @@ export class RiskScoringService {
       });
     }
 
+    // ---- COORDINATED LIFECYCLE ----
+    for (const cl of temporal.coordinatedLifecycles || []) {
+      findings.push({
+        type: 'COORDINATED_LIFECYCLE',
+        severity: 'CRITICAL',
+        confidence: cl.companyIds.length >= 8 ? 'HIGH' : 'MEDIUM',
+        title: `${cl.directorLabel}: ${cl.companyIds.length} companies created and dissolved in coordinated ${cl.lifecycleMonths}-month cycle`,
+        description: `${cl.directorLabel} incorporated ${cl.companyIds.length} companies between ${cl.incWindowStart} and ${cl.incWindowEnd}, then dissolved them between ${cl.dissWindowStart} and ${cl.dissWindowEnd}. This ${cl.lifecycleMonths}-month lifecycle is consistent with a coordinated scheme.`,
+        evidence: [
+          `Companies: ${cl.companyIds.length}`,
+          `Incorporation window: ${cl.incWindowStart} to ${cl.incWindowEnd}`,
+          `Dissolution window: ${cl.dissWindowStart} to ${cl.dissWindowEnd}`,
+          `Lifecycle: ${cl.lifecycleMonths} months`,
+          `Sample: ${cl.companyLabels.slice(0, 5).join(', ')}${cl.companyLabels.length > 5 ? '...' : ''}`,
+        ],
+        affectedEntities: [cl.directorId, ...cl.companyIds],
+        recommendation: 'Investigate the underlying transactions during the active period. Pattern strongly suggests single-purpose vehicle recycling.',
+      });
+    }
+
     // ---- DIRECTOR VELOCITY ----
     for (const n of nodes) {
       if (n.entityType !== 'person') continue;
