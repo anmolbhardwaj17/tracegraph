@@ -2,14 +2,25 @@ import { Injectable } from '@nestjs/common';
 import PDFDocument = require('pdfkit');
 import { InvestigationService } from '../investigation/investigation.service';
 
-const DARK = '#0F172A';
-const GRAY = '#475569';
-const LIGHT = '#64748B';
-const MUTED = '#94A3B8';
-const RED = '#DC2626';
-const AMBER = '#F59E0B';
-const GREEN = '#10B981';
-const BLUE = '#3B82F6';
+// Color palette
+const C = {
+  dark: '#0F172A',
+  text: '#334155',
+  gray: '#64748B',
+  muted: '#94A3B8',
+  light: '#CBD5E1',
+  rule: '#E2E8F0',
+  red: '#DC2626',
+  amber: '#F59E0B',
+  orange: '#EA580C',
+  green: '#10B981',
+  blue: '#3B82F6',
+  bg: '#F8FAFC',
+};
+
+function sevColor(sev: string): string {
+  return sev === 'CRITICAL' ? C.red : sev === 'HIGH' ? C.orange : sev === 'MEDIUM' ? C.amber : C.muted;
+}
 
 @Injectable()
 export class ReportService {
@@ -20,60 +31,30 @@ export class ReportService {
     const relations = await this.investigations.computeRelationsPublic(investigationId);
 
     return new Promise<Buffer>((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const doc = new PDFDocument({ size: 'A4', margins: { top: 60, bottom: 60, left: 60, right: 60 } });
       const chunks: Buffer[] = [];
       doc.on('data', (c: Buffer) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
+      const W = 475; // usable width
       const companyName = inv.companyName || inv.query;
       const findings = inv.findings || [];
       const entities = inv.entities || {};
       const matches = inv.matches || [];
       const uboChains = inv.uboChains || [];
       const score = inv.riskScore ?? 0;
-
-      // === TITLE PAGE ===
-      doc.fontSize(9).fillColor(MUTED).text('TRACEGRAPH', { characterSpacing: 3 });
-      doc.fontSize(9).fillColor(MUTED).text('INVESTIGATION REPORT');
-      doc.moveDown(3);
-      doc.fontSize(28).fillColor(DARK).text(companyName);
-      doc.moveDown(0.5);
-      if (inv.rootCompanyNumber) {
-        doc.fontSize(10).fillColor(LIGHT).text(`Company number: ${inv.rootCompanyNumber}`);
-      }
-      doc.fontSize(10).fillColor(LIGHT).text(`Generated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
-      doc.fontSize(10).fillColor(LIGHT).text(`Investigation tier: ${inv.tier || 'Standard'}`);
-      doc.moveDown(3);
-
-      // Risk score
-      const scoreColor = score >= 60 ? RED : score >= 30 ? AMBER : GREEN;
-      const scoreLabel = score >= 60 ? 'HIGH RISK' : score >= 30 ? 'ELEVATED' : 'LOW RISK';
-      doc.fontSize(10).fillColor(MUTED).text('OVERALL RISK SCORE', { characterSpacing: 1 });
-      doc.fontSize(48).fillColor(scoreColor).text(`${score}`, { continued: true });
-      doc.fontSize(14).fillColor(MUTED).text(`  / 100    ${scoreLabel}`);
-      doc.moveDown(1);
-
-      // Network stats
       const counts = inv.counts || {};
-      doc.fontSize(10).fillColor(LIGHT).text(
-        `${counts.companies || 0} companies  ·  ${counts.people || 0} people  ·  ${counts.addresses || 0} addresses  ·  ${counts.edges || 0} connections`,
-      );
-      doc.moveDown(3);
 
-      // === EXECUTIVE SUMMARY ===
-      this.section(doc, 'Executive summary');
-
-      // Classify findings by relevance
+      // Build relation sets
       const targetIds = new Set<string>();
       const directorIds = new Set<string>();
       for (const [id, rel] of relations) {
         if (rel === 'Target') targetIds.add(id);
         if (rel === 'Director' || rel === 'PSC/Owner') directorIds.add(id);
       }
-      // Add entityId aliases
       for (const group of ['company', 'person', 'address']) {
-        for (const e of entities[group] || []) {
+        for (const e of (entities as any)[group] || []) {
           if (targetIds.has(e.id) && e.entityId) targetIds.add(e.entityId);
           if (directorIds.has(e.id) && e.entityId) directorIds.add(e.entityId);
         }
@@ -89,260 +70,420 @@ export class ReportService {
         !(f.affectedEntities || []).some((id: string) => directorIds.has(id)),
       );
 
-      const critical = findings.filter((f: any) => f.severity === 'CRITICAL').length;
-      const high = findings.filter((f: any) => f.severity === 'HIGH').length;
+      const targetEntity = (entities.company || []).find((c: any) => targetIds.has(c.id));
+      const meta = targetEntity?.metadata || {};
 
-      doc.fontSize(11).fillColor(DARK).text(
-        `${companyName} was investigated across ${counts.companies || 0} companies and ${counts.people || 0} people. ` +
-        `${targetFindings.length} findings directly affect the target company, ${directorFindings.length} relate to its directors and PSCs, ` +
-        `and ${networkFindings.length.toLocaleString()} were found in the wider network. ` +
-        (matches.length > 0 ? `${matches.length} cross-source match${matches.length > 1 ? 'es' : ''} found against sanctions/offshore databases. ` : '') +
-        `Overall risk score: ${score}/100.`,
+      // =============================================
+      // PAGE 1 — COVER
+      // =============================================
+      doc.moveDown(6);
+      doc.fontSize(9).fillColor(C.muted).text('TRACEGRAPH', { characterSpacing: 4, align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(11).fillColor(C.gray).text('Corporate Intelligence Report', { align: 'center' });
+      doc.moveDown(4);
+      doc.fontSize(32).fillColor(C.dark).text(companyName, { align: 'center' });
+      doc.moveDown(0.8);
+      const coverDetails: string[] = [];
+      if (inv.rootCompanyNumber) coverDetails.push(`Company ${inv.rootCompanyNumber}`);
+      if (meta.jurisdiction) coverDetails.push(meta.jurisdiction.replace('-', ' '));
+      doc.fontSize(11).fillColor(C.gray).text(coverDetails.join('  ·  '), { align: 'center' });
+      doc.moveDown(3);
+
+      // Risk score on cover
+      const scoreColor = score >= 75 ? C.red : score >= 50 ? C.orange : score >= 25 ? C.amber : C.green;
+      doc.fontSize(56).fillColor(scoreColor).text(`${score}`, { align: 'center' });
+      doc.fontSize(12).fillColor(C.muted).text('/ 100  RISK SCORE', { align: 'center' });
+      doc.moveDown(1);
+      const tierLabel = inv.tier === 'DEEP' ? 'Deep Investigation' : inv.tier === 'QUICK' ? 'Quick Scan' : 'Standard Investigation';
+      doc.fontSize(9).fillColor(C.gray).text(tierLabel, { align: 'center' });
+      doc.moveDown(6);
+
+      doc.fontSize(8).fillColor(C.muted).text('CONFIDENTIAL', { align: 'center', characterSpacing: 2 });
+      doc.moveDown(3);
+      doc.fontSize(8).fillColor(C.light).text(
+        `Generated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}  ·  Report ID: ${investigationId.slice(0, 8)}`,
+        { align: 'center' },
       );
+      doc.fontSize(8).fillColor(C.light).text('Generated by TraceGraph', { align: 'center' });
+
+      // =============================================
+      // PAGE 2 — EXECUTIVE SUMMARY
+      // =============================================
+      doc.addPage();
+      this.pageHeader(doc, companyName);
+
+      this.sectionTitle(doc, 'Executive Summary');
+      doc.moveDown(0.5);
+
+      // Plain English summary paragraph
+      const age = meta.incorporationDate ? Math.floor((Date.now() - new Date(meta.incorporationDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+      const leadership = (entities.person || []).filter((p: any) => {
+        const r = relations.get(p.id); return r === 'Director' || r === 'PSC/Owner';
+      });
+      const summaryParts: string[] = [];
+      summaryParts.push(`${companyName} is ${meta.status === 'active' ? 'an active' : 'a ' + (meta.status || 'registered')} ${meta.companyType || 'company'}`);
+      if (age !== null) summaryParts.push(`incorporated ${age} years ago`);
+      summaryParts.push(`with ${leadership.length} directors/PSCs and a network of ${(counts.companies || 0).toLocaleString()} connected companies.`);
+      if (targetFindings.length > 0) {
+        summaryParts.push(`${targetFindings.length} risk signals were detected directly on the target company.`);
+      } else {
+        summaryParts.push('No risk signals were detected directly on the target company.');
+      }
+      if (matches.length > 0) summaryParts.push(`${matches.length} cross-source match${matches.length > 1 ? 'es' : ''} found against sanctions or offshore databases.`);
+
+      doc.fontSize(11).fillColor(C.text).text(summaryParts.join(' '), { lineGap: 3 });
+      doc.moveDown(1.5);
+
+      // Verdict box
+      const verdict = score >= 75 ? { label: 'DO NOT PROCEED WITHOUT LEGAL REVIEW', color: C.red }
+        : score >= 50 ? { label: 'ENHANCED DUE DILIGENCE RECOMMENDED', color: C.orange }
+        : score >= 25 ? { label: 'PROCEED WITH CAUTION', color: C.amber }
+        : { label: 'PROCEED', color: C.green };
+
+      const vY = doc.y;
+      doc.rect(60, vY, W, 36).fill(verdict.color);
+      doc.fontSize(11).fillColor('#FFFFFF').text(verdict.label, 60, vY + 12, { width: W, align: 'center' });
+      doc.y = vY + 48;
+      doc.moveDown(1.5);
+
+      // Key stats row
+      this.statRow(doc, [
+        { label: 'ENTITIES SCANNED', value: String((counts.companies || 0) + (counts.people || 0) + (counts.addresses || 0)) },
+        { label: 'CONNECTIONS', value: String(counts.edges || 0) },
+        { label: 'FINDINGS', value: String(findings.length) },
+        { label: 'SANCTIONS MATCHES', value: String(matches.length) },
+      ]);
       doc.moveDown(2);
 
-      // === TARGET COMPANY PROFILE ===
-      this.section(doc, `About ${companyName}`);
-      const targetEntity = (entities.company || []).find((c: any) => targetIds.has(c.id));
-      if (targetEntity) {
-        const meta = targetEntity.metadata || {};
-        this.field(doc, 'Status', meta.status || 'Unknown');
-        this.field(doc, 'Type', meta.companyType || 'Unknown');
-        if (meta.incorporationDate) this.field(doc, 'Incorporated', meta.incorporationDate);
-        if (meta.accountsType) this.field(doc, 'Accounts', meta.accountsType);
-        if (meta.jurisdiction) this.field(doc, 'Jurisdiction', meta.jurisdiction);
-        if (meta.sicCodes?.length) this.field(doc, 'SIC codes', meta.sicCodes.join(', '));
-        if (meta.filingHealth) {
-          const fh = meta.filingHealth;
-          this.field(doc, 'Filing health', `${fh.band} (${fh.score}/100)${fh.lateAccountsCount > 0 ? ` - ${fh.lateAccountsCount} late filings` : ''}`);
-        }
-        if (meta.shellCompanyScore) {
-          this.field(doc, 'Shell risk', `${meta.shellCompanyScore.risk} (${meta.shellCompanyScore.score}/100)`);
-          if (meta.shellCompanyScore.reasons?.length > 0) {
-            for (const r of meta.shellCompanyScore.reasons) {
-              doc.fontSize(8).fillColor(GRAY).text(`    - ${r}`);
+      // Target company profile summary
+      this.sectionTitle(doc, 'Company Profile');
+      doc.moveDown(0.3);
+      const fields: [string, string][] = [];
+      if (meta.status) fields.push(['Status', meta.status]);
+      if (meta.companyType) fields.push(['Type', meta.companyType]);
+      if (meta.incorporationDate) fields.push(['Incorporated', meta.incorporationDate]);
+      if (meta.accountsType) fields.push(['Accounts', meta.accountsType]);
+      if (meta.jurisdiction) fields.push(['Jurisdiction', meta.jurisdiction]);
+      if (meta.filingHealth) fields.push(['Filing health', `${meta.filingHealth.band} (${meta.filingHealth.score}/100)`]);
+      if (meta.shellCompanyScore) fields.push(['Shell risk', `${meta.shellCompanyScore.risk} (${meta.shellCompanyScore.score}/100)`]);
+      if (meta.ownershipOpacity) fields.push(['Ownership transparency', `${meta.ownershipOpacity.band} (${meta.ownershipOpacity.score}/100)`]);
+      for (const [label, value] of fields) {
+        this.fieldRow(doc, label, value);
+      }
+
+      // =============================================
+      // PAGE 3 — OWNERSHIP
+      // =============================================
+      doc.addPage();
+      this.pageHeader(doc, companyName);
+      this.sectionTitle(doc, 'Ownership Structure');
+      doc.moveDown(0.5);
+
+      if (uboChains.length === 0) {
+        doc.fontSize(10).fillColor(C.gray).text('No UBO chains resolved. Ownership data may be limited.');
+      } else {
+        for (const chain of uboChains.slice(0, 3)) {
+          this.checkPageBreak(doc, 100);
+          const path = chain.path || [];
+          const ubo = path[0]; // first in path is the UBO (natural person at top)
+          doc.fontSize(11).fillColor(C.dark).text(`UBO: ${ubo?.name || 'Unknown'}`, { continued: true });
+          if (chain.effectiveOwnershipPct != null) {
+            doc.fontSize(9).fillColor(C.gray).text(`  (${chain.effectiveOwnershipPct}% effective ownership)`);
+          } else {
+            doc.text('');
+          }
+          doc.moveDown(0.3);
+
+          // Ownership chain as indented tree
+          for (let i = 0; i < path.length; i++) {
+            const node = path[i];
+            const indent = i * 20;
+            const arrow = i > 0 ? '|__ ' : '';
+            const kindBadge = node.kind === 'person' ? '[Person]' : '[Company]';
+            doc.fontSize(9).fillColor(C.text).text(`${arrow}${node.name}`, 80 + indent, doc.y, { continued: true });
+            doc.fontSize(8).fillColor(C.muted).text(`  ${kindBadge}`);
+            if (node.ownershipPct) {
+              doc.fontSize(8).fillColor(C.gray).text(`${' '.repeat(arrow.length)}${node.ownershipPct}% ownership`, 80 + indent);
+            }
+            if (node.jurisdiction) {
+              doc.fontSize(8).fillColor(C.gray).text(`${' '.repeat(arrow.length)}Jurisdiction: ${node.jurisdiction}`, 80 + indent);
             }
           }
-        }
-        if (meta.ownershipOpacity) {
-          this.field(doc, 'Ownership transparency', `${meta.ownershipOpacity.band} (${meta.ownershipOpacity.score}/100)`);
+          doc.moveDown(1);
+
+          if (chain.terminationReason) {
+            doc.fontSize(8).fillColor(C.muted).text(`Chain terminated: ${chain.terminationReason}`);
+          }
+          doc.moveDown(1);
         }
       }
-      doc.moveDown(1);
 
-      // Target findings
-      if (targetFindings.length > 0) {
-        doc.fontSize(10).fillColor(DARK).text(`${targetFindings.length} findings on ${companyName}:`);
-        doc.moveDown(0.5);
-        this.renderFindings(doc, targetFindings);
-      } else {
-        doc.fontSize(10).fillColor(GREEN).text(`No risk signals detected directly on ${companyName}.`);
-      }
-      doc.moveDown(2);
-
-      // === LEADERSHIP ===
-      this.checkPageBreak(doc, 100);
-      this.section(doc, 'Leadership');
-      const leadership = (entities.person || []).filter((p: any) => {
-        const rel = relations.get(p.id);
-        return rel === 'Director' || rel === 'PSC/Owner';
-      });
+      // =============================================
+      // PAGE 4 — LEADERSHIP
+      // =============================================
+      doc.addPage();
+      this.pageHeader(doc, companyName);
+      this.sectionTitle(doc, 'Leadership Assessment');
+      doc.moveDown(0.5);
 
       if (leadership.length === 0) {
-        doc.fontSize(10).fillColor(LIGHT).text('No direct directors or PSCs found.');
+        doc.fontSize(10).fillColor(C.gray).text('No direct directors or PSCs found in the data.');
       } else {
+        // Table header
+        doc.fontSize(8).fillColor(C.muted);
+        doc.text('NAME', 60, doc.y, { continued: true, width: 160 });
+        doc.text('ROLE', 220, doc.y, { continued: true, width: 60 });
+        doc.text('NATIONALITY', 280, doc.y, { continued: true, width: 70 });
+        doc.text('TRACK RECORD', 350, doc.y, { continued: true, width: 100 });
+        doc.text('RISK', 450, doc.y, { width: 85 });
+        doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor(C.rule).stroke();
+        doc.moveDown(0.3);
+
         for (const person of leadership) {
-          this.checkPageBreak(doc, 60);
+          this.checkPageBreak(doc, 30);
+          const pmeta = person.metadata || {};
+          const dp = pmeta.directorProfile || {};
           const rel = relations.get(person.id) || 'Director';
-          const meta = person.metadata || {};
-          const dp = meta.directorProfile || {};
+          const role = rel === 'PSC/Owner' ? 'PSC' : 'Director';
+          const risk = dp.risk && dp.risk !== 'NORMAL' ? dp.risk.replace(/_/g, ' ') : '-';
+          const riskColor = (dp.risk === 'NOMINEE_PATTERN' || dp.risk === 'FORMATION_AGENT') ? C.red : C.text;
+          const track = dp.totalAppointments ? `${dp.active || 0} active, ${dp.dissolved || 0} dissolved` : '-';
 
-          doc.fontSize(11).fillColor(DARK).text(person.label, { continued: true });
-          doc.fontSize(9).fillColor(rel === 'PSC/Owner' ? AMBER : LIGHT).text(`  ${rel}`);
+          const y = doc.y;
+          doc.fontSize(9).fillColor(C.dark).text(person.label, 60, y, { width: 160 });
+          doc.fontSize(8).fillColor(role === 'PSC' ? C.amber : C.gray).text(role, 220, y, { width: 60 });
+          doc.fontSize(8).fillColor(C.text).text(pmeta.nationality || '-', 280, y, { width: 70 });
+          doc.fontSize(8).fillColor(C.text).text(track, 350, y, { width: 100 });
+          doc.fontSize(8).fillColor(riskColor).text(risk, 450, y, { width: 85 });
+          doc.y = Math.max(doc.y, y + 14);
 
-          const details: string[] = [];
-          if (meta.nationality) details.push(meta.nationality);
-          if (dp.totalAppointments) details.push(`${dp.active || 0} active, ${dp.dissolved || 0} dissolved directorships`);
-          if (dp.risk && dp.risk !== 'NORMAL') details.push(`Risk profile: ${dp.risk.replace(/_/g, ' ')}`);
-          if (meta.directorVelocity?.flagged) details.push(`Velocity flagged: ${meta.directorVelocity.reasons?.[0] || 'high turnover'}`);
-          if (details.length > 0) doc.fontSize(9).fillColor(GRAY).text(details.join('  ·  '));
-
-          // Sanctions matches on this person
+          // Sanctions match indicator
           if (person.matches?.length > 0) {
-            doc.fontSize(9).fillColor(RED).text(`SANCTIONS MATCH: ${person.matches.map((m: any) => `${m.reasons?.matchedName || m.matchedEntityId} (${m.confidence}%)`).join(', ')}`);
+            doc.fontSize(8).fillColor(C.red).text(
+              `  SANCTIONS MATCH: ${person.matches.map((m: any) => `${m.reasons?.matchedName || m.matchedEntityId} (${m.confidence}%)`).join(', ')}`,
+              60,
+            );
           }
-          doc.moveDown(0.5);
+          doc.moveDown(0.2);
         }
       }
+
+      // =============================================
+      // PAGE 5+ — FINDINGS
+      // =============================================
+      doc.addPage();
+      this.pageHeader(doc, companyName);
+      this.sectionTitle(doc, `Findings on ${companyName}`);
+      doc.moveDown(0.5);
+
+      if (targetFindings.length === 0) {
+        doc.fontSize(10).fillColor(C.green).text(`No risk signals detected directly on ${companyName}.`);
+      } else {
+        doc.fontSize(10).fillColor(C.text).text(`${targetFindings.length} finding${targetFindings.length > 1 ? 's' : ''} directly affecting the target company:`);
+        doc.moveDown(0.5);
+        this.renderFindings(doc, targetFindings);
+      }
+      doc.moveDown(1.5);
 
       // Director findings
-      if (directorFindings.length > 0) {
-        doc.moveDown(0.5);
-        doc.fontSize(10).fillColor(DARK).text(`${directorFindings.length} findings about directors:`);
-        doc.moveDown(0.5);
-        this.renderFindings(doc, directorFindings.slice(0, 20));
-        if (directorFindings.length > 20) {
-          doc.fontSize(8).fillColor(MUTED).text(`  ...and ${directorFindings.length - 20} more director findings`);
-        }
-      }
-      doc.moveDown(2);
-
-      // === UBO CHAINS ===
-      if (uboChains.length > 0) {
-        this.checkPageBreak(doc, 80);
-        this.section(doc, 'Ultimate beneficial ownership');
-        for (const chain of uboChains.slice(0, 5)) {
-          this.checkPageBreak(doc, 40);
-          const links = chain.chain || [];
-          const ubo = links[links.length - 1];
-          doc.fontSize(10).fillColor(DARK).text(`UBO: ${ubo?.name || 'Unknown'}`, { continued: true });
-          if (ubo?.kind) doc.fontSize(8).fillColor(LIGHT).text(`  (${ubo.kind})`);
-          else doc.text('');
-          const path = links.map((l: any) => l.name).join(' > ');
-          doc.fontSize(8).fillColor(GRAY).text(`  Chain: ${path}`);
-          if (chain.controlTypes?.length) {
-            doc.fontSize(8).fillColor(GRAY).text(`  Control: ${chain.controlTypes.join(', ')}`);
-          }
-          doc.moveDown(0.5);
-        }
-        doc.moveDown(1);
-      }
-
-      // === CROSS-SOURCE MATCHES ===
       this.checkPageBreak(doc, 80);
-      this.section(doc, 'Cross-source matches');
-      if (matches.length === 0) {
-        doc.fontSize(10).fillColor(LIGHT).text(`No cross-source matches found. Screened ${(counts.companies || 0) + (counts.people || 0)} entities against OpenSanctions and ICIJ OffshoreLeaks.`);
+      this.sectionTitle(doc, 'Findings on Directors');
+      doc.moveDown(0.5);
+      if (directorFindings.length === 0) {
+        doc.fontSize(10).fillColor(C.green).text('No risk signals on target company directors.');
       } else {
-        for (const m of matches) {
-          this.checkPageBreak(doc, 40);
-          const sourceLabel = m.source === 'opensanctions' ? 'OpenSanctions' : 'ICIJ OffshoreLeaks';
-          const confColor = m.confidence >= 75 ? RED : m.confidence >= 50 ? AMBER : LIGHT;
-          doc.fontSize(10).fillColor(DARK).text(m.reasons?.matchedName || m.matchedEntityId, { continued: true });
-          doc.fontSize(9).fillColor(confColor).text(`  ${m.confidence}%`, { continued: true });
-          doc.fontSize(9).fillColor(LIGHT).text(`  ${sourceLabel}`);
-          // Show which entity in our network matched
-          const matchedEntity = [...(entities.company || []), ...(entities.person || [])].find((e: any) => e.entityId === m.sourceEntityId);
-          if (matchedEntity) {
-            const rel = relations.get(matchedEntity.id) || 'Network';
-            doc.fontSize(8).fillColor(GRAY).text(`  Matched entity: ${matchedEntity.label} (${rel})`);
-          }
-          doc.moveDown(0.5);
+        doc.fontSize(10).fillColor(C.text).text(`${directorFindings.length} finding${directorFindings.length > 1 ? 's' : ''} about directors and PSCs:`);
+        doc.moveDown(0.5);
+        this.renderFindings(doc, directorFindings.slice(0, 15));
+        if (directorFindings.length > 15) {
+          doc.fontSize(8).fillColor(C.muted).text(`  ...and ${directorFindings.length - 15} more director findings`);
         }
       }
-      doc.moveDown(2);
+      doc.moveDown(1.5);
 
-      // === KEY NETWORK ENTITIES ===
+      // Network findings summary
       this.checkPageBreak(doc, 80);
-      this.section(doc, 'Key network entities');
-      const flaggedCompanies = (entities.company || []).filter((c: any) =>
-        !targetIds.has(c.id) && (c.metadata?.shellCompanyScore?.risk === 'HIGH' || c.metadata?.shellCompanyScore?.risk === 'CRITICAL'),
-      );
-      const flaggedPeople = (entities.person || []).filter((p: any) => {
-        const rel = relations.get(p.id);
-        return rel !== 'Director' && rel !== 'PSC/Owner' &&
-          (p.metadata?.directorProfile?.risk === 'NOMINEE_PATTERN' || p.metadata?.directorProfile?.risk === 'FORMATION_AGENT');
-      });
-
-      if (flaggedCompanies.length === 0 && flaggedPeople.length === 0) {
-        doc.fontSize(10).fillColor(GREEN).text('No notable risk entities found in the wider network.');
+      this.sectionTitle(doc, 'Network Findings Summary');
+      doc.moveDown(0.5);
+      if (networkFindings.length === 0) {
+        doc.fontSize(10).fillColor(C.green).text('No findings in the wider network.');
       } else {
-        if (flaggedCompanies.length > 0) {
-          doc.fontSize(10).fillColor(DARK).text(`${flaggedCompanies.length} companies with shell risk HIGH or CRITICAL:`);
-          for (const c of flaggedCompanies.slice(0, 15)) {
-            this.checkPageBreak(doc, 20);
-            const shell = c.metadata?.shellCompanyScore || {};
-            doc.fontSize(9).fillColor(GRAY).text(`  ${c.label}  -  shell risk ${shell.risk} (${shell.score}/100)`);
-          }
-          if (flaggedCompanies.length > 15) doc.fontSize(8).fillColor(MUTED).text(`  ...and ${flaggedCompanies.length - 15} more`);
-          doc.moveDown(0.5);
-        }
-        if (flaggedPeople.length > 0) {
-          doc.fontSize(10).fillColor(DARK).text(`${flaggedPeople.length} people with nominee/formation agent patterns:`);
-          for (const p of flaggedPeople.slice(0, 10)) {
-            this.checkPageBreak(doc, 20);
-            doc.fontSize(9).fillColor(GRAY).text(`  ${p.label}  -  ${p.metadata?.directorProfile?.risk?.replace(/_/g, ' ')}`);
-          }
-          doc.moveDown(0.5);
-        }
-      }
-      doc.moveDown(2);
-
-      // === WIDER NETWORK FINDINGS (summary only) ===
-      if (networkFindings.length > 0) {
-        this.checkPageBreak(doc, 60);
-        this.section(doc, 'Wider network findings');
-        const netCritical = networkFindings.filter((f: any) => f.severity === 'CRITICAL').length;
-        const netHigh = networkFindings.filter((f: any) => f.severity === 'HIGH').length;
-        const netMedium = networkFindings.filter((f: any) => f.severity === 'MEDIUM').length;
-        doc.fontSize(10).fillColor(GRAY).text(
-          `${networkFindings.length.toLocaleString()} findings in the wider network ` +
-          `(${netCritical} critical, ${netHigh} high, ${netMedium} medium). ` +
-          `These relate to entities beyond the target company's direct circle.`,
+        const nCrit = networkFindings.filter((f: any) => f.severity === 'CRITICAL').length;
+        const nHigh = networkFindings.filter((f: any) => f.severity === 'HIGH').length;
+        doc.fontSize(10).fillColor(C.text).text(
+          `${networkFindings.length.toLocaleString()} findings in the wider network (${nCrit} critical, ${nHigh} high). Top 5:`,
         );
         doc.moveDown(0.5);
-        // Show top 10 most severe
-        const topNetwork = networkFindings
-          .sort((a: any, b: any) => {
-            const order: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-            return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
-          })
-          .slice(0, 10);
-        this.renderFindings(doc, topNetwork);
-        if (networkFindings.length > 10) {
-          doc.fontSize(8).fillColor(MUTED).text(`  ...and ${networkFindings.length - 10} more network findings`);
+        const topNet = [...networkFindings].sort((a: any, b: any) => {
+          const o: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+          return (o[a.severity] ?? 3) - (o[b.severity] ?? 3);
+        });
+        this.renderFindings(doc, topNet.slice(0, 5));
+      }
+
+      // Cross-source matches
+      if (matches.length > 0) {
+        doc.moveDown(1.5);
+        this.checkPageBreak(doc, 80);
+        this.sectionTitle(doc, 'Cross-Source Matches');
+        doc.moveDown(0.5);
+        for (const m of matches.slice(0, 10)) {
+          this.checkPageBreak(doc, 30);
+          const src = m.source === 'opensanctions' ? 'OpenSanctions' : 'ICIJ OffshoreLeaks';
+          doc.fontSize(10).fillColor(C.dark).text(m.reasons?.matchedName || m.matchedEntityId, { continued: true });
+          doc.fontSize(9).fillColor(m.confidence >= 75 ? C.red : C.amber).text(`  ${m.confidence}%`, { continued: true });
+          doc.fontSize(9).fillColor(C.gray).text(`  ${src}`);
+          doc.moveDown(0.3);
         }
       }
 
-      // === FOOTER ===
-      doc.moveDown(3);
-      doc.fontSize(8).fillColor(MUTED).text('---');
-      doc.fontSize(8).fillColor(MUTED).text(`Report generated by TraceGraph. Investigation ID: ${investigationId}`);
-      doc.fontSize(8).fillColor(MUTED).text('This report is generated from public data sources and does not constitute legal advice.');
+      // =============================================
+      // FINAL PAGE — METHODOLOGY & SOURCES
+      // =============================================
+      doc.addPage();
+      this.pageHeader(doc, companyName);
+      this.sectionTitle(doc, 'Methodology & Sources');
+      doc.moveDown(0.5);
+
+      doc.fontSize(10).fillColor(C.text).text(
+        'This report was generated using publicly available data from the following sources:',
+        { lineGap: 2 },
+      );
+      doc.moveDown(0.5);
+
+      const sources = [
+        ['UK Companies House API', 'Company profiles, officers, PSCs, filing history, charges, registered offices'],
+        ['OpenSanctions', '4.1 million sanctions, PEP, and watchlist entities from 100+ global sources'],
+        ['ICIJ OffshoreLeaks', '770,000+ offshore entities, officers, and intermediaries from leaked databases'],
+      ];
+      for (const [name, desc] of sources) {
+        doc.fontSize(10).fillColor(C.dark).text(name, { continued: true });
+        doc.fontSize(9).fillColor(C.gray).text(`  -  ${desc}`);
+        doc.moveDown(0.3);
+      }
+      doc.moveDown(1.5);
+
+      this.sectionTitle(doc, 'Risk Scoring Methodology');
+      doc.moveDown(0.5);
+      doc.fontSize(9).fillColor(C.text).text(
+        'The risk score (0-100) is computed from 30+ automated detectors analyzing: shell company indicators ' +
+        '(micro-entity accounts, virtual office addresses, rapid dissolutions, high director turnover), ' +
+        'director network patterns (nominee patterns, formation agents, cross-directorship conflicts), ' +
+        'filing health (late accounts, dormant cycling, phoenix patterns), ownership transparency ' +
+        '(corporate PSCs, offshore jurisdictions, missing UBO chains), and sanctions proximity ' +
+        '(shortest path to any matched entity in sanctions or offshore databases).',
+        { lineGap: 2 },
+      );
+      doc.moveDown(1.5);
+
+      doc.fontSize(9).fillColor(C.text).text('Score interpretation:', { lineGap: 2 });
+      doc.fontSize(9).fillColor(C.green).text('0-24: Low risk', { continued: true });
+      doc.fillColor(C.text).text('  -  No significant concerns identified');
+      doc.fontSize(9).fillColor(C.amber).text('25-49: Elevated', { continued: true });
+      doc.fillColor(C.text).text('  -  Some signals warrant review');
+      doc.fontSize(9).fillColor(C.orange).text('50-74: High', { continued: true });
+      doc.fillColor(C.text).text('  -  Enhanced due diligence recommended');
+      doc.fontSize(9).fillColor(C.red).text('75-100: Critical', { continued: true });
+      doc.fillColor(C.text).text('  -  Do not proceed without legal review');
+      doc.moveDown(2);
+
+      // Disclaimer
+      doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor(C.rule).stroke();
+      doc.moveDown(0.5);
+      doc.fontSize(8).fillColor(C.muted).text(
+        'DISCLAIMER: This report is generated from publicly available data and automated analysis. ' +
+        'It does not constitute legal, financial, or professional advice. The risk score is indicative ' +
+        'and should not be the sole basis for business decisions. Independent verification of all ' +
+        'findings is recommended before taking any action.',
+        { lineGap: 2 },
+      );
+      doc.moveDown(1);
+      doc.fontSize(8).fillColor(C.light).text(
+        `Report generated ${new Date().toISOString().slice(0, 10)}  ·  Investigation ${investigationId.slice(0, 8)}  ·  TraceGraph v1.0`,
+      );
+
+      // Add page numbers
+      const pages = doc.bufferedPageRange();
+      for (let i = pages.start; i < pages.start + pages.count; i++) {
+        doc.switchToPage(i);
+        doc.fontSize(7).fillColor(C.light).text(
+          `${i + 1}`,
+          0, doc.page.height - 40,
+          { width: doc.page.width, align: 'center' },
+        );
+        if (i > 0) {
+          doc.fontSize(7).fillColor(C.light).text(
+            'TraceGraph Confidential',
+            60, doc.page.height - 40,
+          );
+        }
+      }
 
       doc.end();
     });
   }
 
-  // Expose computeRelations for the PDF
-  // (We'll add a public wrapper in InvestigationService)
-
   private renderFindings(doc: any, findings: any[]) {
     for (const f of findings) {
-      this.checkPageBreak(doc, 70);
-      const sevColor = f.severity === 'CRITICAL' ? RED : f.severity === 'HIGH' ? AMBER : f.severity === 'MEDIUM' ? '#D97706' : MUTED;
-      doc.fontSize(9).fillColor(sevColor).text(f.severity, { continued: true });
-      doc.fontSize(10).fillColor(DARK).text(`  ${f.title}`);
-      doc.fontSize(9).fillColor(GRAY).text(f.description);
-      if (f.evidence?.length) {
-        for (const e of f.evidence.slice(0, 3)) {
-          doc.fontSize(8).fillColor(LIGHT).text(`    - ${e}`);
-        }
-        if (f.evidence.length > 3) doc.fontSize(8).fillColor(MUTED).text(`    ...and ${f.evidence.length - 3} more`);
-      }
+      this.checkPageBreak(doc, 60);
+      // Severity + title
+      doc.fontSize(8).fillColor(sevColor(f.severity)).text(f.severity, { continued: true });
+      doc.fontSize(10).fillColor(C.dark).text(`  ${f.title}`);
+      // Description
+      doc.fontSize(9).fillColor(C.text).text(f.description, { lineGap: 1 });
+      // Business impact
       if (f.businessImpact) {
-        doc.fontSize(8).fillColor(GRAY).text(`  Business impact: ${f.businessImpact}`);
+        doc.fontSize(8).fillColor(C.gray).text(`Business impact: ${f.businessImpact}`);
       }
-      if (f.legalReference) {
-        doc.fontSize(8).fillColor(LIGHT).text(`  Legal: ${f.legalReference}`);
+      // Verification steps
+      if (f.verificationSteps?.length > 0) {
+        doc.fontSize(8).fillColor(C.gray).text('Verify:');
+        for (const s of f.verificationSteps.slice(0, 3)) {
+          doc.fontSize(8).fillColor(C.gray).text(`  ${s}`);
+        }
       }
-      doc.fontSize(8).fillColor(MUTED).text(`  Recommendation: ${f.recommendation}`, { oblique: true });
-      doc.moveDown(0.8);
+      // Verification links
+      if (f.verificationLinks?.length > 0) {
+        for (const link of f.verificationLinks) {
+          doc.fontSize(8).fillColor(C.blue).text(link.label, { link: link.url, underline: true });
+        }
+      }
+      doc.moveDown(0.6);
     }
   }
 
-  private field(doc: any, label: string, value: string) {
-    doc.fontSize(9).fillColor(LIGHT).text(`${label}: `, { continued: true });
-    doc.fontSize(9).fillColor(DARK).text(value);
+  private pageHeader(doc: any, companyName: string) {
+    doc.fontSize(7).fillColor(C.light).text(companyName, 60, 30);
+    doc.fontSize(7).fillColor(C.light).text('TraceGraph Intelligence Report', 60, 30, { width: 475, align: 'right' });
+    doc.y = 60;
   }
 
-  private section(doc: any, title: string) {
-    doc.fontSize(8).fillColor(MUTED).text(title.toUpperCase(), { characterSpacing: 1 });
-    doc.moveTo(doc.x, doc.y).lineTo(doc.x + 495, doc.y).strokeColor('#E2E8F0').stroke();
-    doc.moveDown(0.5);
+  private sectionTitle(doc: any, title: string) {
+    doc.fontSize(8).fillColor(C.muted).text(title.toUpperCase(), { characterSpacing: 1.5 });
+    doc.moveTo(60, doc.y + 2).lineTo(535, doc.y + 2).strokeColor(C.rule).stroke();
+    doc.moveDown(0.3);
+  }
+
+  private fieldRow(doc: any, label: string, value: string) {
+    doc.fontSize(9).fillColor(C.gray).text(`${label}:  `, { continued: true });
+    doc.fontSize(9).fillColor(C.dark).text(value);
+  }
+
+  private statRow(doc: any, stats: Array<{ label: string; value: string }>) {
+    const colW = 475 / stats.length;
+    const y = doc.y;
+    for (let i = 0; i < stats.length; i++) {
+      const x = 60 + i * colW;
+      doc.fontSize(18).fillColor(C.dark).text(stats[i].value, x, y, { width: colW });
+      doc.fontSize(7).fillColor(C.muted).text(stats[i].label, x, y + 22, { width: colW, characterSpacing: 0.5 });
+    }
+    doc.y = y + 40;
   }
 
   private checkPageBreak(doc: any, needed: number) {
-    if (doc.y + needed > doc.page.height - 50) doc.addPage();
+    if (doc.y + needed > doc.page.height - 60) {
+      doc.addPage();
+      this.pageHeader(doc, '');
+    }
   }
 }
