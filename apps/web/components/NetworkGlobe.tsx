@@ -7,6 +7,19 @@ const Globe3D = dynamic(
   { ssr: false, loading: () => <div className="absolute inset-0" /> },
 );
 
+/** Generate a favicon URL from a company name */
+function logoUrl(name?: string): string {
+  if (!name) return '';
+  const cleaned = name
+    .toLowerCase()
+    .replace(/[()[\].,&'"`]/g, '')
+    .replace(/\b(plc|ltd|limited|llp|holdings|group|company|co|inc|corp|corporation|the)\b/g, '')
+    .replace(/\s+/g, '')
+    .trim();
+  if (!cleaned) return '';
+  return `https://www.google.com/s2/favicons?domain=${cleaned}.com&sz=128`;
+}
+
 interface Marker {
   location: [number, number];
   size: number;
@@ -27,7 +40,7 @@ export function NetworkGlobe({ markers = [] }: Props) {
     lat: m.location[0],
     lng: m.location[1],
     label: m.label || `marker-${i}`,
-    src: '',
+    src: logoUrl(m.label),
     size: m.size,
   }));
 
@@ -36,7 +49,7 @@ export function NetworkGlobe({ markers = [] }: Props) {
       lat: 51.5074,
       lng: -0.1278,
       label: 'London',
-      src: '',
+      src: logoUrl('London'),
       size: 0.05,
     });
   }
