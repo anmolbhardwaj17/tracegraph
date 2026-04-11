@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Avatar } from '../../components/Avatar';
+import { Dropdown } from '../../components/Dropdown';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -100,28 +101,28 @@ export default function DashboardPage() {
             onChange={(e) => { setRecentSearch(e.target.value); setRecentPage(1); }}
             className="flex-1 min-w-[200px] px-4 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30"
           />
-          <select
+          <Dropdown
             value={recentRisk}
-            onChange={(e) => { setRecentRisk(e.target.value); setRecentPage(1); }}
-            className="px-3 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-xs text-ink-50 font-mono focus:outline-none focus:border-white/30"
-          >
-            <option value="">All risk</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-          </select>
-          <select
+            onChange={(v) => { setRecentRisk(v); setRecentPage(1); }}
+            options={[
+              { value: '', label: 'All risk' },
+              { value: 'CRITICAL', label: 'Critical' },
+              { value: 'HIGH', label: 'High' },
+              { value: 'MEDIUM', label: 'Medium' },
+              { value: 'LOW', label: 'Low' },
+            ]}
+          />
+          <Dropdown
             value={recentStatus}
-            onChange={(e) => { setRecentStatus(e.target.value); setRecentPage(1); }}
-            className="px-3 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-xs text-ink-50 font-mono focus:outline-none focus:border-white/30"
-          >
-            <option value="">All status</option>
-            <option value="COMPLETE">Complete</option>
-            <option value="FETCHING">Fetching</option>
-            <option value="EXPANDING">Expanding</option>
-            <option value="FAILED">Failed</option>
-          </select>
+            onChange={(v) => { setRecentStatus(v); setRecentPage(1); }}
+            options={[
+              { value: '', label: 'All status' },
+              { value: 'COMPLETE', label: 'Complete' },
+              { value: 'FETCHING', label: 'Fetching' },
+              { value: 'EXPANDING', label: 'Expanding' },
+              { value: 'FAILED', label: 'Failed' },
+            ]}
+          />
         </div>
 
         {/* Investigation list */}

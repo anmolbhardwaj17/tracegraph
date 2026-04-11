@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react';
 import { Avatar } from '../Avatar';
 import { Insights } from '../Insights';
+import { Dropdown } from '../Dropdown';
 import { EmptyState, EntityDetailPanel, ProximityDot } from './shared';
 
 interface Props {
@@ -189,16 +190,16 @@ export function EntitiesTab({ entities, investigationId }: Props) {
                 onChange={(e) => setSearch(e.target.value)}
                 className="flex-1 px-4 py-3 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
               />
-              <select
+              <Dropdown
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-4 py-3 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 focus:outline-none focus:border-white/30 font-mono text-xs"
-              >
-                <option value="risk">Sort: risk</option>
-                <option value="name">Sort: name</option>
-                <option value="degree">Sort: connections</option>
-                <option value="classification">Sort: classification</option>
-              </select>
+                onChange={(v) => setSortBy(v as any)}
+                options={[
+                  { value: 'risk', label: 'Sort: risk' },
+                  { value: 'name', label: 'Sort: name' },
+                  { value: 'degree', label: 'Sort: connections' },
+                  { value: 'classification', label: 'Sort: classification' },
+                ]}
+              />
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-[10px] font-mono text-ink-500 uppercase tracking-wider mr-2">type</span>

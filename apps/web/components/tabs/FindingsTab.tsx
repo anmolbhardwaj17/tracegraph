@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Shield, ShieldAlert, Users, Globe } from 'lucide-react';
 import { Insights } from '../Insights';
+import { Dropdown } from '../Dropdown';
 import { EmptyState } from './shared';
 
 interface Finding {
@@ -265,14 +266,11 @@ export function FindingsTab({ findings, entities, relations, targetNodeId, targe
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 min-w-[200px] px-4 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
           />
-          <select
+          <Dropdown
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2.5 bg-ink-850 border border-white/10 rounded-sm text-ink-50 focus:outline-none focus:border-white/30 font-mono text-[11px]"
-          >
-            <option value="all">All types</option>
-            {types.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+            onChange={setTypeFilter}
+            options={[{ value: 'all', label: 'All types' }, ...types.map((t) => ({ value: t, label: t }))]}
+          />
           <div className="flex items-center gap-1.5">
             {ALL_SEVERITIES.map((s) => (
               <button

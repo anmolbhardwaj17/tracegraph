@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { Dropdown } from '../../components/Dropdown';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -79,33 +80,31 @@ export default function ComparePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div>
             <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-2 block">/ Company A</label>
-            <select
+            <Dropdown
               value={selectedA}
-              onChange={(e) => setSelectedA(e.target.value)}
-              className="w-full px-4 py-3 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 focus:outline-none focus:border-white/30 font-mono"
-            >
-              <option value="">Select investigation…</option>
-              {investigations.map((inv) => (
-                <option key={inv.id} value={inv.id}>
-                  {inv.companyName || inv.query} ({inv.riskScore != null ? `score ${inv.riskScore}` : 'unscored'})
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedA}
+              options={[
+                { value: '', label: 'Select investigation...' },
+                ...investigations.map((inv: any) => ({
+                  value: inv.id,
+                  label: `${inv.companyName || inv.query} (${inv.riskScore != null ? `score ${inv.riskScore}` : 'unscored'})`,
+                })),
+              ]}
+            />
           </div>
           <div>
             <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-2 block">/ Company B</label>
-            <select
+            <Dropdown
               value={selectedB}
-              onChange={(e) => setSelectedB(e.target.value)}
-              className="w-full px-4 py-3 bg-ink-850 border border-white/10 rounded-sm text-sm text-ink-50 focus:outline-none focus:border-white/30 font-mono"
-            >
-              <option value="">Select investigation…</option>
-              {investigations.map((inv) => (
-                <option key={inv.id} value={inv.id}>
-                  {inv.companyName || inv.query} ({inv.riskScore != null ? `score ${inv.riskScore}` : 'unscored'})
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedB}
+              options={[
+                { value: '', label: 'Select investigation...' },
+                ...investigations.map((inv: any) => ({
+                  value: inv.id,
+                  label: `${inv.companyName || inv.query} (${inv.riskScore != null ? `score ${inv.riskScore}` : 'unscored'})`,
+                })),
+              ]}
+            />
           </div>
         </div>
 
