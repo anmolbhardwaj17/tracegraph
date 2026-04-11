@@ -366,6 +366,10 @@ export class InvestigationService {
   // ========== HELPERS ==========
 
   /** Compute each node's relationship to the target company */
+  async computeRelationsPublic(investigationId: string): Promise<Map<string, string>> {
+    return this.computeRelations(investigationId);
+  }
+
   private async computeRelations(investigationId: string): Promise<Map<string, string>> {
     const inv = await this.investigations.findOne({ where: { id: investigationId } });
     const rootNumber = inv?.metadata?.companyNumber;

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { Download } from 'lucide-react';
 import { Avatar } from '../../../components/Avatar';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -76,17 +77,37 @@ export default function InvestigationLayout({ children }: { children: React.Reac
               </span>
             )}
           </div>
-          {meta?.riskScore != null && (
-            <div className="flex items-center gap-2">
-              <span className={`text-lg font-medium tabular-nums ${
-                meta.riskScore >= 75 ? 'text-signal-critical' :
-                meta.riskScore >= 50 ? 'text-signal-high' :
-                meta.riskScore >= 25 ? 'text-signal-medium' :
-                'text-signal-clean'
-              }`}>{meta.riskScore}</span>
-              <span className="text-[10px] font-mono text-ink-500">/ 100</span>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {meta?.riskScore != null && (
+              <div className="flex items-center gap-2">
+                <span className={`text-lg font-medium tabular-nums ${
+                  meta.riskScore >= 75 ? 'text-signal-critical' :
+                  meta.riskScore >= 50 ? 'text-signal-high' :
+                  meta.riskScore >= 25 ? 'text-signal-medium' :
+                  'text-signal-clean'
+                }`}>{meta.riskScore}</span>
+                <span className="text-[10px] font-mono text-ink-500">/ 100</span>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                const url = `${API}/api/investigations/${id}/export`;
+                fetch(url, { method: 'POST' })
+                  .then((r) => r.blob())
+                  .then((blob) => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `tracegraph-${meta?.companyName || id}.pdf`;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                  });
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 rounded-sm text-[10px] font-mono uppercase tracking-wider text-ink-400 hover:text-ink-50 hover:border-white/30 transition-colors"
+            >
+              <Download size={12} />
+              Export PDF
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
