@@ -283,9 +283,9 @@ export class ReportService {
       if (meta.ownershipOpacity) fields.push(['Ownership Transparency', `${meta.ownershipOpacity.band} (${meta.ownershipOpacity.score}/100)`]);
       for (const [label, value] of fields) this.fieldRow(doc, label, value);
 
-      // ===================== PAGE 3 — KEY CONCLUSIONS =====================
-      doc.addPage();
-      this.pageHeader(doc, companyName);
+      // ===================== KEY CONCLUSIONS =====================
+      doc.moveDown(2);
+      this.checkPageBreak(doc, 120, companyName);
       this.sectionTitle(doc, 'Key Conclusions');
       doc.moveDown(0.8);
 
@@ -298,9 +298,9 @@ export class ReportService {
         doc.moveDown(1.2);
       }
 
-      // ===================== PAGE 4 — OWNERSHIP =====================
-      doc.addPage();
-      this.pageHeader(doc, companyName);
+      // ===================== OWNERSHIP =====================
+      doc.moveDown(2);
+      this.checkPageBreak(doc, 120, companyName);
       this.sectionTitle(doc, 'Ownership Structure');
       doc.moveDown(0.8);
 
@@ -333,9 +333,9 @@ export class ReportService {
         }
       }
 
-      // ===================== PAGE 5 — LEADERSHIP =====================
-      doc.addPage();
-      this.pageHeader(doc, companyName);
+      // ===================== LEADERSHIP =====================
+      doc.moveDown(2);
+      this.checkPageBreak(doc, 100, companyName);
       this.sectionTitle(doc, 'Leadership Assessment');
       doc.moveDown(0.8);
 
@@ -383,9 +383,9 @@ export class ReportService {
         }
       }
 
-      // ===================== PAGE 6+ — FINDINGS =====================
-      doc.addPage();
-      this.pageHeader(doc, companyName);
+      // ===================== FINDINGS =====================
+      doc.moveDown(2);
+      this.checkPageBreak(doc, 100, companyName);
       this.sectionTitle(doc, `Findings on ${companyName}`);
       doc.moveDown(0.5);
 
@@ -443,9 +443,9 @@ export class ReportService {
         }
       }
 
-      // ===================== FINAL PAGE — METHODOLOGY =====================
-      doc.addPage();
-      this.pageHeader(doc, companyName);
+      // ===================== METHODOLOGY =====================
+      doc.moveDown(2);
+      this.checkPageBreak(doc, 200, companyName);
       this.sectionTitle(doc, 'Methodology & Sources');
       doc.moveDown(0.8);
       doc.font('Helvetica').fontSize(10).fillColor(C.text).text('This report was generated using publicly available data from the following sources:', { lineGap: 3 });
