@@ -7,6 +7,25 @@ import { CompaniesHouseService } from '../companies-house/companies-house.servic
 import { normalizeAddress } from './address-normalizer';
 import { GeocodingService } from '../geocoding/geocoding.service';
 
+const FORMATION_AGENT_NAMES = new Set([
+  'SWIFT INCORPORATIONS LIMITED', 'SWIFT FORMATIONS LIMITED',
+  'COMPANIES MADE SIMPLE GROUP LIMITED', 'COMPANIES MADE SIMPLE LIMITED',
+  '1ST FORMATIONS LIMITED', 'RAPID FORMATIONS LIMITED',
+  'YOUR COMPANY FORMATIONS LLP', 'QUALITY COMPANY FORMATIONS LIMITED',
+  'SEED FORMATIONS LIMITED', 'COMPANIES HOUSE DIRECT LIMITED',
+  'JORDANS LIMITED', 'JORDANS FORMATIONS LIMITED',
+  'THE FORMATION COMPANY LIMITED', 'INCORPORATE LIMITED',
+  'DUPORT ASSOCIATES LIMITED',
+]);
+const FORMATION_AGENT_NUMBERS = new Set(['01945937', '04733579']);
+function checkFormationAgent(name?: string, companyNumber?: string): boolean {
+  if (companyNumber && FORMATION_AGENT_NUMBERS.has(companyNumber)) return true;
+  if (!name) return false;
+  const n = name.toUpperCase().replace(/[^A-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  if (FORMATION_AGENT_NAMES.has(n)) return true;
+  return n.includes('FORMATION') && (n.includes('LIMITED') || n.includes('LLP') || n.includes('LTD'));
+}
+
 export interface ExpansionOptions {
   maxCompanyDepth?: number; // default 2
   maxAddressDepth?: number; // default 1
@@ -112,8 +131,7 @@ export class GraphExpansionService {
         const safeLabel = label && label.trim() ? label : entityId || 'Unknown';
         // Tag formation agents
         if (entityType === 'company') {
-          const { isFormationAgent } = require('../../../../packages/shared/src/constants/formation-agents');
-          if (isFormationAgent(safeLabel, entityId)) {
+          if (checkFormationAgent(safeLabel, entityId)) {
             metadata.isFormationAgent = true;
           }
         }
