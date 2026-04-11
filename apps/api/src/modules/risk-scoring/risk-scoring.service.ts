@@ -17,6 +17,7 @@ import { DisqualifiedDirectorService } from '../anomaly/disqualified-director.se
 import { JurisdictionRiskService } from '../anomaly/jurisdiction-risk.service';
 import { CompanyAgeAnomalyService } from '../anomaly/company-age-anomaly.service';
 import { CrossDirectorshipService } from '../anomaly/cross-directorship.service';
+import { OwnershipOpacityService } from '../anomaly/ownership-opacity.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -40,6 +41,7 @@ export class RiskScoringService {
     private readonly jurisdictionRisk: JurisdictionRiskService,
     private readonly companyAge: CompanyAgeAnomalyService,
     private readonly crossDirectorship: CrossDirectorshipService,
+    private readonly ownershipOpacity: OwnershipOpacityService,
   ) {}
 
   async run(
@@ -76,6 +78,9 @@ export class RiskScoringService {
 
     emit('Cross-directorship conflicts', 'SIC conflicts, incestuous networks, dual-sided directors');
     const crossDir = await this.crossDirectorship.analyze(investigationId);
+
+    emit('Ownership opacity analysis', 'Scoring beneficial ownership transparency');
+    await this.ownershipOpacity.scoreAll(investigationId, uboChains);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -508,6 +513,23 @@ export class RiskScoringService {
         ],
         affectedEntities: [g.companyId],
         recommendation: 'Identify what triggered the reactivation; check for change of beneficial owner or new commercial activity.',
+      });
+    }
+
+    // ---- OWNERSHIP OPACITY ----
+    for (const n of nodes) {
+      if (n.entityType !== 'company') continue;
+      const opacity = n.metadata?.ownershipOpacity;
+      if (!opacity || opacity.score <= 50) continue;
+      findings.push({
+        type: 'OWNERSHIP_OPACITY',
+        severity: opacity.score >= 75 ? 'HIGH' : 'MEDIUM',
+        confidence: 'HIGH',
+        title: `${n.label} has ${opacity.band.toLowerCase().replace('_', ' ')} ownership (opacity ${opacity.score}/100)`,
+        description: `Beneficial ownership transparency score: ${opacity.score}/100. ${opacity.reasons.join('. ')}.`,
+        evidence: opacity.reasons,
+        affectedEntities: [n.entityId],
+        recommendation: 'Demand evidence of beneficial ownership before transacting. Opaque ownership structures are a primary money laundering risk indicator.',
       });
     }
 
