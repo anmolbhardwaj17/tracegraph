@@ -164,17 +164,25 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
         entityIdToNodeId.set(n.id, n.id);
       }
       const flaggedIds = new Set<string>([rootId]);
-      for (const f of findings) {
-        if (f.severity !== 'CRITICAL' && f.severity !== 'HIGH') continue; // Only show serious findings
-        for (const eid of (f.affectedEntities || []).slice(0, 10)) { // Cap per finding
+      // Prioritize: CRITICAL first, then HIGH
+      const critFindings = findings.filter((f) => f.severity === 'CRITICAL');
+      const highFindings = findings.filter((f) => f.severity === 'HIGH');
+      for (const f of [...critFindings, ...highFindings]) {
+        for (const eid of f.affectedEntities || []) {
           const nodeId = entityIdToNodeId.get(eid);
           if (nodeId) flaggedIds.add(nodeId);
         }
+        if (flaggedIds.size > 150) break; // Stop collecting once we have enough
+      }
+      // Also include 1-hop neighbors of root that are flagged (direct connections)
+      for (const nb of adjacency.get(rootId) || []) {
+        const nbNode = nodes.find((n) => n.id === nb);
+        if (nbNode && isRisky(nbNode)) flaggedIds.add(nb);
       }
       pool = nodes.filter((n) => flaggedIds.has(n.id));
-      // Cap at 50 to prevent hanging
-      if (pool.length > 50) pool = pool.slice(0, 50);
-      summaryText = `${findings.filter((f) => f.severity === 'CRITICAL' || f.severity === 'HIGH').length} serious risk signals. ${flaggedIds.size - 1} entities flagged in ${rootNode?.label}'s network.`;
+      const critCount = critFindings.length;
+      const highCount = highFindings.length;
+      summaryText = `${critCount} critical and ${highCount} high-severity signals. ${pool.length} flagged entities shown in ${rootNode?.label}'s network.`;
     } else if (mode === 'path') {
       const fromNode = pathFrom ? (nodes.find((n) => n.label?.toLowerCase().includes(pathFrom.toLowerCase())) || null) : null;
       const toNode = pathTo ? (nodes.find((n) => n.label?.toLowerCase().includes(pathTo.toLowerCase())) || null) : null;
