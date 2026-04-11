@@ -26,9 +26,11 @@ interface Props {
   addresses: AddressEntity[];
   edges?: any[];
   allEntities?: any;
+  targetCompanyName?: string;
+  targetCompanyNumber?: string;
 }
 
-export function LocationsMap({ addresses, edges = [], allEntities }: Props) {
+export function LocationsMap({ addresses, edges = [], allEntities, targetCompanyName, targetCompanyNumber }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [points, setPoints] = useState<Geocoded[]>([]);
   const [selected, setSelected] = useState<Geocoded | null>(null);
@@ -169,8 +171,9 @@ export function LocationsMap({ addresses, edges = [], allEntities }: Props) {
 
       const bounds = L.latLngBounds([]);
       for (const p of filteredPoints) {
-        const radius = Math.max(8, Math.min(28, 6 + Math.sqrt(p.density) * 4));
-        const color =
+        const isTarget = targetAddress && p.id === targetAddress.id;
+        const radius = isTarget ? 18 : Math.max(8, Math.min(28, 6 + Math.sqrt(p.density) * 4));
+        const color = isTarget ? '#FFFFFF' :
           p.flag === 'VIRTUAL_OFFICE' ? '#FF4D4D' :
           p.flag === 'HIGH_DENSITY' ? '#F5C518' :
           '#A0A0A0';
@@ -180,21 +183,39 @@ export function LocationsMap({ addresses, edges = [], allEntities }: Props) {
           html: `<div style="
             width: ${radius * 2}px; height: ${radius * 2}px;
             border-radius: 50%;
-            background: ${color}40;
-            border: 2px solid ${color};
-            box-shadow: 0 0 ${radius}px ${color}66;
+            background: ${isTarget ? 'rgba(255,255,255,0.15)' : `${color}40`};
+            border: ${isTarget ? '3px' : '2px'} solid ${color};
+            box-shadow: 0 0 ${isTarget ? 20 : radius}px ${color}${isTarget ? 'AA' : '66'};
             display: flex; align-items: center; justify-content: center;
             color: #F5F5F5; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 600;
             transform: translate(-${radius}px, -${radius}px);
-          ">${p.density > 1 ? p.density : ''}</div>`,
+          ">${isTarget ? '★' : (p.density > 1 ? p.density : '')}</div>`,
         });
         const marker = L.marker([p.lat, p.lng], { icon }).addTo(layer);
         marker.on('click', () => setSelected(p));
+
+        // Always show label for target
+        if (isTarget && targetCompanyName) {
+          const labelIcon = L.divIcon({
+            className: '',
+            html: `<div style="
+              white-space: nowrap; font-size: 11px; font-weight: 500; color: #F5F5F5;
+              font-family: ui-monospace, monospace; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+              transform: translate(${radius + 6}px, -8px);
+            ">${targetCompanyName}</div>`,
+          });
+          L.marker([p.lat, p.lng], { icon: labelIcon, interactive: false }).addTo(layer);
+        }
         bounds.extend([p.lat, p.lng]);
       }
 
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+        // Center on target address if available, otherwise fit all
+        if (targetAddress) {
+          map.setView([targetAddress.lat, targetAddress.lng], 12);
+        } else {
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+        }
       }
     })();
     return () => {
@@ -239,6 +260,49 @@ export function LocationsMap({ addresses, edges = [], allEntities }: Props) {
     };
   }, [points]);
 
+  // Identify target company's address
+  const targetAddress = useMemo(() => {
+    if (!targetCompanyNumber || !allEntities?.company) return null;
+    const targetCo = (allEntities.company || []).find((c: any) =>
+      c.entityId === targetCompanyNumber || c.label?.toUpperCase().includes((targetCompanyName || '').toUpperCase()),
+    );
+    if (!targetCo) return null;
+    // Find address edge for target company
+    for (const e of edges) {
+      if (e.type !== 'address') continue;
+      if (e.source === targetCo.id || e.target === targetCo.id) {
+        const addrId = e.source === targetCo.id ? e.target : e.source;
+        return points.find((p) => p.id === addrId) || null;
+      }
+    }
+    return null;
+  }, [targetCompanyNumber, targetCompanyName, allEntities, edges, points]);
+
+  // Plain English location summary
+  const locationSummary = useMemo(() => {
+    if (points.length === 0) return '';
+    const parts: string[] = [];
+    if (targetAddress && targetCompanyName) {
+      if (targetAddress.flag === 'VIRTUAL_OFFICE') {
+        parts.push(`${targetCompanyName} is registered at ${targetAddress.label} - this address hosts ${targetAddress.density} other companies and is classified as a virtual office.`);
+      } else if (targetAddress.density > 5) {
+        parts.push(`${targetCompanyName} is registered at ${targetAddress.label} - this address hosts ${targetAddress.density} companies.`);
+      } else {
+        parts.push(`${targetCompanyName} is registered at ${targetAddress.label}${targetAddress.density <= 1 ? ' - no other companies at this address.' : '.'}`);
+      }
+    }
+    if (stats.uniqueRegions > 1) {
+      parts.push(`Network spans ${stats.uniqueRegions} regions${stats.concentration >= 50 ? `, with ${stats.concentration}% concentration in the top 3 addresses` : ''}.`);
+    }
+    if (stats.virtualOffices > 0) {
+      parts.push(`${stats.virtualOffices} virtual office${stats.virtualOffices > 1 ? 's' : ''} detected.`);
+    }
+    return parts.join(' ');
+  }, [points, targetAddress, targetCompanyName, stats]);
+
+  // Depth filter
+  const [depthFilter, setDepthFilter] = useState<'all' | 'direct' | 'target'>('all');
+
   if (addresses.length === 0) {
     return (
       <div className="text-center py-16 text-ink-500 text-sm font-mono">
@@ -249,18 +313,27 @@ export function LocationsMap({ addresses, edges = [], allEntities }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Stats strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-white/5 border border-white/5">
-        <Stat label="Geocoded" value={`${stats.addressCount} / ${addresses.length}`} />
-        <Stat label="Companies placed" value={String(stats.totalCompanies)} />
-        <Stat
-          label="Top-3 concentration"
-          value={`${stats.concentration}%`}
-          highlight={stats.concentration >= 50}
-          sub={stats.concentration >= 50 ? 'highly concentrated' : 'spread out'}
-        />
-        <Stat label="Virtual offices" value={String(stats.virtualOffices)} highlight={stats.virtualOffices > 0} />
-        <Stat label="Unique regions" value={String(stats.uniqueRegions)} />
+      {/* Location summary */}
+      {locationSummary && (
+        <div className="border border-white/5 bg-ink-850 px-6 py-4 text-sm text-ink-300 leading-relaxed">
+          {locationSummary}
+        </div>
+      )}
+
+      {/* Stats strip + controls */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-px bg-white/5 border border-white/5">
+          <Stat label="Geocoded" value={`${stats.addressCount} / ${addresses.length}`} />
+          <Stat label="Companies placed" value={String(stats.totalCompanies)} />
+          <Stat
+            label="Top-3 concentration"
+            value={`${stats.concentration}%`}
+            highlight={stats.concentration >= 50}
+            sub={stats.concentration >= 50 ? 'highly concentrated' : 'spread out'}
+          />
+          <Stat label="Virtual offices" value={String(stats.virtualOffices)} highlight={stats.virtualOffices > 0} />
+          <Stat label="Unique regions" value={String(stats.uniqueRegions)} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:items-start">
@@ -356,6 +429,22 @@ export function LocationsMap({ addresses, edges = [], allEntities }: Props) {
                       )}
                     </dl>
 
+                    {/* Comparison with target address */}
+                    {targetAddress && selected.id !== targetAddress.id && targetCompanyName && (
+                      <div className="mt-3 pt-3 border-t border-white/5 text-[10px] font-mono text-ink-500 space-y-1">
+                        <div className="text-ink-400">vs {targetCompanyName}:</div>
+                        {targetAddress.density > 0 && selected.density > 0 && (
+                          <div>{selected.density > targetAddress.density
+                            ? `${Math.round(selected.density / Math.max(targetAddress.density, 1))}x more companies than target address`
+                            : 'Fewer companies than target address'
+                          }</div>
+                        )}
+                        {selected.flag && selected.flag !== 'NORMAL' && !targetAddress.flag && (
+                          <div className="text-signal-critical">Flagged address - target address is not flagged</div>
+                        )}
+                      </div>
+                    )}
+
                     {selected.companies && selected.companies.length > 0 && (
                       <div className="mt-4">
                         <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-2">/ Registered here</div>
@@ -384,7 +473,22 @@ export function LocationsMap({ addresses, edges = [], allEntities }: Props) {
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full border border-ink-300 bg-ink-300/30" /> Normal
             </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full border-2 border-white bg-white/15" /> Target company
+            </span>
             <span className="text-ink-600">·  marker size scales with company count</span>
+            {targetAddress && (
+              <button
+                onClick={() => {
+                  const map = mapInstanceRef.current;
+                  if (map) map.flyTo([targetAddress.lat, targetAddress.lng], 14, { duration: 0.8 });
+                  setSelected(targetAddress);
+                }}
+                className="text-ink-400 hover:text-ink-50 transition-colors"
+              >
+                show target
+              </button>
+            )}
           </div>
         </div>
       </div>
