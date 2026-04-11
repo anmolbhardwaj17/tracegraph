@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Avatar } from './Avatar';
 import FlipNumbers from 'react-flip-numbers';
 
@@ -19,6 +19,7 @@ function LiveNumber({ value }: { value: number }) {
   );
 }
 
+// --- Types ---
 interface Props {
   status: string;
   live: { entities: number; edges: number; depth: number; apiCalls: number; matches: number };
@@ -28,16 +29,26 @@ interface Props {
   investigationId?: string;
   companyName?: string;
   tier?: string;
+  discoveries?: Discovery[];
+}
+
+export interface Discovery {
+  id: string;
+  label: string;
+  entityType: string;
+  reason: string;
+  severity: 'red' | 'amber' | 'green';
+  time: number; // seconds since start
 }
 
 const STAGES = [
   { key: 'FETCHING',    label: 'Fetching company profile',          hint: 'UK Companies House' },
-  { key: 'EXPANDING',   label: 'Expanding ownership network',       hint: 'Directors · PSC · addresses' },
+  { key: 'EXPANDING',   label: 'Expanding ownership network',       hint: 'Directors . PSC . addresses' },
   { key: 'EXPANDING_2', label: 'UBO chain resolution',              hint: 'Tracing corporate PSCs to natural persons' },
-  { key: 'RESOLVING',   label: 'Cross-source matching',             hint: 'OpenSanctions 4M+ · ICIJ 770K+' },
+  { key: 'RESOLVING',   label: 'Cross-source matching',             hint: 'OpenSanctions 4M+ . ICIJ 770K+' },
   { key: 'RESOLVING_2', label: 'Disqualified director screening',   hint: 'CH disqualified-officers register' },
-  { key: 'SCORING',     label: 'Filing health & jurisdiction risk',  hint: 'Late filings · phoenix · offshore' },
-  { key: 'SCORING_2',   label: 'Anomaly detection & risk scoring',  hint: 'Shell · cross-directorship · age anomalies' },
+  { key: 'SCORING',     label: 'Filing health & jurisdiction risk',  hint: 'Late filings . phoenix . offshore' },
+  { key: 'SCORING_2',   label: 'Anomaly detection & risk scoring',  hint: 'Shell . cross-directorship . age anomalies' },
 ];
 
 const ORDER = ['QUEUED', 'FETCHING', 'EXPANDING', 'EXPANDING_2', 'RESOLVING', 'RESOLVING_2', 'SCORING', 'SCORING_2', 'COMPLETE'];
@@ -46,7 +57,9 @@ const PCT_MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21,
 const STAGE_MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
 const ACTIVE_MAP: Record<string, number> = { QUEUED: -1, FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5, COMPLETE: 99 };
 
-export function ProgressView({ status, live, resolution, scoringStep, startedAt, investigationId, companyName, tier }: Props) {
+const TIER_EST: Record<string, [number, number]> = { QUICK: [60, 120], STANDARD: [300, 600], DEEP: [900, 1800] };
+
+export function ProgressView({ status, live, resolution, scoringStep, startedAt, investigationId, companyName, tier, discoveries }: Props) {
   const elapsed = useElapsed(startedAt);
   const overallPct = (() => {
     const start: Record<string, number> = { QUEUED: 0, FETCHING: 3, EXPANDING: 10, RESOLVING: 40, SCORING: 78, COMPLETE: 100 };
@@ -60,13 +73,26 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
   })();
   const currentStageLabel = STAGE_MAP[status] != null ? STAGES[STAGE_MAP[status]]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
 
+  // Estimated time remaining
+  const estimate = (() => {
+    if (overallPct >= 90) return 'Almost done...';
+    const tierRange = TIER_EST[tier || 'STANDARD'] || TIER_EST.STANDARD;
+    if (overallPct > 5) {
+      const totalEst = Math.round(elapsed / (overallPct / 100));
+      const remaining = Math.max(0, totalEst - elapsed);
+      if (remaining < 60) return 'Less than a minute';
+      return `~${Math.ceil(remaining / 60)} min remaining`;
+    }
+    return `~${Math.round(tierRange[0] / 60)}-${Math.round(tierRange[1] / 60)} min`;
+  })();
+
   return (
     <div className="space-y-6">
       {/* ROW 1: company (left) + counters (right) */}
       <div className="flex flex-col lg:flex-row gap-6">
-        <div className="border border-white/5 bg-ink-850 p-6 flex items-center gap-3 lg:w-64 lg:shrink-0">
+        <div className="border border-white/5 bg-ink-850 p-6 flex items-start gap-4 lg:w-72 lg:shrink-0">
           <Avatar name={companyName || '?'} type="company" size={40} />
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-ink-50 leading-snug">{companyName || 'Loading...'}</div>
           </div>
         </div>
@@ -118,7 +144,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
 
       {/* ROW 2: progress (left) + pipeline & sonar (right) */}
       <div className="flex flex-col lg:flex-row gap-6">
-        <div className="border border-white/5 bg-ink-850 p-6 lg:w-64 lg:shrink-0 lg:self-stretch">
+        <div className="border border-white/5 bg-ink-850 p-6 lg:w-72 lg:shrink-0 lg:self-stretch">
           <div className="pb-4 border-b border-white/5 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-signal-clean animate-pulse shadow-[0_0_12px_rgba(94,230,161,0.7)]" />
             <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-signal-clean">running</span>
@@ -138,6 +164,7 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
           <div className="py-4 border-b border-white/5">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Elapsed</div>
             <div className="text-3xl font-medium text-ink-50 tabular-nums">{formatElapsed(elapsed)}</div>
+            <div className="text-[10px] font-mono text-ink-500 mt-1">{estimate}</div>
           </div>
           <div className="py-4 border-b border-white/5">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Stage</div>
@@ -184,10 +211,41 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
                 </div>
               </div>
               <div className="flex-1 min-h-[360px] relative">
-                <MiniGraph entities={live.entities} edges={live.edges} />
+                <MiniGraph entities={live.entities} edges={live.edges} discoveries={discoveries} />
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ROW 3: Live discovery feed */}
+      <div className="border border-white/5 bg-ink-850">
+        <div className="px-6 py-3 border-b border-white/5 flex items-center justify-between">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Live discoveries</div>
+          <div className="text-[10px] font-mono text-ink-600">{(discoveries?.length || 0)} notable</div>
+        </div>
+        <div className="max-h-[200px] overflow-y-auto scrollbar-hide">
+          {(!discoveries || discoveries.length === 0) ? (
+            <div className="px-6 py-6 flex items-center gap-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-signal-clean animate-pulse" />
+              <span className="text-xs text-ink-500 font-mono">Scanning network...</span>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {discoveries.slice(-8).reverse().map((d, i) => (
+                <div
+                  key={d.id + i}
+                  className="px-6 py-2.5 flex items-center gap-4 animate-[slideIn_0.3s_ease-out]"
+                >
+                  <span className="text-[10px] font-mono text-ink-600 tabular-nums w-10 shrink-0">{formatMmSs(d.time)}</span>
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    d.severity === 'red' ? 'bg-signal-critical' : d.severity === 'amber' ? 'bg-signal-medium' : 'bg-signal-clean'
+                  }`} />
+                  <span className="text-xs text-ink-300 truncate">{d.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -195,20 +253,25 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
         <span>{investigationId ? `INV-${investigationId.slice(0, 8)}` : ''}</span>
         <span>{startedAt ? `Started ${new Date(startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(startedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}</span>
       </div>
+
+      <style jsx>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
 
 
 /**
- * Sonar / radar visualization. Pulse waves expand from center when new
- * entities are discovered. Blips appear at random positions and flash
- * green when a pulse passes over them.
+ * Sonar / radar visualization with entity name labels on new blips.
  */
-type Blip = { angle: number; radiusN: number; bornAt: number };
+type Blip = { angle: number; radiusN: number; bornAt: number; label?: string };
 type Pulse = { startedAt: number; intensity: number };
 
-function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
+function MiniGraph({ entities, edges, discoveries }: { entities: number; edges: number; discoveries?: Discovery[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 600, h: 400 });
@@ -219,6 +282,7 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
   const lastAutoPulseRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const startedAtRef = useRef(performance.now());
+  const lastDiscoveryCountRef = useRef(0);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -230,9 +294,11 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
     return () => ro.disconnect();
   }, []);
 
-  // Store latest entity count in ref - animation loop reads this at its own pace
   const latestEntitiesRef = useRef(entities);
   latestEntitiesRef.current = entities;
+
+  const latestDiscoveriesRef = useRef(discoveries);
+  latestDiscoveriesRef.current = discoveries;
 
   useEffect(() => {
     if (size.w === 0 || size.h === 0) return;
@@ -256,6 +322,7 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
 
     const PULSE_DURATION = 2400;
     const BLIP_FADE_IN = 600;
+    const LABEL_DURATION = 3000;
 
     function frame() {
       if (!ctx) return;
@@ -278,20 +345,32 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       ctx.moveTo(cx, cy - maxR * 0.62); ctx.lineTo(cx, cy + maxR * 0.62);
       ctx.stroke();
 
-      // Auto-pulse every 2s + sync blip spawning to the sweep cycle
+      // Check for new discoveries - add labeled blips
+      const disc = latestDiscoveriesRef.current;
+      if (disc && disc.length > lastDiscoveryCountRef.current) {
+        const newOnes = disc.slice(lastDiscoveryCountRef.current);
+        for (const d of newOnes) {
+          blipsRef.current.push({
+            angle: Math.random() * Math.PI * 2,
+            radiusN: 0.3 + Math.random() * 0.5,
+            bornAt: now,
+            label: d.label.length > 20 ? d.label.slice(0, 18) + '..' : d.label,
+          });
+        }
+        lastDiscoveryCountRef.current = disc.length;
+      }
+
+      // Auto-pulse every 2s
       if (now - lastAutoPulseRef.current > 2000) {
         lastAutoPulseRef.current = now;
-
         const currentEntities = latestEntitiesRef.current;
         const delta = currentEntities - lastEntitiesRef.current;
 
         if (currentEntities > 0 && (delta > 0 || lastEntitiesRef.current === 0)) {
-          // Spawn a data-driven pulse (brighter than idle)
           pulsesRef.current.push({
             startedAt: now,
             intensity: Math.min(1, 0.4 + Math.log10((delta || currentEntities) + 1) * 0.3),
           });
-
           const isInitialSeed = lastEntitiesRef.current === 0 && currentEntities > 10;
           const blipsToAdd = isInitialSeed
             ? Math.min(120, Math.floor(currentEntities / 10))
@@ -309,10 +388,8 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
           }
           lastEntitiesRef.current = currentEntities;
         } else {
-          // Idle pulse (no new data)
           pulsesRef.current.push({ startedAt: now, intensity: 0.35 });
         }
-
         if (pulsesRef.current.length > 6) pulsesRef.current.splice(0, pulsesRef.current.length - 6);
       }
 
@@ -338,8 +415,8 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       }
       pulsesRef.current = livePulses;
 
-      // Blips - permanent, slowly orbiting
-      const orbitOffset = ((now - startedAtRef.current) / 1000) * (Math.PI * 2 / 75); // full rotation every 75s
+      // Blips
+      const orbitOffset = ((now - startedAtRef.current) / 1000) * (Math.PI * 2 / 75);
       const liveBlips: Blip[] = [];
       for (const b of blipsRef.current) {
         const age = now - b.bornAt;
@@ -360,7 +437,6 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
           if (distFromPulse < 18) {
             const proximity = 1 - distFromPulse / 18;
             highlight = Math.max(highlight, proximity * (1 - t));
-            // Wave: lift the blip upward as the pulse passes, smooth sine curve
             waveOffset = Math.max(waveOffset, Math.sin(proximity * Math.PI) * 5 * (1 - t));
           }
         }
@@ -370,12 +446,10 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
 
         const baseAlpha = Math.min(1, alpha * 0.85);
         if (highlight > 0.15) {
-          // Outer glow
           ctx.fillStyle = `rgba(94,230,161,${highlight * 0.15})`;
           ctx.beginPath();
           ctx.arc(x, y, 8 + highlight * 4, 0, Math.PI * 2);
           ctx.fill();
-          // Inner glow
           ctx.fillStyle = `rgba(94,230,161,${Math.min(1, baseAlpha + highlight)})`;
           ctx.shadowColor = 'rgba(94,230,161,0.9)';
           ctx.shadowBlur = 14 * highlight;
@@ -389,27 +463,31 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
           ctx.arc(x, y, 1.6, 0, Math.PI * 2);
           ctx.fill();
         }
+
+        // Label on new blips (show for LABEL_DURATION then fade)
+        if (b.label && age < LABEL_DURATION) {
+          const labelAlpha = age < 300 ? age / 300 : age > LABEL_DURATION - 600 ? (LABEL_DURATION - age) / 600 : 1;
+          ctx.font = '9px ui-monospace, monospace';
+          ctx.fillStyle = `rgba(94,230,161,${labelAlpha * 0.7})`;
+          ctx.fillText(b.label, x + 6, y - 4);
+        }
       }
       blipsRef.current = liveBlips;
 
-      // Center node - glow synced with latest pulse
+      // Center node
       let centerGlow = 0;
       for (const p of livePulses) {
         const age = (now - p.startedAt) / PULSE_DURATION;
         if (age < 0.3) centerGlow = Math.max(centerGlow, (1 - age / 0.3) * p.intensity);
       }
-      // Wide outer glow (flares when pulse fires, fades)
       if (centerGlow > 0.05) {
         ctx.fillStyle = `rgba(94,230,161,${centerGlow * 0.12})`;
         ctx.beginPath(); ctx.arc(cx, cy, 35 + centerGlow * 15, 0, Math.PI * 2); ctx.fill();
       }
-      // Green halo
       ctx.fillStyle = `rgba(94,230,161,${0.08 + centerGlow * 0.15})`;
       ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI * 2); ctx.fill();
-      // Inner green ring
       ctx.fillStyle = `rgba(94,230,161,${0.15 + centerGlow * 0.25})`;
       ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
-      // White core with glow
       ctx.fillStyle = '#F5F5F5';
       ctx.shadowColor = `rgba(94,230,161,${0.5 + centerGlow * 0.5})`;
       ctx.shadowBlur = 10 + centerGlow * 20;
@@ -451,3 +529,8 @@ function formatElapsed(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function formatMmSs(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}

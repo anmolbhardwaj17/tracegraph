@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
-import { ProgressView } from '../../../components/ProgressView';
+import { ProgressView, Discovery } from '../../../components/ProgressView';
 import { Avatar } from '../../../components/Avatar';
 import Link from 'next/link';
 
@@ -35,6 +35,8 @@ export default function InvestigatePage() {
   const [resolution, setResolution] = useState<{ processed: number; total: number; matches: number } | null>(null);
   const [scoringStep, setScoringStep] = useState<{ step: string; detail?: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [discoveries, setDiscoveries] = useState<Discovery[]>([]);
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +52,30 @@ export default function InvestigatePage() {
       })),
     );
     socket.on('entity_matched', () => setLive((p) => ({ ...p, matches: p.matches + 1 })));
+    socket.on('entity_discovered', (e: any) => {
+      // Build discovery feed entries for notable entities only
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      const label = e.label || e.entityId || 'Unknown';
+      // Notable conditions
+      if (e.entityType === 'person') {
+        // Will show if degree > 5 once we get more data; for now show all directors
+      } else if (e.entityType === 'address') {
+        // Show addresses (they're relatively rare)
+        setDiscoveries((prev) => [...prev.slice(-30), {
+          id: e.id, label, entityType: e.entityType, time: elapsed,
+          reason: `Address discovered: ${label.slice(0, 60)}`,
+          severity: 'green' as const,
+        }]);
+      }
+      // For companies: always add to feed (filtered later by the component showing last 8)
+      if (e.entityType === 'company') {
+        setDiscoveries((prev) => [...prev.slice(-30), {
+          id: e.id, label, entityType: e.entityType, time: elapsed,
+          reason: `Company found: ${label}`,
+          severity: 'green' as const,
+        }]);
+      }
+    });
     socket.on('resolution_progress', (p: any) => setResolution({ processed: p.processed, total: p.total, matches: p.matches }));
     socket.on('resolution_complete', () => setResolution(null));
     socket.on('scoring_step', (p: any) => setScoringStep({ step: p.step, detail: p.detail }));
@@ -144,7 +170,7 @@ export default function InvestigatePage() {
     <main className="min-h-screen">
       <NavBar />
       <div className="px-8 py-8 max-w-7xl mx-auto">
-        <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} investigationId={id} companyName={data.companyName || data.query} tier={data.tier} />
+        <ProgressView status={data.status} live={live} resolution={resolution} scoringStep={scoringStep} startedAt={data.createdAt} investigationId={id} companyName={data.companyName || data.query} tier={data.tier} discoveries={discoveries} />
       </div>
     </main>
   );
