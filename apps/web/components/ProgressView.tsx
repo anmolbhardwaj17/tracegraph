@@ -73,17 +73,17 @@ export function ProgressView({ status, live, resolution, scoringStep, startedAt,
   })();
   const currentStageLabel = STAGE_MAP[status] != null ? STAGES[STAGE_MAP[status]]?.label : status === 'COMPLETE' ? 'Complete' : 'Queued';
 
-  // Estimated time remaining
+  // Estimated time remaining — based on tier expected range, not linear extrapolation
   const estimate = (() => {
     if (overallPct >= 90) return 'Almost done...';
-    const tierRange = TIER_EST[tier || 'STANDARD'] || TIER_EST.STANDARD;
-    if (overallPct > 5) {
-      const totalEst = Math.round(elapsed / (overallPct / 100));
-      const remaining = Math.max(0, totalEst - elapsed);
-      if (remaining < 60) return 'Less than a minute';
-      return `~${Math.ceil(remaining / 60)} min remaining`;
-    }
-    return `~${Math.round(tierRange[0] / 60)}-${Math.round(tierRange[1] / 60)} min`;
+    if (overallPct >= 78) return 'Finishing up...';
+    const [lo, hi] = TIER_EST[tier || 'STANDARD'] || TIER_EST.STANDARD;
+    // Use midpoint of tier range minus elapsed
+    const mid = (lo + hi) / 2;
+    const remaining = Math.max(0, Math.round(mid - elapsed));
+    if (remaining < 30) return 'Less than a minute';
+    if (remaining < 90) return '~1 min remaining';
+    return `~${Math.ceil(remaining / 60)} min remaining`;
   })();
 
   return (
