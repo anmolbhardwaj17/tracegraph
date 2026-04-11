@@ -356,4 +356,161 @@ export class InvestigationService {
       sharedAddressesCount: sharedAddresses.length,
     };
   }
+
+  // ========== SPLIT ENDPOINTS ==========
+
+  /** Lightweight meta - used by the shared layout */
+  async getMeta(id: string): Promise<any> {
+    const inv = await this.investigations.findOne({ where: { id } });
+    if (!inv) return null;
+    const nodeCount = await this.nodes.count({ where: { investigationId: id } });
+    const edgeCount = await this.edges.count({ where: { investigationId: id } });
+    return {
+      id: inv.id, query: inv.query, status: inv.status, tier: inv.tier,
+      companyName: inv.metadata?.companyName,
+      rootCompanyNumber: inv.metadata?.companyNumber,
+      createdAt: inv.createdAt, completedAt: inv.completedAt,
+      riskScore: inv.progress?.riskScore,
+      counts: { entities: nodeCount, edges: edgeCount },
+    };
+  }
+
+  /** Overview: score, breakdown, benchmarks */
+  async getOverview(id: string): Promise<any> {
+    const inv = await this.investigations.findOne({ where: { id } });
+    if (!inv) return null;
+    return {
+      riskScore: inv.progress?.riskScore,
+      riskClassification: inv.progress?.riskClassification,
+      scoreBreakdown: inv.progress?.scoreBreakdown,
+      findings: inv.progress?.findings || [],
+      uboChains: inv.progress?.uboChains || [],
+      benchmarks: await this.getBenchmarks(),
+      percentile: inv.progress?.riskScore != null ? await this.getPercentile(inv.progress.riskScore) : null,
+      counts: {
+        companies: await this.nodes.count({ where: { investigationId: id, entityType: 'company' } }),
+        people: await this.nodes.count({ where: { investigationId: id, entityType: 'person' } }),
+        addresses: await this.nodes.count({ where: { investigationId: id, entityType: 'address' } }),
+      },
+    };
+  }
+
+  /** Findings only */
+  async getFindings(id: string): Promise<any> {
+    const inv = await this.investigations.findOne({ where: { id } });
+    if (!inv) return { findings: [] };
+    const nodes = await this.nodes.find({ where: { investigationId: id } });
+    const grouped: Record<string, any[]> = { company: [], person: [], address: [] };
+    for (const n of nodes) (grouped[n.entityType] ||= []).push({ id: n.id, entityId: n.entityId, label: n.label });
+    return { findings: inv.progress?.findings || [], entities: grouped };
+  }
+
+  /** Entities - paginated by type */
+  async getEntities(id: string, type?: string, page = 1, limit = 50): Promise<any> {
+    const where: any = { investigationId: id };
+    if (type && ['company', 'person', 'address'].includes(type)) where.entityType = type;
+
+    const [items, total] = await this.nodes.findAndCount({
+      where, skip: (page - 1) * limit, take: limit,
+    });
+
+    const edges = await this.edges.find({ where: { investigationId: id } });
+    const degree = new Map<string, number>();
+    for (const e of edges) {
+      degree.set(e.sourceNodeId, (degree.get(e.sourceNodeId) || 0) + 1);
+      degree.set(e.targetNodeId, (degree.get(e.targetNodeId) || 0) + 1);
+    }
+
+    const matches = await this.matchesRepo.find({ where: { investigationId: id } });
+    const matchedEntityIds = new Set(matches.map((m) => m.sourceEntityId));
+
+    return {
+      items: items.map((n) => ({
+        id: n.id, entityId: n.entityId, label: n.label, entityType: n.entityType,
+        metadata: n.metadata, proximityScore: n.proximityScore,
+        degree: degree.get(n.id) || 0,
+        matches: matchedEntityIds.has(n.entityId) ? matches.filter((m) => m.sourceEntityId === n.entityId) : [],
+      })),
+      total, page, limit,
+    };
+  }
+
+  /** Matches only */
+  async getMatches(id: string): Promise<any> {
+    const matches = await this.matchesRepo.find({
+      where: { investigationId: id }, order: { confidenceScore: 'DESC' },
+    });
+    return {
+      matches: matches.map((m) => ({
+        id: m.id, sourceEntityType: m.sourceEntityType, sourceEntityId: m.sourceEntityId,
+        source: m.matchedSource, matchedEntityId: m.matchedEntityId,
+        confidence: m.confidenceScore, reasons: m.matchReasons,
+      })),
+    };
+  }
+
+  /** UBO chains */
+  async getUbo(id: string): Promise<any> {
+    const inv = await this.investigations.findOne({ where: { id } });
+    return { chains: inv?.progress?.uboChains || [] };
+  }
+
+  /** Locations (addresses + relevant edges) */
+  async getLocations(id: string): Promise<any> {
+    const addresses = await this.nodes.find({ where: { investigationId: id, entityType: 'address' } });
+    const edges = await this.edges.find({ where: { investigationId: id } });
+    const companies = await this.nodes.find({ where: { investigationId: id, entityType: 'company' } });
+    return {
+      addresses: addresses.map((n) => ({
+        id: n.id, entityId: n.entityId, label: n.label, metadata: n.metadata, proximityScore: n.proximityScore,
+      })),
+      edges: edges.filter((e) => e.relationshipType === 'address').map((e) => ({
+        id: e.id, source: e.sourceNodeId, target: e.targetNodeId, type: e.relationshipType,
+      })),
+      companies: { company: companies.map((c) => ({ id: c.id, entityId: c.entityId, label: c.label })) },
+    };
+  }
+
+  /** Timeline events - paginated */
+  async getTimeline(id: string, page = 1, limit = 100): Promise<any> {
+    const inv = await this.investigations.findOne({ where: { id } });
+    if (!inv) return { events: [], total: 0 };
+
+    const nodes = await this.nodes.find({ where: { investigationId: id } });
+    const edges = await this.edges.find({ where: { investigationId: id } });
+    const events: any[] = [];
+
+    // Company events
+    for (const n of nodes) {
+      if (n.entityType !== 'company') continue;
+      if (n.metadata?.incorporationDate) events.push({ date: n.metadata.incorporationDate, type: 'incorporation', title: `${n.label} incorporated`, severity: 'info' });
+      if (n.metadata?.dissolutionDate) events.push({ date: n.metadata.dissolutionDate, type: 'dissolution', title: `${n.label} dissolved`, severity: 'warning' });
+    }
+
+    // Director events
+    for (const e of edges) {
+      if (e.relationshipType !== 'director' && e.relationshipType !== 'appointment') continue;
+      const person = nodes.find((n) => n.id === e.sourceNodeId && n.entityType === 'person') || nodes.find((n) => n.id === e.targetNodeId && n.entityType === 'person');
+      const company = nodes.find((n) => n.id === e.sourceNodeId && n.entityType === 'company') || nodes.find((n) => n.id === e.targetNodeId && n.entityType === 'company');
+      if (e.metadata?.appointedOn) events.push({ date: e.metadata.appointedOn, type: 'appointment', title: `${person?.label || 'Director'} appointed`, detail: company?.label, severity: 'info' });
+      if (e.metadata?.resignedOn) events.push({ date: e.metadata.resignedOn, type: 'resignation', title: `${person?.label || 'Director'} resigned`, detail: company?.label, severity: 'info' });
+    }
+
+    // Findings as events
+    for (const f of inv.progress?.findings || []) {
+      events.push({ date: '', type: 'anomaly', title: f.title, detail: f.type, severity: f.severity === 'CRITICAL' ? 'critical' : f.severity === 'HIGH' ? 'warning' : 'info' });
+    }
+
+    events.sort((a, b) => {
+      const ta = a.date ? new Date(a.date).getTime() : 0;
+      const tb = b.date ? new Date(b.date).getTime() : 0;
+      if (ta && tb) return ta - tb;
+      if (ta) return -1;
+      return 1;
+    });
+
+    const total = events.length;
+    const paginated = events.slice((page - 1) * limit, page * limit);
+    return { events: paginated, total, page, limit };
+  }
 }

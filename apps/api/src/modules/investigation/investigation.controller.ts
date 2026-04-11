@@ -57,9 +57,49 @@ export class InvestigationController {
     return this.service.findOne(id);
   }
 
+  @Get(':id/meta')
+  async meta(@Param('id') id: string) {
+    return this.service.getMeta(id);
+  }
+
+  @Get(':id/overview')
+  async overview(@Param('id') id: string) {
+    return this.service.getOverview(id);
+  }
+
   @Get(':id/graph')
   async graph(@Param('id') id: string) {
     return this.service.graphFor(id);
+  }
+
+  @Get(':id/findings')
+  async findings(@Param('id') id: string) {
+    return this.service.getFindings(id);
+  }
+
+  @Get(':id/entities')
+  async entities(@Param('id') id: string, @Query('type') type?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.service.getEntities(id, type, parseInt(page || '1', 10), Math.min(parseInt(limit || '50', 10), 200));
+  }
+
+  @Get(':id/matches')
+  async matches(@Param('id') id: string) {
+    return this.service.getMatches(id);
+  }
+
+  @Get(':id/ubo')
+  async ubo(@Param('id') id: string) {
+    return this.service.getUbo(id);
+  }
+
+  @Get(':id/locations')
+  async locations(@Param('id') id: string) {
+    return this.service.getLocations(id);
+  }
+
+  @Get(':id/timeline')
+  async timeline(@Param('id') id: string, @Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.service.getTimeline(id, parseInt(page || '1', 10), Math.min(parseInt(limit || '100', 10), 500));
   }
 
   @Post(':id/export')
