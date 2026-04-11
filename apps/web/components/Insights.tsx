@@ -43,7 +43,7 @@ export function Insights({
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">{TOPIC_LABELS[topic]}</div>
         <div className="text-[10px] font-mono text-ink-500">AI ANALYSIS</div>
       </div>
