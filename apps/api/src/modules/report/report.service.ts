@@ -281,7 +281,10 @@ export class ReportService {
       } else {
         doc.fontSize(10).fillColor(C.text).text(`${targetFindings.length} finding${targetFindings.length > 1 ? 's' : ''} directly affecting the target company:`);
         doc.moveDown(0.5);
-        this.renderFindings(doc, targetFindings);
+        this.renderFindings(doc, targetFindings.slice(0, 15));
+        if (targetFindings.length > 15) {
+          doc.fontSize(8).fillColor(C.muted).text(`  + ${targetFindings.length - 15} more findings (see full report online)`);
+        }
       }
       doc.moveDown(1.5);
 
@@ -424,31 +427,39 @@ export class ReportService {
   }
 
   private renderFindings(doc: any, findings: any[]) {
-    for (const f of findings) {
-      this.checkPageBreak(doc, 60);
-      // Severity + title
-      doc.fontSize(8).fillColor(sevColor(f.severity)).text(f.severity, { continued: true });
+    for (let fi = 0; fi < findings.length; fi++) {
+      const f = findings[fi];
+      this.checkPageBreak(doc, 80);
+
+      // Severity badge + title on one line
+      const sColor = sevColor(f.severity);
+      doc.fontSize(8).fillColor(sColor).text(f.severity, { continued: true });
       doc.fontSize(10).fillColor(C.dark).text(`  ${f.title}`);
-      // Description
-      doc.fontSize(9).fillColor(C.text).text(f.description, { lineGap: 1 });
-      // Business impact
+      doc.moveDown(0.3);
+
+      // Description — truncate to 2 lines max
+      const desc = (f.description || '').slice(0, 200) + (f.description?.length > 200 ? '...' : '');
+      doc.fontSize(9).fillColor(C.text).text(desc, { lineGap: 2 });
+      doc.moveDown(0.3);
+
+      // Business impact (condensed)
       if (f.businessImpact) {
-        doc.fontSize(8).fillColor(C.gray).text(`Business impact: ${f.businessImpact}`);
+        const impact = f.businessImpact.slice(0, 150) + (f.businessImpact.length > 150 ? '...' : '');
+        doc.fontSize(8).fillColor(C.gray).text(`Impact: ${impact}`);
       }
-      // Verification steps
-      if (f.verificationSteps?.length > 0) {
-        doc.fontSize(8).fillColor(C.gray).text('Verify:');
-        for (const s of f.verificationSteps.slice(0, 3)) {
-          doc.fontSize(8).fillColor(C.gray).text(`  ${s}`);
-        }
-      }
-      // Verification links
+
+      // Verification links inline
       if (f.verificationLinks?.length > 0) {
-        for (const link of f.verificationLinks) {
-          doc.fontSize(8).fillColor(C.blue).text(link.label, { link: link.url, underline: true });
-        }
+        const linkTexts = f.verificationLinks.map((l: any) => l.label).join('  |  ');
+        doc.fontSize(8).fillColor(C.blue).text(linkTexts);
       }
-      doc.moveDown(0.6);
+
+      // Divider between findings
+      doc.moveDown(0.5);
+      if (fi < findings.length - 1) {
+        doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor('#F1F5F9').stroke();
+        doc.moveDown(0.5);
+      }
     }
   }
 
@@ -465,8 +476,10 @@ export class ReportService {
   }
 
   private fieldRow(doc: any, label: string, value: string) {
-    doc.fontSize(9).fillColor(C.gray).text(`${label}:  `, { continued: true });
-    doc.fontSize(9).fillColor(C.dark).text(value);
+    const y = doc.y;
+    doc.fontSize(9).fillColor(C.gray).text(label, 60, y, { width: 150 });
+    doc.fontSize(9).fillColor(C.dark).text(value, 210, y, { width: 325 });
+    doc.y = Math.max(doc.y, y + 14);
   }
 
   private statRow(doc: any, stats: Array<{ label: string; value: string }>) {
@@ -474,10 +487,10 @@ export class ReportService {
     const y = doc.y;
     for (let i = 0; i < stats.length; i++) {
       const x = 60 + i * colW;
-      doc.fontSize(18).fillColor(C.dark).text(stats[i].value, x, y, { width: colW });
-      doc.fontSize(7).fillColor(C.muted).text(stats[i].label, x, y + 22, { width: colW, characterSpacing: 0.5 });
+      doc.fontSize(14).fillColor(C.dark).text(stats[i].value, x, y, { width: colW });
+      doc.fontSize(7).fillColor(C.muted).text(stats[i].label, x, y + 18, { width: colW, characterSpacing: 0.5 });
     }
-    doc.y = y + 40;
+    doc.y = y + 34;
   }
 
   private checkPageBreak(doc: any, needed: number) {
