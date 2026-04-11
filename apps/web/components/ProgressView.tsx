@@ -290,17 +290,6 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
       const now = performance.now();
       ctx.clearRect(0, 0, W, H);
 
-      // Shadow ellipse behind sonar — dark blurred silhouette offset below
-      ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.6)';
-      ctx.shadowBlur = 40;
-      ctx.shadowOffsetY = 25;
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, maxR * 0.85, maxR * 0.85 * 0.62, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
       // Background grid
       ctx.strokeStyle = 'rgba(255,255,255,0.04)';
       ctx.lineWidth = 1;
