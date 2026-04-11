@@ -238,16 +238,24 @@ export function FindingsTab({ findings, entities, relations, targetNodeId, targe
   }
 
   return (
-    <div className="space-y-6">
-      {/* Severity strip - split by section */}
-      <section>
-        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">
-          / Risk distribution · {findings.length} total findings
+    <div className="space-y-5">
+      {/* Compact risk summary + severity strip */}
+      <section className="border border-white/5 bg-ink-850 p-5">
+        <div className="flex items-start justify-between gap-6 mb-4">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-2">/ Risk distribution</div>
+            <div className="text-sm text-ink-300">
+              <span className="text-ink-50 font-medium">{targetFindings.length}</span> about {targetName},{' '}
+              <span className="text-ink-50 font-medium">{directorFindings.length}</span> about directors,{' '}
+              <span className="text-ink-50 font-medium">{networkFindings.length.toLocaleString()}</span> in wider network
+            </div>
+          </div>
+          <div className="text-[10px] font-mono text-ink-500 tabular-nums shrink-0">{findings.length} total</div>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <MiniSevBar label={targetName} counts={targetCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
-          <MiniSevBar label="Directors & PSCs" counts={directorCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
-          <MiniSevBar label="Wider network" counts={networkCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
+          <MiniSevBar label="Directors" counts={directorCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
+          <MiniSevBar label="Network" counts={networkCounts} active={sevFilter} onToggle={(s) => setSevFilter(toggle(sevFilter, s))} />
         </div>
       </section>
 
@@ -416,8 +424,8 @@ function MiniSevBar({ label, counts, active, onToggle }: {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="w-28 text-[10px] font-mono text-ink-500 truncate">{label}</div>
-      <div className="flex-1 h-1.5 flex rounded-sm overflow-hidden bg-white/5">
+      <div className="w-24 text-[10px] font-mono text-ink-500 truncate">{label}</div>
+      <div className="w-48 h-1.5 flex rounded-sm overflow-hidden bg-white/5 shrink-0">
         {counts.CRITICAL > 0 && (
           <button onClick={() => onToggle('CRITICAL')} className={`bg-signal-critical transition-opacity ${isDimmed('CRITICAL') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.CRITICAL)}%` }} />
         )}
@@ -431,7 +439,7 @@ function MiniSevBar({ label, counts, active, onToggle }: {
           <button onClick={() => onToggle('LOW')} className={`bg-ink-700 transition-opacity ${isDimmed('LOW') ? 'opacity-25' : ''}`} style={{ width: `${pct(counts.LOW)}%` }} />
         )}
       </div>
-      <div className="w-8 text-right text-[10px] font-mono text-ink-500 tabular-nums">{total}</div>
+      <div className="text-[10px] font-mono text-ink-600 tabular-nums">{total}</div>
     </div>
   );
 }
