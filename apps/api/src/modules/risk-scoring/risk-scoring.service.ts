@@ -20,6 +20,7 @@ import { CrossDirectorshipService } from '../anomaly/cross-directorship.service'
 import { OwnershipOpacityService } from '../anomaly/ownership-opacity.service';
 import { DirectorVelocityService } from '../anomaly/director-velocity.service';
 import { FinancialDistressService } from '../anomaly/financial-distress.service';
+import { CrossInvestigationService } from '../anomaly/cross-investigation.service';
 import { Finding, SEVERITY_ORDER, classifyOverall } from './finding.types';
 
 @Injectable()
@@ -46,6 +47,7 @@ export class RiskScoringService {
     private readonly ownershipOpacity: OwnershipOpacityService,
     private readonly directorVelocity: DirectorVelocityService,
     private readonly financialDistress: FinancialDistressService,
+    private readonly crossInvestigation: CrossInvestigationService,
   ) {}
 
   async run(
@@ -91,6 +93,9 @@ export class RiskScoringService {
 
     emit('Financial distress analysis', 'Checking company accounts for distress signals');
     await this.financialDistress.analyze(investigationId);
+
+    emit('Cross-investigation analysis', 'Checking for entities seen in other investigations');
+    const crossHits = await this.crossInvestigation.detect(investigationId);
     const cycles = await this.ownershipCycle.detect(investigationId);
     const { communities, bridges } = await this.community.detect(investigationId);
     const temporal = await this.temporal.detect(investigationId);
@@ -523,6 +528,21 @@ export class RiskScoringService {
         ],
         affectedEntities: [g.companyId],
         recommendation: 'Identify what triggered the reactivation; check for change of beneficial owner or new commercial activity.',
+      });
+    }
+
+    // ---- CROSS-INVESTIGATION ----
+    for (const hit of crossHits) {
+      const invNames = hit.otherInvestigations.map((o) => `${o.companyName} (score ${o.riskScore})`).join(', ');
+      findings.push({
+        type: 'CROSS_INVESTIGATION',
+        severity: hit.otherInvestigations.some((o) => o.riskScore >= 60) ? 'HIGH' : 'MEDIUM',
+        confidence: 'HIGH',
+        title: `${hit.entityLabel} appears in ${hit.otherInvestigations.length} other investigation(s)`,
+        description: `${hit.entityLabel} (${hit.entityType}) was also found in: ${invNames}. Repeat appearances across investigations indicate a person or company operating in multiple risk networks.`,
+        evidence: hit.otherInvestigations.map((o) => `${o.companyName} - risk score ${o.riskScore}`),
+        affectedEntities: [hit.entityId],
+        recommendation: 'Cross-reference findings from related investigations. Repeat entities are disproportionately likely to be coordinators or enablers.',
       });
     }
 

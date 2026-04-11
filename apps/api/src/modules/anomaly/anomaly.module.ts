@@ -17,10 +17,12 @@ import { CrossDirectorshipService } from './cross-directorship.service';
 import { OwnershipOpacityService } from './ownership-opacity.service';
 import { DirectorVelocityService } from './director-velocity.service';
 import { FinancialDistressService } from './financial-distress.service';
+import { CrossInvestigationService } from './cross-investigation.service';
+import { Investigation } from '../investigation/entities/investigation.entity';
 import { CompaniesHouseModule } from '../companies-house/companies-house.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([GraphNode, GraphEdge]), CompaniesHouseModule],
+  imports: [TypeOrmModule.forFeature([GraphNode, GraphEdge, Investigation]), CompaniesHouseModule],
   providers: [
     AnomalyDetectionService,
     AddressAnalysisService,
@@ -37,6 +39,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
     OwnershipOpacityService,
     DirectorVelocityService,
     FinancialDistressService,
+    CrossInvestigationService,
   ],
   exports: [
     AnomalyDetectionService,
@@ -54,6 +57,7 @@ import { CompaniesHouseModule } from '../companies-house/companies-house.module'
     OwnershipOpacityService,
     DirectorVelocityService,
     FinancialDistressService,
+    CrossInvestigationService,
   ],
 })
 export class AnomalyModule {}
