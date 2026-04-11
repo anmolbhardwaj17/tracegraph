@@ -361,6 +361,36 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
       .attr('fill', (d) => isCenter(d) ? ROOT_COLOR : mode === 'suspicious' && isRisky(d) ? RISK_RED : TYPE_COLOR[d.entityType] || '#94A3B8')
       .attr('stroke', (d) => isCenter(d) ? '#FFF' : 'rgba(0,0,0,0.3)').attr('stroke-width', (d) => isCenter(d) ? 2 : 0.5);
 
+    // Node images — only for small views (< 30 nodes)
+    if (simNodes.length <= 30) {
+      // Clip path for circular images
+      const clipId = `clip-${Date.now()}`;
+      simNodes.forEach((n, i) => {
+        const r = isCenter(n) ? 16 : Math.max(4, Math.min(10, 3 + Math.sqrt(n.degree || 1) * 1.2));
+        defs.append('clipPath').attr('id', `${clipId}-${i}`)
+          .append('circle').attr('r', r).attr('cx', 0).attr('cy', 0);
+      });
+
+      nodeGroup.each(function(d, i) {
+        const r = isCenter(d) ? 16 : Math.max(4, Math.min(10, 3 + Math.sqrt(d.degree || 1) * 1.2));
+        let imgUrl = '';
+        if (d.entityType === 'company') {
+          const cleaned = d.label.toLowerCase().replace(/[()[\].,&'"`]/g, '').replace(/\b(plc|ltd|limited|llp|holdings|group|company|co|inc|corp|the)\b/g, '').replace(/\s+/g, '').trim();
+          if (cleaned) imgUrl = `https://www.google.com/s2/favicons?domain=${cleaned}.com&sz=64`;
+        } else if (d.entityType === 'person') {
+          imgUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(d.label)}&backgroundColor=171717&textColor=f5f5f5&fontWeight=600&fontSize=40`;
+        }
+        if (imgUrl) {
+          d3.select(this).append('image')
+            .attr('href', imgUrl)
+            .attr('x', -r).attr('y', -r).attr('width', r * 2).attr('height', r * 2)
+            .attr('clip-path', `url(#${clipId}-${i})`)
+            .attr('preserveAspectRatio', 'xMidYMid slice')
+            .on('error', function() { d3.select(this).remove(); });
+        }
+      });
+    }
+
     // Labels - always show for small views
     const showLabel = simNodes.length <= 40;
     nodeGroup.filter((d) => showLabel || isCenter(d) || (d.degree || 0) >= 5).append('text')
