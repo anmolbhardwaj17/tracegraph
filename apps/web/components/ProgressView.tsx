@@ -343,18 +343,25 @@ function MiniGraph({ entities, edges }: { entities: number; edges: number }) {
         liveBlips.push(b);
 
         const r = b.radiusN * maxR;
-        const x = cx + Math.cos(b.angle) * r;
-        const y = cy + Math.sin(b.angle) * r * 0.62;
+        const baseX = cx + Math.cos(b.angle) * r;
+        const baseY = cy + Math.sin(b.angle) * r * 0.62;
 
         let highlight = 0;
+        let waveOffset = 0;
         for (const p of livePulses) {
           const t = (now - p.startedAt) / PULSE_DURATION;
           const pulseR = t * maxR;
           const distFromPulse = Math.abs(pulseR - r);
-          if (distFromPulse < 12) {
-            highlight = Math.max(highlight, (1 - distFromPulse / 12) * (1 - t));
+          if (distFromPulse < 18) {
+            const proximity = 1 - distFromPulse / 18;
+            highlight = Math.max(highlight, proximity * (1 - t));
+            // Wave: lift the blip upward as the pulse passes, smooth sine curve
+            waveOffset = Math.max(waveOffset, Math.sin(proximity * Math.PI) * 5 * (1 - t));
           }
         }
+
+        const x = baseX;
+        const y = baseY - waveOffset;
 
         const baseAlpha = Math.min(1, alpha * 0.85);
         if (highlight > 0.15) {
