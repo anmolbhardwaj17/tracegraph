@@ -124,15 +124,16 @@ const logoLocalCache = new Map<string, string | null>();
 
 async function fetchLogoUrl(name: string): Promise<string | null> {
   const key = name.trim().toLowerCase();
-  if (logoLocalCache.has(key)) return logoLocalCache.get(key)!;
+  // Only return from cache if we have a real URL (not null)
+  const cached = logoLocalCache.get(key);
+  if (cached) return cached;
 
-  // Check localStorage
+  // Check localStorage — only use if it's a real URL
   try {
     const stored = localStorage.getItem(`logo:${key}`);
-    if (stored !== null) {
-      const parsed = stored === 'null' ? null : stored;
-      logoLocalCache.set(key, parsed);
-      return parsed;
+    if (stored && stored !== 'null') {
+      logoLocalCache.set(key, stored);
+      return stored;
     }
   } catch {}
 
@@ -142,8 +143,10 @@ async function fetchLogoUrl(name: string): Promise<string | null> {
     if (!res.ok) return null;
     const data = await res.json();
     const url = data.url || null;
-    logoLocalCache.set(key, url);
-    try { localStorage.setItem(`logo:${key}`, url || 'null'); } catch {}
+    if (url) {
+      logoLocalCache.set(key, url);
+      try { localStorage.setItem(`logo:${key}`, url); } catch {}
+    }
     return url;
   } catch {
     return null;
