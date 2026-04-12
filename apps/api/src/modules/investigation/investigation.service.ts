@@ -19,11 +19,11 @@ export class InvestigationService {
     @InjectQueue(INVESTIGATION_QUEUE) private readonly queue: Queue<InvestigationJobData>,
   ) {}
 
-  async create(query: string, tier: 'QUICK' | 'STANDARD' | 'DEEP' = 'STANDARD'): Promise<Investigation> {
+  async create(query: string, tier: 'QUICK' | 'STANDARD' | 'DEEP' = 'STANDARD', jurisdiction = 'gb'): Promise<Investigation> {
     const inv = await this.investigations.save(
-      this.investigations.create({ query, status: 'QUEUED', tier }),
+      this.investigations.create({ query, status: 'QUEUED', tier, metadata: { jurisdiction } as any }),
     );
-    await this.queue.add('expand', { investigationId: inv.id, query, tier } as any, {
+    await this.queue.add('expand', { investigationId: inv.id, query, tier, jurisdiction } as any, {
       removeOnComplete: 100,
       removeOnFail: 100,
     });
@@ -459,6 +459,8 @@ export class InvestigationService {
       id: inv.id, query: inv.query, status: inv.status, tier: inv.tier,
       companyName: inv.metadata?.companyName,
       rootCompanyNumber: inv.metadata?.companyNumber,
+      jurisdiction: inv.metadata?.jurisdiction || 'gb',
+      dataDepth: (inv.metadata?.jurisdiction || 'gb') === 'gb' ? 'full' : 'basic',
       createdAt: inv.createdAt, completedAt: inv.completedAt,
       riskScore: inv.progress?.riskScore,
       counts: { entities: nodeCount, edges: edgeCount },

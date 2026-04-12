@@ -125,7 +125,7 @@ export default function Home() {
       const res = await fetch(`${API}/api/investigations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, tier }),
+        body: JSON.stringify({ query: q, tier, jurisdiction }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

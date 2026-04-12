@@ -19,6 +19,7 @@ export interface InvestigationJobData {
   investigationId: string;
   query: string;
   tier?: 'QUICK' | 'STANDARD' | 'DEEP';
+  jurisdiction?: string;
 }
 
 const TIER_OPTIONS: Record<string, { maxCompanyDepth: number; softNodeCap: number; skipDepth2Filtering: boolean; runResolution: boolean; runScoring: boolean }> = {

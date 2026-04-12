@@ -8,4 +8,8 @@ export class CreateInvestigationDto {
   @IsOptional()
   @IsIn(['QUICK', 'STANDARD', 'DEEP'])
   tier?: 'QUICK' | 'STANDARD' | 'DEEP';
+
+  @IsOptional()
+  @IsString()
+  jurisdiction?: string;
 }

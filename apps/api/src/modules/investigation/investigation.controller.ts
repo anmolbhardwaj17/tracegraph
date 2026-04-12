@@ -12,7 +12,7 @@ export class InvestigationController {
 
   @Post()
   async create(@Body() dto: CreateInvestigationDto) {
-    const inv = await this.service.create(dto.query, dto.tier || 'STANDARD');
+    const inv = await this.service.create(dto.query, dto.tier || 'STANDARD', dto.jurisdiction || 'gb');
     return { id: inv.id, status: inv.status, tier: inv.tier };
   }
 
