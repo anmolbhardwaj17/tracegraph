@@ -22,12 +22,30 @@ export class LogosService {
     return name.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
+  private static readonly KNOWN: Record<string, string> = {
+    'gymshark ltd': 'gymshark.com', 'tesco plc': 'tesco.com',
+    'greensill capital (uk) limited': 'greensill.com', 'harrods limited': 'harrods.com',
+    'burberry limited': 'burberry.com', 'jaguar land rover limited': 'jaguarlandrover.com',
+    'aston martin lagonda limited': 'astonmartin.com', 'rolls-royce plc': 'rolls-royce.com',
+    'british broadcasting corporation': 'bbc.co.uk', 'boohoo.com uk limited': 'boohoo.com',
+    'dyson uk holdings limited': 'dyson.com', 'barclays plc': 'barclays.com',
+    'hsbc holdings plc': 'hsbc.com', 'unilever plc': 'unilever.com',
+    'bp plc': 'bp.com', 'shell plc': 'shell.com', 'vodafone group plc': 'vodafone.com',
+    'arm limited': 'arm.com', 'revolut ltd': 'revolut.com', 'deliveroo plc': 'deliveroo.com',
+    'monzo bank limited': 'monzo.com', 'sports direct international plc': 'sportsdirect.com',
+    'next plc': 'next.co.uk', 'marks and spencer group plc': 'marksandspencer.com',
+  };
+
   /** Best-effort domain guess from a company name. */
   private candidateDomains(name: string): string[] {
+    // Check known domains first
+    const known = LogosService.KNOWN[name.toLowerCase().trim()];
+    if (known) return [known];
+
     const cleaned = name
       .toLowerCase()
       .replace(/[\(\)\[\].,&'"`]/g, '')
-      .replace(/\b(plc|ltd|limited|llp|holdings|group|company|co|inc|corp|corporation|the)\b/g, '')
+      .replace(/\b(plc|ltd|limited|llp|holdings|group|company|co|inc|corp|corporation|the|uk)\b/g, '')
       .replace(/\s+/g, ' ')
       .trim();
     const noSpaces = cleaned.replace(/\s+/g, '');
@@ -71,6 +89,20 @@ export class LogosService {
       if (await this.urlReturnsImage(ddg)) {
         working = { url: ddg, source: 'duckduckgo' };
         break;
+      }
+    }
+
+    // Try Logo.dev if token available (higher quality)
+    if (!working) {
+      const logoDevToken = process.env.LOGO_DEV_TOKEN;
+      if (logoDevToken) {
+        for (const domain of domains) {
+          const logoDevUrl = `https://img.logo.dev/${domain}?token=${logoDevToken}&size=128&format=png`;
+          if (await this.urlReturnsImage(logoDevUrl)) {
+            working = { url: logoDevUrl, source: 'logodev' };
+            break;
+          }
+        }
       }
     }
 

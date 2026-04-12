@@ -119,46 +119,95 @@ export function Avatar({ name, type = 'person', size = 40 }: Props) {
   );
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const logoLocalCache = new Map<string, string | null>();
+
+async function fetchLogoUrl(name: string): Promise<string | null> {
+  const key = name.trim().toLowerCase();
+  if (logoLocalCache.has(key)) return logoLocalCache.get(key)!;
+
+  // Check localStorage
+  try {
+    const stored = localStorage.getItem(`logo:${key}`);
+    if (stored !== null) {
+      const parsed = stored === 'null' ? null : stored;
+      logoLocalCache.set(key, parsed);
+      return parsed;
+    }
+  } catch {}
+
+  // Fetch from backend
+  try {
+    const res = await fetch(`${API_URL}/companies/logo?name=${encodeURIComponent(name)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const url = data.url || null;
+    logoLocalCache.set(key, url);
+    try { localStorage.setItem(`logo:${key}`, url || 'null'); } catch {}
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Company logo with multi-source fallback chain:
- *   1. DuckDuckGo icon service (high quality, no key)  for each candidate domain
- *   2. Google s2 favicons (lower quality, no key)
- *   3. Gradient initial tile
+ * Company logo with backend-resolved URL + initials fallback.
+ * Backend checks DuckDuckGo, Logo.dev, Google Favicon with DB caching.
  */
 function CompanyLogo({ name, initials, size }: { name: string; initials: string; size: number }) {
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchLogoUrl(name).then((url) => {
+      if (!cancelled) setLogoUrl(url);
+    });
+    return () => { cancelled = true; };
+  }, [name]);
+
+  // Also try client-side domain guessing as immediate attempt
   const domains = companyDomains(name);
-  // Build a flat list of candidate URLs across providers
-  const candidates: string[] = [];
-  for (const d of domains) candidates.push(`https://icons.duckduckgo.com/ip3/${d}.ico`);
-  for (const d of domains) candidates.push(`https://www.google.com/s2/favicons?domain=${d}&sz=128`);
+  const clientUrl = domains.length > 0 ? `https://icons.duckduckgo.com/ip3/${domains[0]}.ico` : null;
+  const [clientFailed, setClientFailed] = useState(false);
 
-  const [idx, setIdx] = useState(0);
-  const [failed, setFailed] = useState(false);
+  const showUrl = logoUrl || (clientFailed ? null : clientUrl);
 
-  if (failed || candidates.length === 0) {
+  if (!showUrl) {
     return (
       <div
         className="rounded-md bg-gradient-to-br from-ink-800 to-ink-700 ring-1 ring-white/5 flex items-center justify-center text-ink-100 font-mono text-[10px] tracking-tight shrink-0"
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, fontSize: Math.max(8, size * 0.25) }}
       >
-        {initials || '◇'}
+        {initials || '?'}
       </div>
     );
   }
 
   return (
-    <img
-      src={candidates[idx]}
-      alt={name}
-      width={size}
-      height={size}
-      loading="lazy"
-      onError={() => {
-        if (idx + 1 < candidates.length) setIdx(idx + 1);
-        else setFailed(true);
-      }}
-      className="rounded-md ring-1 ring-white/10 bg-white shrink-0 object-contain p-1"
-      style={{ width: size, height: size }}
-    />
+    <>
+      {!loaded && (
+        <div
+          className="rounded-md bg-gradient-to-br from-ink-800 to-ink-700 ring-1 ring-white/5 flex items-center justify-center text-ink-100 font-mono text-[10px] tracking-tight shrink-0"
+          style={{ width: size, height: size, fontSize: Math.max(8, size * 0.25), position: loaded ? 'absolute' : 'relative' }}
+        >
+          {initials || '?'}
+        </div>
+      )}
+      <img
+        src={showUrl}
+        alt={name}
+        width={size}
+        height={size}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          if (showUrl === clientUrl) setClientFailed(true);
+          setLoaded(false);
+        }}
+        className={`rounded-md ring-1 ring-white/10 bg-white shrink-0 object-contain p-0.5 ${loaded ? '' : 'hidden'}`}
+        style={{ width: size, height: size }}
+      />
+    </>
   );
 }
