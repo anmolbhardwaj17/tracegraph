@@ -104,7 +104,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
               lng: data.result.lng,
               displayName: data.result.displayName,
               density: a.metadata?.companyCount || a.metadata?.addressAnalysis?.density || 1,
-              flag: a.metadata?.addressAnalysis?.flag,
+              flag: a.metadata?.addressAnalysis?.flag || a.metadata?.addressAnalysis?.classification,
               companies: addressToCompanies.get(a.id) || [],
             });
           }
@@ -135,7 +135,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
   // ----- Hot-spots: ranked list (flagged first, then by density) -----
   const hotSpots = useMemo(() => {
     const sevRank = (p: Geocoded) =>
-      p.flag === 'VIRTUAL_OFFICE' ? 3 : p.flag === 'HIGH_DENSITY' ? 2 : p.density >= 3 ? 1 : 0;
+      p.flag === 'VIRTUAL_OFFICE' || p.flag === 'FORMATION_AGENT' ? 3 : p.flag === 'HIGH_DENSITY' ? 2 : p.density >= 3 ? 1 : 0;
     return [...filteredPoints]
       .sort((a, b) => sevRank(b) - sevRank(a) || b.density - a.density)
       .slice(0, 12);
@@ -175,7 +175,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
         const isTarget = targetAddress && p.id === targetAddress.id;
         const radius = isTarget ? 18 : Math.max(8, Math.min(28, 6 + Math.sqrt(p.density) * 4));
         const color = isTarget ? '#FFFFFF' :
-          p.flag === 'VIRTUAL_OFFICE' ? '#FF4D4D' :
+          p.flag === 'VIRTUAL_OFFICE' || p.flag === 'FORMATION_AGENT' ? '#FF4D4D' :
           p.flag === 'HIGH_DENSITY' ? '#F5C518' :
           '#A0A0A0';
 
@@ -240,7 +240,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
   // ----- Stats with concentration insight -----
   const stats = useMemo(() => {
     const totalCompanies = points.reduce((s, p) => s + p.density, 0);
-    const virtualOffices = points.filter((p) => p.flag === 'VIRTUAL_OFFICE').length;
+    const virtualOffices = points.filter((p) => p.flag === 'VIRTUAL_OFFICE' || p.flag === 'FORMATION_AGENT').length;
     const highDensity = points.filter((p) => p.flag === 'HIGH_DENSITY').length;
     const sortedByDensity = [...points].sort((a, b) => b.density - a.density);
     const top3Companies = sortedByDensity.slice(0, 3).reduce((s, p) => s + p.density, 0);
@@ -359,7 +359,7 @@ export function LocationsMap({ addresses, edges = [], allEntities, targetCompany
               {hotSpots.map((p) => {
                 const active = selected?.id === p.id;
                 const dotColor =
-                  p.flag === 'VIRTUAL_OFFICE' ? '#FF4D4D' :
+                  p.flag === 'VIRTUAL_OFFICE' || p.flag === 'FORMATION_AGENT' ? '#FF4D4D' :
                   p.flag === 'HIGH_DENSITY' ? '#F5C518' :
                   '#737373';
                 return (
