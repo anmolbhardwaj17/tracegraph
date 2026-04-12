@@ -851,18 +851,52 @@ function FeatureVisual({ type }: { type: string }) {
     );
   }
   if (type === 'graph') {
-    const nodes = [[60, 45], [30, 25], [90, 25], [25, 65], [95, 65], [60, 15], [45, 55], [75, 55]];
-    const edges = [[0,1],[0,2],[0,6],[0,7],[1,5],[2,5],[1,3],[2,4],[6,3],[7,4]];
+    // Dense network - 25+ nodes in clusters
+    const nodes: [number, number, string, number][] = [
+      // [x, y, color, size] — center hub
+      [60, 40, '#F5C518', 5],
+      // Inner ring - directors (green)
+      [40, 22, '#5EE6A1', 3], [80, 22, '#5EE6A1', 3], [35, 50, '#5EE6A1', 3],
+      [85, 50, '#5EE6A1', 2.5], [50, 65, '#5EE6A1', 2.5], [70, 65, '#5EE6A1', 2.5],
+      // Outer ring - companies (yellow/gray)
+      [18, 12, '#F5C518', 2], [42, 8, '#F5C518', 2], [78, 8, '#F5C518', 2],
+      [102, 12, '#737373', 2], [12, 35, '#737373', 1.8], [108, 35, '#F5C518', 2],
+      [15, 60, '#737373', 1.8], [105, 60, '#737373', 1.8], [30, 75, '#737373', 1.5],
+      [90, 75, '#737373', 1.5], [60, 78, '#737373', 1.5],
+      // Distant nodes
+      [5, 20, '#FF4D4D', 1.5], [115, 20, '#737373', 1.3], [5, 70, '#737373', 1.3],
+      [115, 70, '#737373', 1.3], [50, 3, '#737373', 1.3], [70, 3, '#737373', 1.3],
+    ];
+    const edges: [number, number][] = [
+      [0,1],[0,2],[0,3],[0,4],[0,5],[0,6],
+      [1,7],[1,8],[1,11],[2,9],[2,10],[2,12],
+      [3,11],[3,13],[4,12],[4,14],[5,15],[5,17],[6,16],[6,17],
+      [7,18],[8,22],[9,23],[10,19],[13,20],[14,21],
+      [1,2],[3,5],[4,6],[7,8],[15,17],
+    ];
     return (
-      <svg viewBox="0 0 120 80" className="w-full h-full">
+      <svg viewBox="0 0 120 82" className="w-full h-full">
+        <style>{`
+          @keyframes edgePulse { 0%,100% { stroke-opacity: 0.1; } 50% { stroke-opacity: 0.3; } }
+          @keyframes nodeAppear { 0% { r: 0; opacity: 0; } 100% { r: var(--r); opacity: 1; } }
+          @keyframes haloGlow { 0%,100% { r: 7; opacity: 0.05; } 50% { r: 10; opacity: 0.12; } }
+        `}</style>
         {edges.map(([a, b], i) => (
-          <line key={i} x1={nodes[a][0]} y1={nodes[a][1]} x2={nodes[b][0]} y2={nodes[b][1]} stroke="rgba(94,230,161,0.2)" strokeWidth="0.8">
-            <animate attributeName="stroke-opacity" values="0.15;0.35;0.15" dur={`${3 + i * 0.2}s`} repeatCount="indefinite" />
-          </line>
+          <line key={i} x1={nodes[a][0]} y1={nodes[a][1]} x2={nodes[b][0]} y2={nodes[b][1]}
+            stroke={nodes[a][2] === '#FF4D4D' || nodes[b][2] === '#FF4D4D' ? 'rgba(255,77,77,0.2)' : 'rgba(94,230,161,0.12)'}
+            strokeWidth="0.6" style={{ animation: `edgePulse ${2.5 + (i % 5) * 0.4}s ease-in-out ${i * 0.1}s infinite` }} />
         ))}
-        {nodes.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={i === 0 ? 5 : 3} fill={i === 0 ? '#F5C518' : i < 3 ? '#5EE6A1' : '#737373'} opacity={i === 0 ? 1 : 0.7}>
-            <animate attributeName="r" values={i === 0 ? '5;6;5' : '3;3.5;3'} dur={`${3 + i * 0.4}s`} repeatCount="indefinite" />
+        {/* Center halo */}
+        <circle cx="60" cy="40" fill="rgba(245,197,24,0.06)" style={{ animation: 'haloGlow 3s ease-in-out infinite' }}>
+          <animate attributeName="r" values="7;11;7" dur="3s" repeatCount="indefinite" />
+        </circle>
+        {/* Risk halo on flagged node */}
+        <circle cx="5" cy="20" r="4" fill="none" stroke="rgba(255,77,77,0.3)" strokeWidth="0.6">
+          <animate attributeName="opacity" values="0.2;0.6;0.2" dur="1.5s" repeatCount="indefinite" />
+        </circle>
+        {nodes.map(([x, y, color, size], i) => (
+          <circle key={i} cx={x} cy={y} r={size} fill={color} opacity={i === 0 ? 1 : 0.7}>
+            <animate attributeName="r" values={`${size};${size * 1.15};${size}`} dur={`${2.5 + (i % 4) * 0.5}s`} repeatCount="indefinite" />
           </circle>
         ))}
       </svg>
@@ -872,23 +906,68 @@ function FeatureVisual({ type }: { type: string }) {
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
         <style>{`
-          @keyframes dashFlow { from { stroke-dashoffset: 10; } to { stroke-dashoffset: 0; } }
-          .chain-line { animation: dashFlow 1.5s linear infinite; }
-          @keyframes nodeGlow { 0%,100% { opacity: 0.15; } 50% { opacity: 0.3; } }
-          .chain-box { animation: nodeGlow 3s ease-in-out infinite; }
+          @keyframes dashDown { from { stroke-dashoffset: 10; } to { stroke-dashoffset: 0; } }
+          .own-line { animation: dashDown 1.2s linear infinite; }
+          @keyframes boxPulse { 0%,100% { stroke-opacity: 0.3; } 50% { stroke-opacity: 0.6; } }
+          .own-box { animation: boxPulse 3s ease-in-out infinite; }
+          @keyframes flagPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
         `}</style>
-        <line className="chain-line" x1="60" y1="15" x2="60" y2="35" stroke="rgba(245,197,24,0.4)" strokeWidth="1" strokeDasharray="3,2" />
-        <line className="chain-line" x1="60" y1="47" x2="60" y2="65" stroke="rgba(245,197,24,0.4)" strokeWidth="1" strokeDasharray="3,2" />
-        <line className="chain-line" x1="60" y1="77" x2="35" y2="85" stroke="rgba(245,197,24,0.4)" strokeWidth="1" strokeDasharray="3,2" />
-        <line className="chain-line" x1="60" y1="77" x2="85" y2="85" stroke="rgba(245,197,24,0.4)" strokeWidth="1" strokeDasharray="3,2" />
-        <circle cx="60" cy="12" r="4" fill="#5EE6A1">
-          <animate attributeName="r" values="4;5;4" dur="2s" repeatCount="indefinite" />
+        {/* Level 0: UBO - natural person */}
+        <circle cx="60" cy="7" r="4" fill="#5EE6A1">
+          <animate attributeName="r" values="4;5;4" dur="2.5s" repeatCount="indefinite" />
         </circle>
-        <text x="60" y="14" textAnchor="middle" fontSize="4" fill="#FFF" fontFamily="monospace">UBO</text>
-        <rect className="chain-box" x="48" y="35" width="24" height="12" rx="2" fill="rgba(245,197,24,0.15)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.6" />
-        <rect className="chain-box" x="48" y="65" width="24" height="12" rx="2" fill="rgba(245,197,24,0.15)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.6" style={{animationDelay: '1s'}} />
-        <text x="60" y="42" textAnchor="middle" fontSize="4" fill="#F5C518" fontFamily="monospace">Holdco</text>
-        <text x="60" y="72" textAnchor="middle" fontSize="4" fill="#F5C518" fontFamily="monospace">Target</text>
+        <text x="60" y="9" textAnchor="middle" fontSize="3.5" fill="#FFF" fontFamily="monospace">UBO</text>
+
+        {/* Level 1: Offshore holdco (Cayman) + second UBO */}
+        <line className="own-line" x1="60" y1="11" x2="38" y2="22" stroke="rgba(245,197,24,0.4)" strokeWidth="0.8" strokeDasharray="2,2" />
+        <line className="own-line" x1="60" y1="11" x2="82" y2="22" stroke="rgba(245,197,24,0.4)" strokeWidth="0.8" strokeDasharray="2,2" />
+
+        <rect className="own-box" x="22" y="22" width="32" height="10" rx="1.5" fill="rgba(255,77,77,0.1)" stroke="rgba(255,77,77,0.3)" strokeWidth="0.5" />
+        <text x="38" y="28" textAnchor="middle" fontSize="3" fill="#FF8A3D" fontFamily="monospace">Cayman Holdco</text>
+        <text x="54" y="29" fontSize="2.5" fill="rgba(255,77,77,0.6)" fontFamily="monospace" style={{animation: 'flagPulse 2s infinite'}}>KY</text>
+
+        <circle cx="82" cy="27" r="3" fill="#5EE6A1" opacity="0.6" />
+        <text x="82" y="28.5" textAnchor="middle" fontSize="3" fill="#FFF" fontFamily="monospace">B</text>
+        <text x="82" y="34" textAnchor="middle" fontSize="2.5" fill="rgba(255,255,255,0.3)" fontFamily="monospace">25%</text>
+
+        {/* Level 2: Jersey SPV + UK Holdco */}
+        <line className="own-line" x1="38" y1="32" x2="28" y2="43" stroke="rgba(245,197,24,0.4)" strokeWidth="0.8" strokeDasharray="2,2" />
+        <line className="own-line" x1="38" y1="32" x2="60" y2="43" stroke="rgba(245,197,24,0.4)" strokeWidth="0.8" strokeDasharray="2,2" />
+        <line className="own-line" x1="82" y1="30" x2="92" y2="43" stroke="rgba(94,230,161,0.3)" strokeWidth="0.6" strokeDasharray="2,2" />
+
+        <rect className="own-box" x="12" y="43" width="32" height="10" rx="1.5" fill="rgba(255,77,77,0.08)" stroke="rgba(255,77,77,0.25)" strokeWidth="0.5" style={{animationDelay: '0.5s'}} />
+        <text x="28" y="49" textAnchor="middle" fontSize="3" fill="#FF8A3D" fontFamily="monospace">Jersey SPV</text>
+        <text x="44" y="50" fontSize="2.5" fill="rgba(255,77,77,0.5)" fontFamily="monospace">JE</text>
+
+        <rect className="own-box" x="48" y="43" width="24" height="10" rx="1.5" fill="rgba(245,197,24,0.12)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.5" style={{animationDelay: '1s'}} />
+        <text x="60" y="49" textAnchor="middle" fontSize="3" fill="#F5C518" fontFamily="monospace">UK Holdco</text>
+
+        <rect className="own-box" x="80" y="43" width="28" height="10" rx="1.5" fill="rgba(245,197,24,0.08)" stroke="rgba(245,197,24,0.2)" strokeWidth="0.5" style={{animationDelay: '1.5s'}} />
+        <text x="94" y="49" textAnchor="middle" fontSize="3" fill="rgba(245,197,24,0.6)" fontFamily="monospace">NL Entity</text>
+
+        {/* Level 3: UK Group company */}
+        <line className="own-line" x1="28" y1="53" x2="45" y2="63" stroke="rgba(245,197,24,0.4)" strokeWidth="0.8" strokeDasharray="2,2" />
+        <line className="own-line" x1="60" y1="53" x2="45" y2="63" stroke="rgba(245,197,24,0.4)" strokeWidth="0.8" strokeDasharray="2,2" />
+        <line className="own-line" x1="94" y1="53" x2="85" y2="63" stroke="rgba(94,230,161,0.2)" strokeWidth="0.6" strokeDasharray="2,2" />
+
+        <rect className="own-box" x="30" y="63" width="30" height="10" rx="1.5" fill="rgba(245,197,24,0.12)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.5" style={{animationDelay: '2s'}} />
+        <text x="45" y="69" textAnchor="middle" fontSize="3" fill="#F5C518" fontFamily="monospace">Group Ltd</text>
+
+        <rect x="75" y="63" width="20" height="10" rx="1.5" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.4" />
+        <text x="85" y="69" textAnchor="middle" fontSize="3" fill="rgba(255,255,255,0.3)" fontFamily="monospace">Sub</text>
+
+        {/* Level 4: Target */}
+        <line className="own-line" x1="45" y1="73" x2="45" y2="80" stroke="rgba(94,230,161,0.5)" strokeWidth="1" strokeDasharray="2,2" />
+        <rect x="30" y="80" width="30" height="8" rx="1.5" fill="rgba(94,230,161,0.12)" stroke="rgba(94,230,161,0.35)" strokeWidth="0.6">
+          <animate attributeName="stroke-opacity" values="0.3;0.7;0.3" dur="2s" repeatCount="indefinite" />
+        </rect>
+        <text x="45" y="85" textAnchor="middle" fontSize="3.5" fill="#5EE6A1" fontFamily="monospace" fontWeight="bold">TARGET</text>
+
+        {/* Ownership percentages */}
+        <text x="46" y="18" textAnchor="middle" fontSize="2.5" fill="rgba(255,255,255,0.25)" fontFamily="monospace">75%</text>
+        <text x="74" y="18" textAnchor="middle" fontSize="2.5" fill="rgba(255,255,255,0.25)" fontFamily="monospace">25%</text>
+        <text x="20" y="40" textAnchor="middle" fontSize="2.5" fill="rgba(255,255,255,0.2)" fontFamily="monospace">100%</text>
+        <text x="52" y="40" textAnchor="middle" fontSize="2.5" fill="rgba(255,255,255,0.2)" fontFamily="monospace">100%</text>
       </svg>
     );
   }
