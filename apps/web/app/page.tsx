@@ -397,20 +397,16 @@ export default function Home() {
             / 002 · Beyond the report
           </div>
           <div className="overflow-hidden -mx-8">
-            <div className="marquee-track gap-4">
-              {[0, 1].map((copy) => (
-                <div key={copy} className="flex gap-4 shrink-0 pr-4">
-                  <FeatureStrip label="Live expansion" description="Watch your network grow in real time" visual="sonar" />
-                  <FeatureStrip label="Graph explorer" description="Filter by type, search entities, trace paths" visual="graph" />
-                  <FeatureStrip label="Ownership chains" description="Trace UBO through corporate layers" visual="ownership" />
-                  <FeatureStrip label="Intelligence report" description="Professional PDF with verdict, findings, methodology" visual="pdf" />
-                  <FeatureStrip label="Compare" description="Side-by-side risk analysis of two companies" visual="compare" />
-                  <FeatureStrip label="Monitor" description="Track risk score changes over time" visual="monitor" />
-                  <FeatureStrip label="Verify" description="One-click links to source data for every finding" visual="verify" />
-                  <FeatureStrip label="Leaderboard" description="UK's riskiest companies ranked by risk score" visual="leaderboard" />
-                </div>
-              ))}
-            </div>
+            <FeatureCarousel>
+              <FeatureStrip label="Live expansion" description="Watch your network grow in real time" visual="sonar" />
+              <FeatureStrip label="Graph explorer" description="Filter by type, search entities, trace paths" visual="graph" />
+              <FeatureStrip label="Ownership chains" description="Trace UBO through corporate layers" visual="ownership" />
+              <FeatureStrip label="Intelligence report" description="Professional PDF with verdict, findings, methodology" visual="pdf" />
+              <FeatureStrip label="Compare" description="Side-by-side risk analysis of two companies" visual="compare" />
+              <FeatureStrip label="Monitor" description="Track risk score changes over time" visual="monitor" />
+              <FeatureStrip label="Verify" description="One-click links to source data for every finding" visual="verify" />
+              <FeatureStrip label="Leaderboard" description="UK's riskiest companies ranked by risk score" visual="leaderboard" />
+            </FeatureCarousel>
           </div>
         </div>
       </section>
@@ -781,6 +777,45 @@ function CountUp({ end, suffix = '', label, decimals = 0 }: { end: number; suffi
       <span className="text-ink-300 tabular-nums">{decimals > 0 ? value.toFixed(decimals) : Math.round(value)}{suffix}</span>
       {' '}{label}
     </span>
+  );
+}
+
+function FeatureCarousel({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const autoRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    function tick() {
+      if (!pausedRef.current && el) {
+        el.scrollLeft += 0.6;
+        // Loop: when we've scrolled past half (duplicate content), reset
+        if (el.scrollLeft >= el.scrollWidth / 2) {
+          el.scrollLeft = 0;
+        }
+      }
+      autoRef.current = requestAnimationFrame(tick);
+    }
+    autoRef.current = requestAnimationFrame(tick);
+    return () => { if (autoRef.current) cancelAnimationFrame(autoRef.current); };
+  }, []);
+
+  return (
+    <div
+      ref={scrollRef}
+      className="flex gap-4 overflow-x-auto scrollbar-hide px-8 cursor-grab active:cursor-grabbing"
+      onMouseEnter={() => { pausedRef.current = true; }}
+      onMouseLeave={() => { pausedRef.current = false; }}
+      onTouchStart={() => { pausedRef.current = true; }}
+      onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 2000); }}
+    >
+      {/* Duplicate children for seamless loop */}
+      {children}
+      {children}
+    </div>
   );
 }
 
