@@ -250,9 +250,8 @@ function StageProgress({ status, live, tier, resolution, scoringStep }: {
     // No progress data — indeterminate
   } else if (status === 'EXPANDING') {
     label = 'Expanding ownership network';
-    const tierCap = tier === 'QUICK' ? 100 : tier === 'DEEP' ? 3000 : 1000;
-    pct = Math.min(95, Math.round((live.entities / tierCap) * 100));
     detail = `${live.entities.toLocaleString()} entities discovered`;
+    // No total known — use indeterminate (pct stays null)
   } else if (status === 'RESOLVING' && resolution && resolution.total > 0) {
     label = 'Screening against sanctions databases';
     pct = Math.round((resolution.processed / resolution.total) * 100);
