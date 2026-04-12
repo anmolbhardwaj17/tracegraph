@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { ProgressView, Discovery } from '../../../components/ProgressView';
 import { Avatar } from '../../../components/Avatar';
+import { ThemeToggle } from '../../../components/ThemeToggle';
 import Link from 'next/link';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -20,6 +21,7 @@ function NavBar() {
           <Link href="/dashboard" className="hover:text-ink-50 transition-colors hidden sm:block">Dashboard</Link>
           <Link href="/compare" className="hover:text-ink-50 transition-colors hidden sm:block">Compare</Link>
           <Link href="/watchlist" className="hover:text-ink-50 transition-colors hidden sm:block">Watchlist</Link>
+          <ThemeToggle />
         </div>
       </div>
     </nav>
