@@ -17,6 +17,7 @@ import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { DatasetsModule } from './modules/datasets/datasets.module';
 import { LogosModule } from './modules/logos/logos.module';
 import { WatchlistModule } from './modules/watchlist/watchlist.module';
+import { JurisdictionsModule } from './modules/jurisdictions/jurisdictions.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 
 @Module({
@@ -37,6 +38,7 @@ import { ApiKeysModule } from './modules/api-keys/api-keys.module';
     LogosModule,
     WatchlistModule,
     ApiKeysModule,
+    JurisdictionsModule,
     InvestigationModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
