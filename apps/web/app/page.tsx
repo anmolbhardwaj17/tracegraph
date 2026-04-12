@@ -777,21 +777,50 @@ function FeatureVisual({ type }: { type: string }) {
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
         <style>{`
-          @keyframes sonarPulse { 0% { r: 5; opacity: 0.4; } 100% { r: 50; opacity: 0; } }
-          .sonar-wave { animation: sonarPulse 2.5s ease-out infinite; }
-          .sonar-wave2 { animation: sonarPulse 2.5s ease-out 1.2s infinite; }
+          @keyframes sonarExpand1 { 0% { opacity: 0.5; } 100% { opacity: 0; } }
+          @keyframes sonarExpand2 { 0% { opacity: 0.35; } 100% { opacity: 0; } }
+          .sw1 { animation: sonarExpand1 2.4s ease-out infinite; }
+          .sw2 { animation: sonarExpand2 2.4s ease-out 1.2s infinite; }
+          @keyframes orbitSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          .orbit { animation: orbitSlow 20s linear infinite; transform-origin: 60px 45px; }
+          @keyframes centerPulse { 0%,100% { opacity: 0.08; } 50% { opacity: 0.2; } }
         `}</style>
-        {[20, 35, 50].map((r, i) => (
-          <ellipse key={i} cx="60" cy="45" rx={r} ry={r * 0.65} fill="none" stroke="rgba(94,230,161,0.1)" strokeWidth="0.6" />
+        {/* Grid rings - tilted ellipses like real sonar */}
+        {[14, 24, 34, 44].map((r, i) => (
+          <ellipse key={i} cx="60" cy="45" rx={r} ry={r * 0.62} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
         ))}
-        <ellipse className="sonar-wave" cx="60" cy="45" rx="5" ry="3.25" fill="none" stroke="rgba(94,230,161,0.4)" strokeWidth="1" />
-        <ellipse className="sonar-wave2" cx="60" cy="45" rx="5" ry="3.25" fill="none" stroke="rgba(94,230,161,0.3)" strokeWidth="0.8" />
-        <circle cx="60" cy="45" r="3" fill="#5EE6A1" />
-        {[[78, 35], [42, 28], [85, 55], [35, 58], [70, 62], [50, 40], [75, 42], [45, 50]].map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r="1.5" fill="rgba(200,200,200,0.5)">
-            <animate attributeName="opacity" values="0.3;0.8;0.3" dur={`${2 + i * 0.3}s`} repeatCount="indefinite" />
-          </circle>
-        ))}
+        {/* Cross lines */}
+        <line x1="16" y1="45" x2="104" y2="45" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5" />
+        <line x1="60" y1="17" x2="60" y2="73" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5" />
+        {/* Expanding pulse waves */}
+        <ellipse className="sw1" cx="60" cy="45" rx="5" ry="3.1" fill="none" stroke="rgba(94,230,161,0.5)" strokeWidth="1">
+          <animate attributeName="rx" values="5;44" dur="2.4s" repeatCount="indefinite" />
+          <animate attributeName="ry" values="3.1;27" dur="2.4s" repeatCount="indefinite" />
+        </ellipse>
+        <ellipse className="sw2" cx="60" cy="45" rx="5" ry="3.1" fill="none" stroke="rgba(94,230,161,0.35)" strokeWidth="0.8">
+          <animate attributeName="rx" values="5;44" dur="2.4s" begin="1.2s" repeatCount="indefinite" />
+          <animate attributeName="ry" values="3.1;27" dur="2.4s" begin="1.2s" repeatCount="indefinite" />
+        </ellipse>
+        {/* Orbiting blips */}
+        <g className="orbit">
+          {[[18, 0], [30, 45], [38, 120], [25, 200], [35, 280], [15, 330]].map(([r, a], i) => {
+            const rad = (a * Math.PI) / 180;
+            const x = 60 + Math.cos(rad) * r;
+            const y = 45 + Math.sin(rad) * r * 0.62;
+            return (
+              <circle key={i} cx={x} cy={y} r="1.3" fill="rgba(200,200,200,0.6)">
+                <animate attributeName="opacity" values="0.3;0.9;0.3" dur={`${1.8 + i * 0.3}s`} repeatCount="indefinite" />
+              </circle>
+            );
+          })}
+        </g>
+        {/* Center glow */}
+        <circle cx="60" cy="45" r="10" fill="rgba(94,230,161,0.08)">
+          <animate attributeName="r" values="8;12;8" dur="2.4s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.06;0.15;0.06" dur="2.4s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="60" cy="45" r="5" fill="rgba(94,230,161,0.15)" />
+        <circle cx="60" cy="45" r="2.5" fill="#F5F5F5" />
       </svg>
     );
   }
@@ -888,22 +917,24 @@ function FeatureVisual({ type }: { type: string }) {
   }
   if (type === 'monitor') {
     const scores = [35, 62, 45, 28];
-    const colors = ['rgba(255,255,255,0.3)', '#FF4D4D', 'rgba(255,255,255,0.3)', '#5EE6A1'];
+    const colors = ['rgba(255,255,255,0.35)', '#FF4D4D', 'rgba(255,255,255,0.35)', '#5EE6A1'];
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
+        <style>{`
+          @keyframes rowSlide { 0% { transform: translateX(-5px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+          @keyframes arrowBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+          @keyframes scorePulse { 0%,100% { opacity: 0.8; } 50% { opacity: 1; } }
+        `}</style>
         {[20, 38, 56, 74].map((y, i) => (
-          <g key={i}>
-            <rect x="12" y={y} width="96" height="14" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4">
-              <animate attributeName="opacity" values="0;1;1" dur="0.5s" begin={`${i * 0.15}s`} fill="freeze" />
-            </rect>
+          <g key={i} style={{ animation: `rowSlide 0.6s ease-out ${i * 0.12}s both` }}>
+            <rect x="12" y={y} width="96" height="14" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4" />
             <rect x="16" y={y + 3} width="8" height="8" rx="1.5" fill="rgba(255,255,255,0.08)" />
-            <rect x="28" y={y + 4} width={25 + i * 5} height="3" rx="0.5" fill="rgba(255,255,255,0.1)" />
-            <text x="90" y={y + 10} textAnchor="middle" fontSize="6" fill={colors[i]} fontFamily="monospace">
-              {scores[i]}
-              {i === 1 && <animate attributeName="fill" values="#FF4D4D;#FF8A3D;#FF4D4D" dur="2s" repeatCount="indefinite" />}
-            </text>
-            {i === 1 && <polygon points="100,{y+3} 104,{y+9} 96,{y+9}" fill="#FF4D4D" transform={`translate(0,0)`}><animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite" /></polygon>}
-            {i === 3 && <polygon points="100,{y+11} 104,{y+5} 96,{y+5}" fill="#5EE6A1" transform={`translate(0,0)`}><animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite" /></polygon>}
+            <rect x="28" y={y + 4} height="3" rx="0.5" fill="rgba(255,255,255,0.1)">
+              <animate attributeName="width" values={`0;${25 + i * 5}`} dur="1s" begin={`${i * 0.15}s`} fill="freeze" />
+            </rect>
+            <text x="88" y={y + 10} textAnchor="middle" fontSize="6" fill={colors[i]} fontFamily="monospace" style={{ animation: 'scorePulse 2s ease-in-out infinite' }}>{scores[i]}</text>
+            {i === 1 && <g style={{ animation: 'arrowBounce 1s ease-in-out infinite' }}><path d={`M96,${y + 3} l4,5 l-8,0 z`} fill="#FF4D4D" opacity="0.8" /></g>}
+            {i === 3 && <g style={{ animation: 'arrowBounce 1s ease-in-out infinite 0.5s' }}><path d={`M96,${y + 11} l4,-5 l-8,0 z`} fill="#5EE6A1" opacity="0.8" /></g>}
           </g>
         ))}
       </svg>
@@ -912,22 +943,34 @@ function FeatureVisual({ type }: { type: string }) {
   if (type === 'verify') {
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
+        <style>{`
+          @keyframes checkScan { 0% { transform: translateX(-10px); opacity: 0; } 30% { opacity: 1; } 70% { opacity: 1; } 100% { transform: translateX(96px); opacity: 0; } }
+          .verify-scan { animation: checkScan 3s ease-in-out infinite; }
+          @keyframes linkGlow { 0%,100% { fill: rgba(37,99,235,0.08); } 50% { fill: rgba(37,99,235,0.2); } }
+          .link-bg { animation: linkGlow 2s ease-in-out infinite; }
+          .link-bg2 { animation: linkGlow 2s ease-in-out 0.8s infinite; }
+        `}</style>
         <rect x="12" y="10" width="96" height="70" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
+        {/* Scanning line */}
+        <rect className="verify-scan" x="12" y="10" width="2" height="70" rx="1" fill="rgba(94,230,161,0.3)" />
         <rect x="18" y="16" width="24" height="8" rx="1.5" fill="rgba(220,38,38,0.15)">
-          <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite" />
         </rect>
         <text x="30" y="22" textAnchor="middle" fontSize="5" fill="#DC2626" fontFamily="monospace">CRITICAL</text>
         <rect x="18" y="28" width="60" height="2.5" rx="0.5" fill="rgba(255,255,255,0.12)" />
         <rect x="18" y="33" width="50" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
         <rect x="18" y="37" width="55" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
-        <rect x="18" y="46" width="40" height="7" rx="1.5" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.25)" strokeWidth="0.4">
-          <animate attributeName="stroke-opacity" values="0.2;0.5;0.2" dur="2s" repeatCount="indefinite" />
-        </rect>
+        <rect className="link-bg" x="18" y="46" width="40" height="7" rx="1.5" stroke="rgba(37,99,235,0.3)" strokeWidth="0.5" />
         <text x="38" y="51" textAnchor="middle" fontSize="4" fill="#60A5FA" fontFamily="monospace">View on CH {'>'}</text>
-        <rect x="18" y="57" width="45" height="7" rx="1.5" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.25)" strokeWidth="0.4">
-          <animate attributeName="stroke-opacity" values="0.2;0.5;0.2" dur="2s" begin="0.5s" repeatCount="indefinite" />
-        </rect>
+        <rect className="link-bg2" x="18" y="57" width="45" height="7" rx="1.5" stroke="rgba(37,99,235,0.3)" strokeWidth="0.5" />
         <text x="40" y="62" textAnchor="middle" fontSize="4" fill="#60A5FA" fontFamily="monospace">OpenSanctions {'>'}</text>
+        {/* Checkmark appearing */}
+        <circle cx="96" cy="20" r="5" fill="rgba(94,230,161,0.15)">
+          <animate attributeName="opacity" values="0;0;1;1;0" dur="3s" repeatCount="indefinite" />
+        </circle>
+        <path d="M93,20 l2,2 l4,-4" fill="none" stroke="#5EE6A1" strokeWidth="1.2" strokeLinecap="round">
+          <animate attributeName="opacity" values="0;0;1;1;0" dur="3s" repeatCount="indefinite" />
+        </path>
       </svg>
     );
   }
