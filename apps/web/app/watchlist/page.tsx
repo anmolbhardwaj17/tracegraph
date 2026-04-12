@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, ArrowDownRight, Minus, Eye, RefreshCw, Trash2 } from 'lucide-react';
 import { Avatar } from '../../components/Avatar';
+import { NavBar } from '../../components/NavBar';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -59,19 +60,7 @@ export default function WatchlistPage() {
 
   return (
     <main className="min-h-screen">
-      <nav className="sticky top-0 z-30 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
-            <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
-          </Link>
-          <div className="flex items-center gap-6 text-sm text-ink-300">
-            <Link href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</Link>
-            <Link href="/compare" className="hover:text-ink-50 transition-colors">Compare</Link>
-            <Link href="/watchlist" className="text-ink-50">Watchlist</Link>
-          </div>
-        </div>
-      </nav>
+      <NavBar />
 
       <div className="max-w-6xl mx-auto px-8 py-10">
         {/* Banner */}

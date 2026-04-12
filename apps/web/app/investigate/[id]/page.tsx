@@ -4,29 +4,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { ProgressView, Discovery } from '../../../components/ProgressView';
 import { Avatar } from '../../../components/Avatar';
-import { ThemeToggle } from '../../../components/ThemeToggle';
+import { NavBar } from '../../../components/NavBar';
 import Link from 'next/link';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-function NavBar() {
-  return (
-    <nav className="sticky top-0 z-30 backdrop-blur-md bg-ink-900/80 border-b border-white/5">
-      <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-sm bg-ink-50 text-ink-900 flex items-center justify-center font-mono text-xs font-bold">T</div>
-          <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
-        </Link>
-        <div className="flex items-center gap-6 text-sm text-ink-300">
-          <Link href="/dashboard" className="hover:text-ink-50 transition-colors hidden sm:block">Dashboard</Link>
-          <Link href="/compare" className="hover:text-ink-50 transition-colors hidden sm:block">Compare</Link>
-          <Link href="/watchlist" className="hover:text-ink-50 transition-colors hidden sm:block">Watchlist</Link>
-          <ThemeToggle />
-        </div>
-      </div>
-    </nav>
-  );
-}
 
 export default function InvestigatePage() {
   const params = useParams();
