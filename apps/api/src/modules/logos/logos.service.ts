@@ -34,6 +34,10 @@ export class LogosService {
     'arm limited': 'arm.com', 'revolut ltd': 'revolut.com', 'deliveroo plc': 'deliveroo.com',
     'monzo bank limited': 'monzo.com', 'sports direct international plc': 'sportsdirect.com',
     'next plc': 'next.co.uk', 'marks and spencer group plc': 'marksandspencer.com',
+    'manchester united football club limited': 'manutd.com',
+    'chelsea fc plc': 'chelseafc.com', 'arsenal holdings plc': 'arsenal.com',
+    'tottenham hotspur limited': 'tottenhamhotspur.com',
+    'liverpool football club and athletic grounds limited': 'liverpoolfc.com',
   };
 
   /** Best-effort domain guess from a company name. */
@@ -140,7 +144,7 @@ export class LogosService {
     try {
       const res = await axios.get(url, {
         responseType: 'arraybuffer',
-        timeout: 5000,
+        timeout: 2500,
         validateStatus: () => true,
         maxContentLength: 200_000,
       });
