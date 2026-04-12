@@ -84,24 +84,25 @@ export class LogosService {
       this.logger.warn(`logo_cache lookup failed: ${e?.message}`);
     }
 
-    // 3. Live discovery
+    // 3. Live discovery — prioritize high-res sources
     const domains = this.candidateDomains(name);
     let working: { url: string; source: string } | null = null;
 
-    // Try Clearbit first (best quality, free)
+    // Try Google Favicon at 256px (high res, reliable)
     for (const domain of domains) {
-      const clearbit = `https://logo.clearbit.com/${domain}`;
-      if (await this.urlReturnsImage(clearbit)) {
-        working = { url: clearbit, source: 'clearbit' };
+      const google = `https://www.google.com/s2/favicons?domain=${domain}&sz=256`;
+      if (await this.urlReturnsImage(google)) {
+        working = { url: google, source: 'google' };
         break;
       }
     }
 
+    // Try Clearbit (best quality when available)
     if (!working) {
       for (const domain of domains) {
-        const ddg = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-        if (await this.urlReturnsImage(ddg)) {
-          working = { url: ddg, source: 'duckduckgo' };
+        const clearbit = `https://logo.clearbit.com/${domain}`;
+        if (await this.urlReturnsImage(clearbit)) {
+          working = { url: clearbit, source: 'clearbit' };
           break;
         }
       }
@@ -123,7 +124,7 @@ export class LogosService {
 
     if (!working) {
       for (const domain of domains) {
-        const google = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+        const google = `https://www.google.com/s2/favicons?domain=${domain}&sz=256`;
         if (await this.urlReturnsImage(google)) {
           working = { url: google, source: 'google' };
           break;
@@ -175,7 +176,7 @@ Give me TWO things, each on its own line:
 LINE 1: The company's official website domain (e.g. manutd.com)
 LINE 2: A direct URL to the company's logo image (PNG, SVG, or JPG). Use one of these reliable sources:
 - https://logo.clearbit.com/{domain}
-- https://www.google.com/s2/favicons?domain={domain}&sz=128
+- https://www.google.com/s2/favicons?domain={domain}&sz=256
 - Or any other direct image URL you know for this company's logo
 
 Reply with ONLY those two lines, nothing else. If unknown, reply "unknown".`,
@@ -222,7 +223,7 @@ Reply with ONLY those two lines, nothing else. If unknown, reply "unknown".`,
           }
 
           // Google favicon
-          const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+          const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=256`;
           if (await this.urlReturnsImage(faviconUrl)) {
             this.logger.log(`AI resolved ${companyName} -> ${domain} (favicon)`);
             return faviconUrl;
