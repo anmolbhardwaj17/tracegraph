@@ -1038,8 +1038,8 @@ function FeatureVisual({ type }: { type: string }) {
               <animate attributeName="width" values={`0;${25 + i * 5}`} dur="1s" begin={`${i * 0.15}s`} fill="freeze" />
             </rect>
             <text x="88" y={y + 10} textAnchor="middle" fontSize="6" fill={colors[i]} fontFamily="monospace" style={{ animation: 'scorePulse 2s ease-in-out infinite' }}>{scores[i]}</text>
-            {i === 1 && <g style={{ animation: 'arrowBounce 1s ease-in-out infinite' }}><path d={`M96,${y + 3} l4,5 l-8,0 z`} fill="#FF4D4D" opacity="0.8" /></g>}
-            {i === 3 && <g style={{ animation: 'arrowBounce 1s ease-in-out infinite 0.5s' }}><path d={`M96,${y + 11} l4,-5 l-8,0 z`} fill="#5EE6A1" opacity="0.8" /></g>}
+            {i === 1 && <g style={{ animation: 'arrowBounce 1s ease-in-out infinite' }}><path d={`M96,${y + 5} l2,3 l-4,0 z`} fill="#FF4D4D" opacity="0.8" /></g>}
+            {i === 3 && <g style={{ animation: 'arrowBounce 1s ease-in-out infinite 0.5s' }}><path d={`M96,${y + 9} l2,-3 l-4,0 z`} fill="#5EE6A1" opacity="0.8" /></g>}
           </g>
         ))}
       </svg>
