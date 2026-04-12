@@ -814,44 +814,57 @@ function FeatureVisual({ type }: { type: string }) {
     );
   }
   if (type === 'ownership') {
-    // Chain/tree diagram
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
-        <line x1="60" y1="15" x2="60" y2="35" stroke="rgba(245,197,24,0.3)" strokeWidth="1" strokeDasharray="3,2" />
-        <line x1="60" y1="45" x2="60" y2="65" stroke="rgba(245,197,24,0.3)" strokeWidth="1" strokeDasharray="3,2" />
-        <line x1="60" y1="75" x2="35" y2="85" stroke="rgba(245,197,24,0.3)" strokeWidth="1" strokeDasharray="3,2" />
-        <line x1="60" y1="75" x2="85" y2="85" stroke="rgba(245,197,24,0.3)" strokeWidth="1" strokeDasharray="3,2" />
-        <circle cx="60" cy="12" r="4" fill="#5EE6A1" />
+        <style>{`
+          @keyframes dashFlow { from { stroke-dashoffset: 10; } to { stroke-dashoffset: 0; } }
+          .chain-line { animation: dashFlow 1.5s linear infinite; }
+          @keyframes nodeGlow { 0%,100% { opacity: 0.15; } 50% { opacity: 0.3; } }
+          .chain-box { animation: nodeGlow 3s ease-in-out infinite; }
+        `}</style>
+        <line className="chain-line" x1="60" y1="15" x2="60" y2="35" stroke="rgba(245,197,24,0.4)" strokeWidth="1" strokeDasharray="3,2" />
+        <line className="chain-line" x1="60" y1="47" x2="60" y2="65" stroke="rgba(245,197,24,0.4)" strokeWidth="1" strokeDasharray="3,2" />
+        <line className="chain-line" x1="60" y1="77" x2="35" y2="85" stroke="rgba(245,197,24,0.4)" strokeWidth="1" strokeDasharray="3,2" />
+        <line className="chain-line" x1="60" y1="77" x2="85" y2="85" stroke="rgba(245,197,24,0.4)" strokeWidth="1" strokeDasharray="3,2" />
+        <circle cx="60" cy="12" r="4" fill="#5EE6A1">
+          <animate attributeName="r" values="4;5;4" dur="2s" repeatCount="indefinite" />
+        </circle>
         <text x="60" y="14" textAnchor="middle" fontSize="4" fill="#FFF" fontFamily="monospace">UBO</text>
-        <rect x="48" y="35" width="24" height="12" rx="2" fill="rgba(245,197,24,0.15)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.6" />
-        <rect x="48" y="65" width="24" height="12" rx="2" fill="rgba(245,197,24,0.15)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.6" />
+        <rect className="chain-box" x="48" y="35" width="24" height="12" rx="2" fill="rgba(245,197,24,0.15)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.6" />
+        <rect className="chain-box" x="48" y="65" width="24" height="12" rx="2" fill="rgba(245,197,24,0.15)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.6" style={{animationDelay: '1s'}} />
         <text x="60" y="42" textAnchor="middle" fontSize="4" fill="#F5C518" fontFamily="monospace">Holdco</text>
         <text x="60" y="72" textAnchor="middle" fontSize="4" fill="#F5C518" fontFamily="monospace">Target</text>
       </svg>
     );
   }
   if (type === 'pdf') {
-    // PDF document with sections
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
+        <style>{`
+          @keyframes scanLine { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 0.6; } 90% { opacity: 0.6; } 100% { transform: translateY(70px); opacity: 0; } }
+          .pdf-scan { animation: scanLine 4s ease-in-out infinite; }
+        `}</style>
         <rect x="30" y="5" width="60" height="80" rx="2" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.6" />
+        <rect className="pdf-scan" x="30" y="5" width="60" height="1" fill="rgba(94,230,161,0.4)" />
         <rect x="38" y="12" width="30" height="3" rx="1" fill="rgba(255,255,255,0.15)" />
         <rect x="38" y="19" width="44" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
         <rect x="38" y="23" width="40" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
-        <rect x="38" y="30" width="44" height="8" rx="1" fill="rgba(234,88,12,0.15)" stroke="rgba(234,88,12,0.3)" strokeWidth="0.4" />
+        <rect x="38" y="30" width="44" height="8" rx="1" fill="rgba(234,88,12,0.15)" stroke="rgba(234,88,12,0.3)" strokeWidth="0.4">
+          <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite" />
+        </rect>
         <text x="60" y="35" textAnchor="middle" fontSize="4" fill="#EA580C" fontFamily="monospace">EDD</text>
         <rect x="38" y="42" width="20" height="10" rx="1" fill="rgba(255,255,255,0.04)" />
         <rect x="60" y="42" width="22" height="10" rx="1" fill="rgba(255,255,255,0.04)" />
         <text x="48" y="49" textAnchor="middle" fontSize="6" fill="rgba(255,255,255,0.3)" fontFamily="monospace">60</text>
-        <rect x="38" y="56" width="44" height="2" rx="0.5" fill="rgba(220,38,38,0.3)" />
-        <rect x="38" y="60" width="30" height="2" rx="0.5" fill="rgba(245,158,11,0.3)" />
-        <rect x="38" y="64" width="38" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
-        <rect x="38" y="68" width="25" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
+        <rect x="38" y="56" width="44" height="2" rx="0.5" fill="rgba(220,38,38,0.3)"><animate attributeName="width" values="0;44;44" dur="3s" repeatCount="indefinite" /></rect>
+        <rect x="38" y="60" width="30" height="2" rx="0.5" fill="rgba(245,158,11,0.3)"><animate attributeName="width" values="0;30;30" dur="3s" begin="0.3s" repeatCount="indefinite" /></rect>
+        <rect x="38" y="64" width="38" height="2" rx="0.5" fill="rgba(255,255,255,0.06)"><animate attributeName="width" values="0;38;38" dur="3s" begin="0.6s" repeatCount="indefinite" /></rect>
+        <rect x="38" y="68" width="25" height="2" rx="0.5" fill="rgba(255,255,255,0.06)"><animate attributeName="width" values="0;25;25" dur="3s" begin="0.9s" repeatCount="indefinite" /></rect>
       </svg>
     );
   }
   if (type === 'compare') {
-    // Side-by-side comparison
+    const barWidths = [[28, 32], [35, 22], [20, 36], [30, 28]];
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
         <rect x="8" y="10" width="48" height="70" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
@@ -862,48 +875,63 @@ function FeatureVisual({ type }: { type: string }) {
         <text x="88" y="32" textAnchor="middle" fontSize="4" fill="rgba(255,255,255,0.3)" fontFamily="monospace">HIGH</text>
         {[40, 48, 56, 64].map((y, i) => (
           <g key={i}>
-            <rect x="14" y={y} width={20 + Math.random() * 16} height="4" rx="1" fill={i < 2 ? 'rgba(94,230,161,0.2)' : 'rgba(255,255,255,0.06)'} />
-            <rect x="70" y={y} width={20 + Math.random() * 16} height="4" rx="1" fill={i > 1 ? 'rgba(255,77,77,0.2)' : 'rgba(255,255,255,0.06)'} />
+            <rect x="14" y={y} height="4" rx="1" fill={i < 2 ? 'rgba(94,230,161,0.25)' : 'rgba(255,255,255,0.08)'}>
+              <animate attributeName="width" values={`0;${barWidths[i][0]};${barWidths[i][0]}`} dur="2.5s" begin={`${i * 0.2}s`} repeatCount="indefinite" />
+            </rect>
+            <rect x="70" y={y} height="4" rx="1" fill={i > 1 ? 'rgba(255,77,77,0.25)' : 'rgba(255,255,255,0.08)'}>
+              <animate attributeName="width" values={`0;${barWidths[i][1]};${barWidths[i][1]}`} dur="2.5s" begin={`${i * 0.2}s`} repeatCount="indefinite" />
+            </rect>
           </g>
         ))}
       </svg>
     );
   }
   if (type === 'monitor') {
-    // Watchlist with trend arrows
+    const scores = [35, 62, 45, 28];
+    const colors = ['rgba(255,255,255,0.3)', '#FF4D4D', 'rgba(255,255,255,0.3)', '#5EE6A1'];
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
         {[20, 38, 56, 74].map((y, i) => (
           <g key={i}>
-            <rect x="12" y={y} width="96" height="14" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4" />
+            <rect x="12" y={y} width="96" height="14" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4">
+              <animate attributeName="opacity" values="0;1;1" dur="0.5s" begin={`${i * 0.15}s`} fill="freeze" />
+            </rect>
             <rect x="16" y={y + 3} width="8" height="8" rx="1.5" fill="rgba(255,255,255,0.08)" />
             <rect x="28" y={y + 4} width={25 + i * 5} height="3" rx="0.5" fill="rgba(255,255,255,0.1)" />
-            <text x="90" y={y + 10} textAnchor="middle" fontSize="6" fill={i === 1 ? '#FF4D4D' : i === 3 ? '#5EE6A1' : 'rgba(255,255,255,0.3)'} fontFamily="monospace">{[35, 62, 45, 28][i]}</text>
-            {i === 1 && <path d="M98,{y+4} l4,5 l-2,0 l0,3 l-4,0 l0,-3 l-2,0 z" fill="#FF4D4D" transform={`translate(0,${y - 20})`} />}
+            <text x="90" y={y + 10} textAnchor="middle" fontSize="6" fill={colors[i]} fontFamily="monospace">
+              {scores[i]}
+              {i === 1 && <animate attributeName="fill" values="#FF4D4D;#FF8A3D;#FF4D4D" dur="2s" repeatCount="indefinite" />}
+            </text>
+            {i === 1 && <polygon points="100,{y+3} 104,{y+9} 96,{y+9}" fill="#FF4D4D" transform={`translate(0,0)`}><animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite" /></polygon>}
+            {i === 3 && <polygon points="100,{y+11} 104,{y+5} 96,{y+5}" fill="#5EE6A1" transform={`translate(0,0)`}><animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite" /></polygon>}
           </g>
         ))}
       </svg>
     );
   }
   if (type === 'verify') {
-    // Finding with verification links
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
         <rect x="12" y="10" width="96" height="70" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
-        <rect x="18" y="16" width="24" height="8" rx="1.5" fill="rgba(220,38,38,0.15)" />
+        <rect x="18" y="16" width="24" height="8" rx="1.5" fill="rgba(220,38,38,0.15)">
+          <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite" />
+        </rect>
         <text x="30" y="22" textAnchor="middle" fontSize="5" fill="#DC2626" fontFamily="monospace">CRITICAL</text>
         <rect x="18" y="28" width="60" height="2.5" rx="0.5" fill="rgba(255,255,255,0.12)" />
         <rect x="18" y="33" width="50" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
         <rect x="18" y="37" width="55" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
-        <rect x="18" y="46" width="40" height="7" rx="1.5" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.25)" strokeWidth="0.4" />
+        <rect x="18" y="46" width="40" height="7" rx="1.5" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.25)" strokeWidth="0.4">
+          <animate attributeName="stroke-opacity" values="0.2;0.5;0.2" dur="2s" repeatCount="indefinite" />
+        </rect>
         <text x="38" y="51" textAnchor="middle" fontSize="4" fill="#60A5FA" fontFamily="monospace">View on CH {'>'}</text>
-        <rect x="18" y="57" width="45" height="7" rx="1.5" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.25)" strokeWidth="0.4" />
+        <rect x="18" y="57" width="45" height="7" rx="1.5" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.25)" strokeWidth="0.4">
+          <animate attributeName="stroke-opacity" values="0.2;0.5;0.2" dur="2s" begin="0.5s" repeatCount="indefinite" />
+        </rect>
         <text x="40" y="62" textAnchor="middle" fontSize="4" fill="#60A5FA" fontFamily="monospace">OpenSanctions {'>'}</text>
       </svg>
     );
   }
   if (type === 'leaderboard') {
-    // Ranked list
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
         {[0, 1, 2, 3, 4].map((i) => {
@@ -914,8 +942,12 @@ function FeatureVisual({ type }: { type: string }) {
             <g key={i}>
               <text x="16" y={y + 8} textAnchor="middle" fontSize="6" fill="rgba(255,255,255,0.3)" fontFamily="monospace">#{i + 1}</text>
               <rect x="24" y={y + 1} width="50" height="3" rx="0.5" fill="rgba(255,255,255,0.08)" />
-              <rect x="24" y={y + 7} width={w} height="4" rx="1" fill={color} opacity="0.3" />
-              <rect x="24" y={y + 7} width={w * 0.7} height="4" rx="1" fill={color} opacity="0.5" />
+              <rect x="24" y={y + 7} height="4" rx="1" fill={color} opacity="0.3">
+                <animate attributeName="width" values={`0;${w};${w}`} dur="2s" begin={`${i * 0.2}s`} repeatCount="indefinite" />
+              </rect>
+              <rect x="24" y={y + 7} height="4" rx="1" fill={color} opacity="0.6">
+                <animate attributeName="width" values={`0;${w * 0.7};${w * 0.7}`} dur="2s" begin={`${i * 0.2 + 0.1}s`} repeatCount="indefinite" />
+              </rect>
             </g>
           );
         })}
