@@ -84,15 +84,26 @@ export class LogosService {
       this.logger.warn(`logo_cache lookup failed: ${e?.message}`);
     }
 
-    // 3. Live discovery — try DuckDuckGo first, then Google favicon
+    // 3. Live discovery
     const domains = this.candidateDomains(name);
     let working: { url: string; source: string } | null = null;
 
+    // Try Clearbit first (best quality, free)
     for (const domain of domains) {
-      const ddg = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-      if (await this.urlReturnsImage(ddg)) {
-        working = { url: ddg, source: 'duckduckgo' };
+      const clearbit = `https://logo.clearbit.com/${domain}`;
+      if (await this.urlReturnsImage(clearbit)) {
+        working = { url: clearbit, source: 'clearbit' };
         break;
+      }
+    }
+
+    if (!working) {
+      for (const domain of domains) {
+        const ddg = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+        if (await this.urlReturnsImage(ddg)) {
+          working = { url: ddg, source: 'duckduckgo' };
+          break;
+        }
       }
     }
 
@@ -145,7 +156,7 @@ export class LogosService {
     return result;
   }
 
-  /** Ask OpenRouter to find a company's logo URL. */
+  /** Ask OpenRouter to find a company's logo URL directly. */
   private async findLogoViaAI(companyName: string): Promise<string | null> {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) return null;
@@ -158,39 +169,72 @@ export class LogosService {
           model,
           messages: [{
             role: 'user',
-            content: `What is the official website domain for the company "${companyName}"? Reply with ONLY the domain name (e.g. "example.com"), nothing else. If you don't know, reply "unknown".`,
+            content: `I need to find a logo image for the company "${companyName}".
+
+Give me TWO things, each on its own line:
+LINE 1: The company's official website domain (e.g. manutd.com)
+LINE 2: A direct URL to the company's logo image (PNG, SVG, or JPG). Use one of these reliable sources:
+- https://logo.clearbit.com/{domain}
+- https://www.google.com/s2/favicons?domain={domain}&sz=128
+- Or any other direct image URL you know for this company's logo
+
+Reply with ONLY those two lines, nothing else. If unknown, reply "unknown".`,
           }],
           temperature: 0,
-          max_tokens: 50,
+          max_tokens: 150,
         },
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
-          timeout: 8000,
+          timeout: 10000,
         },
       );
 
-      const text = (res.data?.choices?.[0]?.message?.content || '').trim().toLowerCase();
-      if (!text || text === 'unknown' || text.includes(' ') || !text.includes('.')) return null;
+      const text = (res.data?.choices?.[0]?.message?.content || '').trim();
+      if (!text || text.toLowerCase() === 'unknown') return null;
 
-      // Clean up: remove quotes, trailing periods, http prefix
-      const domain = text.replace(/['"]/g, '').replace(/\.$/, '').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-      if (!domain || domain.length < 4) return null;
+      const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
 
-      // Try favicon for this domain
-      const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-      if (await this.urlReturnsImage(faviconUrl)) {
-        this.logger.log(`AI resolved ${companyName} -> ${domain}`);
-        return faviconUrl;
-      }
+      // Try each line as a potential URL or domain
+      for (const line of lines) {
+        const cleaned = line.replace(/['"`]/g, '').trim();
 
-      // Also try DuckDuckGo
-      const ddgUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-      if (await this.urlReturnsImage(ddgUrl)) {
-        this.logger.log(`AI resolved ${companyName} -> ${domain} (DDG)`);
-        return ddgUrl;
+        // If it's a full URL, validate it directly
+        if (cleaned.startsWith('http')) {
+          if (await this.urlReturnsImage(cleaned)) {
+            this.logger.log(`AI found logo for ${companyName}: ${cleaned}`);
+            return cleaned;
+          }
+        }
+
+        // If it looks like a domain, try clearbit + favicon
+        const domainMatch = cleaned.match(/^([a-z0-9][\w.-]+\.[a-z]{2,})$/i);
+        if (domainMatch) {
+          const domain = domainMatch[1].toLowerCase();
+
+          // Clearbit (best quality, free)
+          const clearbitUrl = `https://logo.clearbit.com/${domain}`;
+          if (await this.urlReturnsImage(clearbitUrl)) {
+            this.logger.log(`AI resolved ${companyName} -> ${domain} (clearbit)`);
+            return clearbitUrl;
+          }
+
+          // Google favicon
+          const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+          if (await this.urlReturnsImage(faviconUrl)) {
+            this.logger.log(`AI resolved ${companyName} -> ${domain} (favicon)`);
+            return faviconUrl;
+          }
+
+          // DuckDuckGo
+          const ddgUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+          if (await this.urlReturnsImage(ddgUrl)) {
+            this.logger.log(`AI resolved ${companyName} -> ${domain} (DDG)`);
+            return ddgUrl;
+          }
+        }
       }
 
       return null;
