@@ -189,7 +189,7 @@ function CompanyLogo({ name, initials, size }: { name: string; initials: string;
           height={size}
           onLoad={() => setImgOk(true)}
           onError={() => { setImgOk(false); setLogoUrl(null); }}
-          className={`absolute inset-0 rounded-md bg-white object-contain p-0.5 transition-opacity duration-300 ${imgOk ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 rounded-md object-cover transition-opacity duration-300 ${imgOk ? 'opacity-100' : 'opacity-0'}`}
           style={{ width: size, height: size }}
         />
       )}
