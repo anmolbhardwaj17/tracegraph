@@ -421,12 +421,12 @@ export default function Home() {
             20+ automated risk signals from three data sources - UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
-            <Capability title="Shell company networks" body="Multi-factor scoring: director count, rapid dissolutions, dormant accounts, virtual office addresses, micro-entity filings." />
-            <Capability title="UBO chain resolution" body="Traces corporate PSC chains through ownership layers until reaching a natural person. Computes effective ownership % and flags offshore jurisdictions." />
-            <Capability title="Sanctions & PEP screening" body="Every entity screened against 4.1M OpenSanctions records and 770K ICIJ OffshoreLeaks entries with fuzzy name matching." />
-            <Capability title="Disqualified directors" body="All directors checked against the Companies House disqualified-officers register. CRITICAL finding on match." />
-            <Capability title="Filing & financial health" body="Late filings, account-type regression, dormant cycling, phoenix company patterns, and multi-year filing gaps." />
-            <Capability title="Director network conflicts" body="Same-SIC competitor conflicts, incestuous director cliques, cross-directorship patterns, and dual-sided relationships." />
+            <Capability title="Shell company networks" body="Multi-factor scoring: director count, rapid dissolutions, dormant accounts, virtual office addresses, micro-entity filings." color="#FF4D4D" icon="shell" />
+            <Capability title="UBO chain resolution" body="Traces corporate PSC chains through ownership layers until reaching a natural person. Computes effective ownership % and flags offshore jurisdictions." color="#F5C518" icon="chain" />
+            <Capability title="Sanctions & PEP screening" body="Every entity screened against 4.1M OpenSanctions records and 770K ICIJ OffshoreLeaks entries with fuzzy name matching." color="#FF8A3D" icon="shield" />
+            <Capability title="Disqualified directors" body="All directors checked against the Companies House disqualified-officers register. CRITICAL finding on match." color="#FF4D4D" icon="ban" />
+            <Capability title="Filing & financial health" body="Late filings, account-type regression, dormant cycling, phoenix company patterns, and multi-year filing gaps." color="#5EE6A1" icon="file" />
+            <Capability title="Director network conflicts" body="Same-SIC competitor conflicts, incestuous director cliques, cross-directorship patterns, and dual-sided relationships." color="#60A5FA" icon="network" />
           </div>
         </div>
       </section>
@@ -587,11 +587,27 @@ function Approach({ n, title, body }: { n: string; title: string; body: string }
 }
 
 
-function Capability({ title, body }: { title: string; body: string }) {
+function Capability({ title, body, color, icon }: { title: string; body: string; color: string; icon: string }) {
+  const icons: Record<string, React.ReactNode> = {
+    shell: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+    chain: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><path d="M9 17H7A5 5 0 017 7h2M15 7h2a5 5 0 010 10h-2M8 12h8" strokeLinecap="round" /></svg>,
+    shield: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" /><path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+    ban: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><circle cx="12" cy="12" r="10" /><path d="M4.93 4.93l14.14 14.14" /></svg>,
+    file: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round" /><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+    network: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><circle cx="12" cy="5" r="3" /><circle cx="5" cy="19" r="3" /><circle cx="19" cy="19" r="3" /><path d="M12 8v4M8.5 16.5L10.5 13M15.5 16.5l-2-3.5" /></svg>,
+  };
   return (
-    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors card-glow border border-transparent">
-      <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
+    <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors card-glow border border-transparent group">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-9 h-9 rounded-sm flex items-center justify-center" style={{ backgroundColor: color + '15', color }}>
+          {icons[icon] || <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />}
+        </div>
+        <h3 className="text-base font-medium tracking-tight text-ink-50">{title}</h3>
+      </div>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
+      <div className="mt-4 h-0.5 rounded-full overflow-hidden" style={{ backgroundColor: color + '10' }}>
+        <div className="h-full rounded-full transition-all duration-700 w-0 group-hover:w-full" style={{ backgroundColor: color + '40' }} />
+      </div>
     </div>
   );
 }
