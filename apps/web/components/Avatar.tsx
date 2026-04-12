@@ -180,18 +180,21 @@ function CompanyLogo({ name, initials, size }: { name: string; initials: string;
       >
         {initials || '?'}
       </div>
-      {/* Logo on top — fades in */}
+      {/* Logo on top — white bg sized exactly to the image */}
       {logoUrl && (
-        <img
-          src={logoUrl}
-          alt={name}
-          width={size}
-          height={size}
-          onLoad={() => setImgOk(true)}
-          onError={() => { setImgOk(false); setLogoUrl(null); }}
-          className={`absolute inset-0 rounded-md object-cover transition-opacity duration-300 ${imgOk ? 'opacity-100' : 'opacity-0'}`}
-          style={{ width: size, height: size }}
-        />
+        <div
+          className={`absolute inset-0 rounded-md bg-white overflow-hidden transition-opacity duration-300 ${imgOk ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <img
+            src={logoUrl}
+            alt={name}
+            width={size}
+            height={size}
+            onLoad={() => setImgOk(true)}
+            onError={() => { setImgOk(false); setLogoUrl(null); }}
+            className="w-full h-full object-cover"
+          />
+        </div>
       )}
     </div>
   );
