@@ -4,7 +4,7 @@ import { OpenCorporatesProvider } from './providers/opencorporates.provider';
 import { SecEdgarProvider } from './providers/sec-edgar.provider';
 import { CompanySearchResult } from './data-provider.interface';
 
-@Controller('api/jurisdictions')
+@Controller('jurisdictions')
 export class JurisdictionsController {
   private readonly oc = new OpenCorporatesProvider();
   private readonly sec = new SecEdgarProvider();

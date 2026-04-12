@@ -66,13 +66,25 @@ export class SecEdgarProvider implements CompanyDataProvider {
         const seen = new Set<string>();
         const results: CompanySearchResult[] = [];
 
-        for (const hit of hits.slice(0, 30)) {
+        for (const hit of hits.slice(0, 50)) {
           const src = hit._source || {};
-          const cik = src.entity_id || '';
+          const displayName = src.display_names?.[0] || src.entity_name || '';
+          if (!displayName) continue;
+
+          // Extract CIK from display name: "AMAZON COM INC  (AMZN)  (CIK 0001018724)"
+          const cikMatch = displayName.match(/CIK\s+(\d+)/);
+          const cik = cikMatch ? cikMatch[1] : src.entity_id || '';
           if (!cik || seen.has(cik)) continue;
           seen.add(cik);
+
+          // Clean name: remove (CIK ...) and (TICKER) parts
+          const cleanName = displayName
+            .replace(/\s*\(CIK\s+\d+\)/g, '')
+            .replace(/\s*\([A-Z]{1,5}\)/g, '')
+            .trim();
+
           results.push({
-            name: src.display_names?.[0] || src.entity_name || cik,
+            name: cleanName || displayName,
             companyNumber: cik,
             jurisdiction: 'us',
             status: 'active',
