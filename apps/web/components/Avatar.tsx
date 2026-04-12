@@ -188,7 +188,7 @@ function CompanyLogo({ name, initials, size }: { name: string; initials: string;
     <>
       {!loaded && (
         <div
-          className="rounded-md bg-gradient-to-br from-ink-800 to-ink-700 ring-1 ring-white/5 flex items-center justify-center text-ink-100 font-mono font-semibold tracking-tight shrink-0"
+          className="rounded-md bg-gradient-to-br from-ink-800 to-ink-700 ring-1 ring-white/5 flex items-center justify-center text-ink-100 font-mono font-semibold tracking-widest shrink-0"
           style={{ width: size, height: size, fontSize: Math.max(10, size * 0.35), position: loaded ? 'absolute' : 'relative' }}
         >
           {initials || '?'}
