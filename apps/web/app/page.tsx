@@ -315,40 +315,9 @@ export default function Home() {
           </div>
           {error && <p className="text-signal-critical text-sm mt-3">{error}</p>}
           {!selectedHit && (
-            <div className="mt-6 reveal reveal-delay-4">
-              <p className="text-xs text-ink-500 mb-4 font-mono">
-                Try → Tesco PLC  ·  00445790  ·  type to search
-              </p>
-              {/* Example result preview */}
-              <div className="max-w-lg border border-white/5 bg-ink-850/50 backdrop-blur-sm rounded-sm overflow-hidden opacity-70 hover:opacity-100 transition-opacity duration-500">
-                <div className="px-5 py-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-md bg-gradient-to-br from-ink-800 to-ink-700 ring-1 ring-white/5 flex items-center justify-center text-ink-100 font-mono font-semibold text-sm shrink-0">GS</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-ink-50 font-medium">GYMSHARK LTD</span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-white/5 text-ink-400 border border-white/10">STANDARD</span>
-                    </div>
-                    <div className="text-[10px] font-mono text-ink-500 mt-0.5">08130873 · England Wales · 14,035 entities mapped</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xl font-medium tabular-nums text-signal-medium">50</div>
-                    <div className="text-[9px] font-mono text-ink-500">/ 100</div>
-                  </div>
-                </div>
-                <div className="px-5 pb-3 flex items-center gap-3">
-                  <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-signal-clean via-signal-medium to-signal-medium" style={{ width: '50%' }} />
-                  </div>
-                  <div className="flex gap-2 text-[9px] font-mono">
-                    <span className="text-signal-critical">34 target</span>
-                    <span className="text-ink-500">·</span>
-                    <span className="text-signal-medium">17 directors</span>
-                    <span className="text-ink-500">·</span>
-                    <span className="text-ink-400">9.5K network</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <p className="text-xs text-ink-500 mt-3 font-mono">
+              Try → Tesco PLC  ·  00445790  ·  type to search
+            </p>
           )}
         </form>
 
