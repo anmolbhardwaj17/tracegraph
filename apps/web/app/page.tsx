@@ -13,9 +13,14 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 interface SearchHit {
   companyNumber: string;
   title: string;
+  name?: string;
   status?: string;
   address?: string;
   incorporated?: string;
+  jurisdiction?: string;
+  jurisdictionLabel?: string;
+  source?: string;
+  flag?: string;
 }
 
 type Tier = 'QUICK' | 'STANDARD' | 'DEEP';
@@ -31,6 +36,7 @@ export default function Home() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [selectedHit, setSelectedHit] = useState<SearchHit | null>(null);
+  const [jurisdiction, setJurisdiction] = useState('gb');
   const debounceRef = useRef<any>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -86,7 +92,10 @@ export default function Home() {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`${API}/api/companies-house/search?q=${encodeURIComponent(trimmed)}`);
+        const searchUrl = jurisdiction === 'gb'
+          ? `${API}/api/companies-house/search?q=${encodeURIComponent(trimmed)}`
+          : `${API}/api/jurisdictions/search?q=${encodeURIComponent(trimmed)}&jurisdiction=${jurisdiction}`;
+        const res = await fetch(searchUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setHits(data.items || []);
@@ -99,13 +108,13 @@ export default function Home() {
       }
     }, 250);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query]);
+  }, [query, jurisdiction]);
 
   function pickCompany(hit: SearchHit) {
     setSelectedHit(hit);
     setShowDropdown(false);
     setHits([]);
-    setQuery(hit.title);
+    setQuery(hit.title || hit.name || hit.companyNumber);
   }
 
   async function startInvestigation(q: string, tier: Tier = 'STANDARD') {
@@ -225,6 +234,21 @@ export default function Home() {
 
         {/* Search */}
         <form onSubmit={submit} className="mt-12 max-w-2xl reveal reveal-delay-3 relative">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-mono text-ink-500 uppercase tracking-wider">Jurisdiction</span>
+            {[
+              { value: 'gb', label: 'UK', flag: 'GB' },
+              { value: 'us', label: 'US', flag: 'US' },
+              { value: 'de', label: 'DE', flag: 'DE' },
+              { value: 'fr', label: 'FR', flag: 'FR' },
+              { value: 'all', label: 'All', flag: '' },
+            ].map((j) => (
+              <button key={j.value} onClick={() => setJurisdiction(j.value)}
+                className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border transition-colors ${
+                  jurisdiction === j.value ? 'bg-white/10 text-ink-50 border-white/30' : 'bg-ink-850 text-ink-400 border-white/10 hover:border-white/30'
+                }`}>{j.label}</button>
+            ))}
+          </div>
           <div className="relative group">
             <input
               ref={searchRef}
@@ -233,7 +257,7 @@ export default function Home() {
               onKeyDown={handleKeyDown}
               onFocus={() => hits.length > 0 && setShowDropdown(true)}
               onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-              placeholder="Enter a UK company name or number..."
+              placeholder={jurisdiction === 'gb' ? 'Enter a UK company name or number...' : jurisdiction === 'all' ? 'Search companies worldwide...' : `Search ${jurisdiction.toUpperCase()} companies...`}
               autoComplete="off"
               className="w-full px-6 py-5 pr-48 text-lg rounded-sm bg-ink-850 border border-white/10 text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
             />
@@ -267,10 +291,12 @@ export default function Home() {
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm text-ink-50 truncate">{h.title}</div>
+                      <div className="text-sm text-ink-50 truncate">{h.title || h.name}</div>
                       <div className="text-[10px] text-ink-500 font-mono mt-0.5 truncate">
                         {h.companyNumber}
                         {h.address && ` · ${h.address}`}
+                        {h.jurisdiction && h.jurisdiction !== 'gb' && ` · ${(h.jurisdictionLabel || h.jurisdiction).toUpperCase()}`}
+                        {h.source && h.source !== 'companies-house' && ` · ${h.source}`}
                       </div>
                     </div>
                     {h.status && (
