@@ -219,17 +219,17 @@ export default function Home() {
           </h1>
 
           <p className="mt-10 text-lg text-ink-300 max-w-xl leading-relaxed reveal reveal-delay-2">
-            Trace ownership chains, detect shell networks, screen sanctions - from public data, in minutes.
+            Trace ownership chains, detect shell networks, screen sanctions across 145+ jurisdictions - from public data, in minutes.
           </p>
 
           <div className="mt-6 flex items-center gap-6 text-xs font-mono text-ink-500 reveal reveal-delay-2 flex-wrap">
-            <CountUp end={6} suffix="M+" label="UK companies" />
+            <CountUp end={235} suffix="M+" label="companies searchable" />
             <span className="text-ink-700">·</span>
             <CountUp end={4.1} suffix="M" label="sanctions entities" decimals={1} />
             <span className="text-ink-700">·</span>
             <CountUp end={770} suffix="K+" label="offshore records" />
             <span className="text-ink-700">·</span>
-            <CountUp end={20} suffix="+" label="risk signals" />
+            <CountUp end={145} suffix="+" label="jurisdictions" />
           </div>
 
         {/* Search */}

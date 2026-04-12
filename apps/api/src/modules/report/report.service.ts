@@ -449,6 +449,15 @@ export class ReportService {
       this.sectionTitle(doc, 'Methodology & Sources');
       doc.moveDown(0.8);
       doc.font('Helvetica').fontSize(10).fillColor(C.text).text('This report was generated using publicly available data from the following sources:', { lineGap: 3 });
+      const invJurisdiction = inv.metadata?.jurisdiction || 'gb';
+      if (invJurisdiction !== 'gb') {
+        doc.moveDown(0.3);
+        doc.font('Helvetica').fontSize(9).fillColor(C.amber).text(
+          'Note: Data depth varies by jurisdiction. UK investigations use Companies House for comprehensive analysis. ' +
+          'Other jurisdictions use OpenCorporates and may have limited data availability for filing health, ownership chains, and PSC data.',
+          { lineGap: 2 },
+        );
+      }
       doc.moveDown(0.8);
       for (const [name, desc] of [['UK Companies House API', 'Company profiles, officers, PSCs, filing history, charges, registered offices'], ['OpenSanctions', '4.1 million sanctions, PEP, and watchlist entities from 100+ global sources'], ['ICIJ OffshoreLeaks', '770,000+ offshore entities, officers, and intermediaries from leaked databases']]) {
         doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.dark).text(name, { continued: true });

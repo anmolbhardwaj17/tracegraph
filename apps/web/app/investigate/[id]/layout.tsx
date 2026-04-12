@@ -74,6 +74,16 @@ export default function InvestigationLayout({ children }: { children: React.Reac
                 {meta.tier === 'DEEP' ? 'Deep investigation' : meta.tier === 'QUICK' ? 'Quick scan' : 'Standard'}
               </span>
             )}
+            {meta?.jurisdiction && meta.jurisdiction !== 'gb' && (
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border bg-signal-medium/10 text-signal-medium border-signal-medium/20">
+                {meta.jurisdiction.toUpperCase()} - Basic
+              </span>
+            )}
+            {meta?.jurisdiction === 'gb' && (
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border bg-signal-clean/10 text-signal-clean border-signal-clean/20">
+                UK - Full
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4">
             {meta?.riskScore != null && (
