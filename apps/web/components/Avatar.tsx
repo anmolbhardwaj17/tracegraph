@@ -159,58 +159,40 @@ async function fetchLogoUrl(name: string): Promise<string | null> {
  */
 function CompanyLogo({ name, initials, size }: { name: string; initials: string; size: number }) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [imgOk, setImgOk] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setImgOk(false);
+    setLogoUrl(null);
     fetchLogoUrl(name).then((url) => {
-      if (!cancelled) setLogoUrl(url);
+      if (!cancelled && url) setLogoUrl(url);
     });
     return () => { cancelled = true; };
   }, [name]);
 
-  // Also try client-side domain guessing as immediate attempt
-  const domains = companyDomains(name);
-  const clientUrl = domains.length > 0 ? `https://icons.duckduckgo.com/ip3/${domains[0]}.ico` : null;
-  const [clientFailed, setClientFailed] = useState(false);
-
-  const showUrl = logoUrl || (clientFailed ? null : clientUrl);
-
-  if (!showUrl) {
-    return (
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      {/* Initials base layer — always rendered, fades out when logo loads */}
       <div
-        className="rounded-md bg-gradient-to-br from-ink-800 to-ink-700 ring-1 ring-white/5 flex items-center justify-center text-ink-100 font-mono text-[10px] tracking-tight shrink-0"
-        style={{ width: size, height: size, fontSize: Math.max(10, size * 0.35) }}
+        className={`absolute inset-0 rounded-md bg-gradient-to-br from-ink-800 to-ink-700 ring-1 ring-white/5 flex items-center justify-center text-ink-100 font-mono font-semibold tracking-widest transition-opacity duration-300 ${imgOk ? 'opacity-0' : 'opacity-100'}`}
+        style={{ fontSize: Math.max(10, size * 0.35) }}
       >
         {initials || '?'}
       </div>
-    );
-  }
-
-  return (
-    <>
-      {!loaded && (
-        <div
-          className="rounded-md bg-gradient-to-br from-ink-800 to-ink-700 ring-1 ring-white/5 flex items-center justify-center text-ink-100 font-mono font-semibold tracking-widest shrink-0"
-          style={{ width: size, height: size, fontSize: Math.max(10, size * 0.35), position: loaded ? 'absolute' : 'relative' }}
-        >
-          {initials || '?'}
-        </div>
+      {/* Logo on top — fades in */}
+      {logoUrl && (
+        <img
+          src={logoUrl}
+          alt={name}
+          width={size}
+          height={size}
+          onLoad={() => setImgOk(true)}
+          onError={() => { setImgOk(false); setLogoUrl(null); }}
+          className={`absolute inset-0 rounded-md ring-1 ring-white/10 bg-white object-contain p-0.5 transition-opacity duration-300 ${imgOk ? 'opacity-100' : 'opacity-0'}`}
+          style={{ width: size, height: size }}
+        />
       )}
-      <img
-        src={showUrl}
-        alt={name}
-        width={size}
-        height={size}
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-        onError={() => {
-          if (showUrl === clientUrl) setClientFailed(true);
-          setLoaded(false);
-        }}
-        className={`rounded-md ring-1 ring-white/10 bg-white shrink-0 object-contain p-0.5 ${loaded ? '' : 'hidden'}`}
-        style={{ width: size, height: size }}
-      />
-    </>
+    </div>
   );
 }
