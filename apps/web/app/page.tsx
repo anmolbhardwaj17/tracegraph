@@ -374,14 +374,14 @@ export default function Home() {
             <div className="marquee-track gap-4">
               {[0, 1].map((copy) => (
                 <div key={copy} className="flex gap-4 shrink-0 pr-4">
-                  <FeatureStrip label="Live expansion" description="Watch your network grow in real time" placeholder="sonar animation" />
-                  <FeatureStrip label="Graph explorer" description="Filter by type, search entities, trace paths" placeholder="interactive graph" />
-                  <FeatureStrip label="Ownership chains" description="Trace UBO through corporate layers" placeholder="chain diagram" />
-                  <FeatureStrip label="Intelligence report" description="Professional PDF with verdict, findings, methodology" placeholder="PDF export" />
-                  <FeatureStrip label="Compare" description="Side-by-side risk analysis of two companies" placeholder="comparison view" />
-                  <FeatureStrip label="Monitor" description="Track risk score changes over time" placeholder="watchlist view" />
-                  <FeatureStrip label="Verify" description="One-click links to source data for every finding" placeholder="verification links" />
-                  <FeatureStrip label="Leaderboard" description="UK's riskiest companies ranked by risk score" placeholder="leaderboard view" />
+                  <FeatureStrip label="Live expansion" description="Watch your network grow in real time" visual="sonar" />
+                  <FeatureStrip label="Graph explorer" description="Filter by type, search entities, trace paths" visual="graph" />
+                  <FeatureStrip label="Ownership chains" description="Trace UBO through corporate layers" visual="ownership" />
+                  <FeatureStrip label="Intelligence report" description="Professional PDF with verdict, findings, methodology" visual="pdf" />
+                  <FeatureStrip label="Compare" description="Side-by-side risk analysis of two companies" visual="compare" />
+                  <FeatureStrip label="Monitor" description="Track risk score changes over time" visual="monitor" />
+                  <FeatureStrip label="Verify" description="One-click links to source data for every finding" visual="verify" />
+                  <FeatureStrip label="Leaderboard" description="UK's riskiest companies ranked by risk score" visual="leaderboard" />
                 </div>
               ))}
             </div>
@@ -758,23 +758,174 @@ function CountUp({ end, suffix = '', label, decimals = 0 }: { end: number; suffi
   );
 }
 
-function FeatureStrip({ label, description, placeholder }: { label: string; description: string; placeholder: string }) {
+function FeatureStrip({ label, description, visual }: { label: string; description: string; visual: string }) {
   return (
     <div className="min-w-[220px] max-w-[260px] flex-shrink-0 snap-start border border-white/5 bg-ink-900 overflow-hidden card-glow border-transparent">
-      {/* Image placeholder */}
-      <div className="aspect-[4/3] bg-ink-950/50 border-b border-white/5 flex items-center justify-center">
-        <div className="text-center px-4">
-          <div className="w-10 h-10 rounded-sm bg-ink-850 border border-white/10 flex items-center justify-center mx-auto mb-3">
-            <div className="w-4 h-4 border border-white/15 rounded-sm" />
-          </div>
-          <div className="text-[9px] font-mono text-ink-600 uppercase tracking-wider">{placeholder}</div>
-        </div>
+      <div className="aspect-[4/3] bg-ink-950/50 border-b border-white/5 flex items-center justify-center p-4">
+        <FeatureVisual type={visual} />
       </div>
-      {/* Text */}
       <div className="p-5">
         <div className="text-sm font-medium text-ink-50 mb-1">{label}</div>
         <div className="text-xs text-ink-400 leading-relaxed">{description}</div>
       </div>
+    </div>
+  );
+}
+
+function FeatureVisual({ type }: { type: string }) {
+  if (type === 'sonar') {
+    return (
+      <svg viewBox="0 0 120 90" className="w-full h-full">
+        <style>{`
+          @keyframes sonarPulse { 0% { r: 5; opacity: 0.4; } 100% { r: 50; opacity: 0; } }
+          .sonar-wave { animation: sonarPulse 2.5s ease-out infinite; }
+          .sonar-wave2 { animation: sonarPulse 2.5s ease-out 1.2s infinite; }
+        `}</style>
+        {[20, 35, 50].map((r, i) => (
+          <ellipse key={i} cx="60" cy="45" rx={r} ry={r * 0.65} fill="none" stroke="rgba(94,230,161,0.1)" strokeWidth="0.6" />
+        ))}
+        <ellipse className="sonar-wave" cx="60" cy="45" rx="5" ry="3.25" fill="none" stroke="rgba(94,230,161,0.4)" strokeWidth="1" />
+        <ellipse className="sonar-wave2" cx="60" cy="45" rx="5" ry="3.25" fill="none" stroke="rgba(94,230,161,0.3)" strokeWidth="0.8" />
+        <circle cx="60" cy="45" r="3" fill="#5EE6A1" />
+        {[[78, 35], [42, 28], [85, 55], [35, 58], [70, 62], [50, 40], [75, 42], [45, 50]].map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r="1.5" fill="rgba(200,200,200,0.5)">
+            <animate attributeName="opacity" values="0.3;0.8;0.3" dur={`${2 + i * 0.3}s`} repeatCount="indefinite" />
+          </circle>
+        ))}
+      </svg>
+    );
+  }
+  if (type === 'graph') {
+    const nodes = [[60, 45], [30, 25], [90, 25], [25, 65], [95, 65], [60, 15], [45, 55], [75, 55]];
+    const edges = [[0,1],[0,2],[0,6],[0,7],[1,5],[2,5],[1,3],[2,4],[6,3],[7,4]];
+    return (
+      <svg viewBox="0 0 120 80" className="w-full h-full">
+        {edges.map(([a, b], i) => (
+          <line key={i} x1={nodes[a][0]} y1={nodes[a][1]} x2={nodes[b][0]} y2={nodes[b][1]} stroke="rgba(94,230,161,0.2)" strokeWidth="0.8">
+            <animate attributeName="stroke-opacity" values="0.15;0.35;0.15" dur={`${3 + i * 0.2}s`} repeatCount="indefinite" />
+          </line>
+        ))}
+        {nodes.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={i === 0 ? 5 : 3} fill={i === 0 ? '#F5C518' : i < 3 ? '#5EE6A1' : '#737373'} opacity={i === 0 ? 1 : 0.7}>
+            <animate attributeName="r" values={i === 0 ? '5;6;5' : '3;3.5;3'} dur={`${3 + i * 0.4}s`} repeatCount="indefinite" />
+          </circle>
+        ))}
+      </svg>
+    );
+  }
+  if (type === 'ownership') {
+    // Chain/tree diagram
+    return (
+      <svg viewBox="0 0 120 90" className="w-full h-full">
+        <line x1="60" y1="15" x2="60" y2="35" stroke="rgba(245,197,24,0.3)" strokeWidth="1" strokeDasharray="3,2" />
+        <line x1="60" y1="45" x2="60" y2="65" stroke="rgba(245,197,24,0.3)" strokeWidth="1" strokeDasharray="3,2" />
+        <line x1="60" y1="75" x2="35" y2="85" stroke="rgba(245,197,24,0.3)" strokeWidth="1" strokeDasharray="3,2" />
+        <line x1="60" y1="75" x2="85" y2="85" stroke="rgba(245,197,24,0.3)" strokeWidth="1" strokeDasharray="3,2" />
+        <circle cx="60" cy="12" r="4" fill="#5EE6A1" />
+        <text x="60" y="14" textAnchor="middle" fontSize="4" fill="#FFF" fontFamily="monospace">UBO</text>
+        <rect x="48" y="35" width="24" height="12" rx="2" fill="rgba(245,197,24,0.15)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.6" />
+        <rect x="48" y="65" width="24" height="12" rx="2" fill="rgba(245,197,24,0.15)" stroke="rgba(245,197,24,0.3)" strokeWidth="0.6" />
+        <text x="60" y="42" textAnchor="middle" fontSize="4" fill="#F5C518" fontFamily="monospace">Holdco</text>
+        <text x="60" y="72" textAnchor="middle" fontSize="4" fill="#F5C518" fontFamily="monospace">Target</text>
+      </svg>
+    );
+  }
+  if (type === 'pdf') {
+    // PDF document with sections
+    return (
+      <svg viewBox="0 0 120 90" className="w-full h-full">
+        <rect x="30" y="5" width="60" height="80" rx="2" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.6" />
+        <rect x="38" y="12" width="30" height="3" rx="1" fill="rgba(255,255,255,0.15)" />
+        <rect x="38" y="19" width="44" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
+        <rect x="38" y="23" width="40" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
+        <rect x="38" y="30" width="44" height="8" rx="1" fill="rgba(234,88,12,0.15)" stroke="rgba(234,88,12,0.3)" strokeWidth="0.4" />
+        <text x="60" y="35" textAnchor="middle" fontSize="4" fill="#EA580C" fontFamily="monospace">EDD</text>
+        <rect x="38" y="42" width="20" height="10" rx="1" fill="rgba(255,255,255,0.04)" />
+        <rect x="60" y="42" width="22" height="10" rx="1" fill="rgba(255,255,255,0.04)" />
+        <text x="48" y="49" textAnchor="middle" fontSize="6" fill="rgba(255,255,255,0.3)" fontFamily="monospace">60</text>
+        <rect x="38" y="56" width="44" height="2" rx="0.5" fill="rgba(220,38,38,0.3)" />
+        <rect x="38" y="60" width="30" height="2" rx="0.5" fill="rgba(245,158,11,0.3)" />
+        <rect x="38" y="64" width="38" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
+        <rect x="38" y="68" width="25" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
+      </svg>
+    );
+  }
+  if (type === 'compare') {
+    // Side-by-side comparison
+    return (
+      <svg viewBox="0 0 120 90" className="w-full h-full">
+        <rect x="8" y="10" width="48" height="70" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
+        <rect x="64" y="10" width="48" height="70" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
+        <text x="32" y="25" textAnchor="middle" fontSize="14" fill="#5EE6A1" fontFamily="monospace" fontWeight="bold">25</text>
+        <text x="88" y="25" textAnchor="middle" fontSize="14" fill="#FF4D4D" fontFamily="monospace" fontWeight="bold">72</text>
+        <text x="32" y="32" textAnchor="middle" fontSize="4" fill="rgba(255,255,255,0.3)" fontFamily="monospace">LOW</text>
+        <text x="88" y="32" textAnchor="middle" fontSize="4" fill="rgba(255,255,255,0.3)" fontFamily="monospace">HIGH</text>
+        {[40, 48, 56, 64].map((y, i) => (
+          <g key={i}>
+            <rect x="14" y={y} width={20 + Math.random() * 16} height="4" rx="1" fill={i < 2 ? 'rgba(94,230,161,0.2)' : 'rgba(255,255,255,0.06)'} />
+            <rect x="70" y={y} width={20 + Math.random() * 16} height="4" rx="1" fill={i > 1 ? 'rgba(255,77,77,0.2)' : 'rgba(255,255,255,0.06)'} />
+          </g>
+        ))}
+      </svg>
+    );
+  }
+  if (type === 'monitor') {
+    // Watchlist with trend arrows
+    return (
+      <svg viewBox="0 0 120 90" className="w-full h-full">
+        {[20, 38, 56, 74].map((y, i) => (
+          <g key={i}>
+            <rect x="12" y={y} width="96" height="14" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4" />
+            <rect x="16" y={y + 3} width="8" height="8" rx="1.5" fill="rgba(255,255,255,0.08)" />
+            <rect x="28" y={y + 4} width={25 + i * 5} height="3" rx="0.5" fill="rgba(255,255,255,0.1)" />
+            <text x="90" y={y + 10} textAnchor="middle" fontSize="6" fill={i === 1 ? '#FF4D4D' : i === 3 ? '#5EE6A1' : 'rgba(255,255,255,0.3)'} fontFamily="monospace">{[35, 62, 45, 28][i]}</text>
+            {i === 1 && <path d="M98,{y+4} l4,5 l-2,0 l0,3 l-4,0 l0,-3 l-2,0 z" fill="#FF4D4D" transform={`translate(0,${y - 20})`} />}
+          </g>
+        ))}
+      </svg>
+    );
+  }
+  if (type === 'verify') {
+    // Finding with verification links
+    return (
+      <svg viewBox="0 0 120 90" className="w-full h-full">
+        <rect x="12" y="10" width="96" height="70" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
+        <rect x="18" y="16" width="24" height="8" rx="1.5" fill="rgba(220,38,38,0.15)" />
+        <text x="30" y="22" textAnchor="middle" fontSize="5" fill="#DC2626" fontFamily="monospace">CRITICAL</text>
+        <rect x="18" y="28" width="60" height="2.5" rx="0.5" fill="rgba(255,255,255,0.12)" />
+        <rect x="18" y="33" width="50" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
+        <rect x="18" y="37" width="55" height="2" rx="0.5" fill="rgba(255,255,255,0.06)" />
+        <rect x="18" y="46" width="40" height="7" rx="1.5" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.25)" strokeWidth="0.4" />
+        <text x="38" y="51" textAnchor="middle" fontSize="4" fill="#60A5FA" fontFamily="monospace">View on CH {'>'}</text>
+        <rect x="18" y="57" width="45" height="7" rx="1.5" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.25)" strokeWidth="0.4" />
+        <text x="40" y="62" textAnchor="middle" fontSize="4" fill="#60A5FA" fontFamily="monospace">OpenSanctions {'>'}</text>
+      </svg>
+    );
+  }
+  if (type === 'leaderboard') {
+    // Ranked list
+    return (
+      <svg viewBox="0 0 120 90" className="w-full h-full">
+        {[0, 1, 2, 3, 4].map((i) => {
+          const y = 12 + i * 15;
+          const w = [80, 65, 55, 45, 35][i];
+          const color = i === 0 ? '#FF4D4D' : i === 1 ? '#FF8A3D' : i === 2 ? '#F5C518' : 'rgba(255,255,255,0.15)';
+          return (
+            <g key={i}>
+              <text x="16" y={y + 8} textAnchor="middle" fontSize="6" fill="rgba(255,255,255,0.3)" fontFamily="monospace">#{i + 1}</text>
+              <rect x="24" y={y + 1} width="50" height="3" rx="0.5" fill="rgba(255,255,255,0.08)" />
+              <rect x="24" y={y + 7} width={w} height="4" rx="1" fill={color} opacity="0.3" />
+              <rect x="24" y={y + 7} width={w * 0.7} height="4" rx="1" fill={color} opacity="0.5" />
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }
+  // Default fallback
+  return (
+    <div className="w-10 h-10 rounded-sm bg-ink-850 border border-white/10 flex items-center justify-center">
+      <div className="w-4 h-4 border border-white/15 rounded-sm" />
     </div>
   );
 }
