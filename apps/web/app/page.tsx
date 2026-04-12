@@ -442,16 +442,22 @@ export default function Home() {
               n="001"
               title="Vendor screening"
               body="Map director networks, verify corporate legitimacy, and assess risk exposure before signing contracts."
+              icon="vendor"
+              color="#5EE6A1"
             />
             <Approach
               n="002"
               title="Investment due diligence"
               body="Trace ownership structures, check founder histories, and identify hidden risks before committing capital."
+              icon="invest"
+              color="#F5C518"
             />
             <Approach
               n="003"
               title="Compliance & KYB"
               body="Automated sanctions screening, UBO resolution, and continuous risk monitoring for regulated onboarding workflows."
+              icon="compliance"
+              color="#60A5FA"
             />
           </div>
         </div>
@@ -576,10 +582,20 @@ function TierCard({
   );
 }
 
-function Approach({ n, title, body }: { n: string; title: string; body: string }) {
+function Approach({ n, title, body, icon, color }: { n: string; title: string; body: string; icon: string; color: string }) {
+  const icons: Record<string, React.ReactNode> = {
+    vendor: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+    invest: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><path d="M22 12h-4l-3 9L9 3l-3 9H2" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+    compliance: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5"><path d="M9 11l3 3L22 4" strokeLinecap="round" strokeLinejoin="round" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+  };
   return (
     <div className="bg-ink-900 p-8 hover:bg-ink-850 transition-colors card-glow border border-transparent">
-      <div className="text-[10px] font-mono text-ink-500 tracking-[0.15em] mb-4">{n}</div>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 rounded-sm flex items-center justify-center" style={{ backgroundColor: color + '12', color }}>
+          {icons[icon]}
+        </div>
+        <div className="text-[10px] font-mono tracking-[0.15em]" style={{ color: color + 'AA' }}>{n}</div>
+      </div>
       <h3 className="text-base font-medium tracking-tight text-ink-50 mb-3">{title}</h3>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
     </div>
@@ -605,9 +621,6 @@ function Capability({ title, body, color, icon }: { title: string; body: string;
         <h3 className="text-base font-medium tracking-tight text-ink-50">{title}</h3>
       </div>
       <p className="text-sm text-ink-300 leading-relaxed">{body}</p>
-      <div className="mt-4 h-0.5 rounded-full overflow-hidden" style={{ backgroundColor: color + '10' }}>
-        <div className="h-full rounded-full transition-all duration-700 w-0 group-hover:w-full" style={{ backgroundColor: color + '40' }} />
-      </div>
     </div>
   );
 }
