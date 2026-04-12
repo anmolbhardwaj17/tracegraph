@@ -46,7 +46,7 @@ export default function InvestigationLayout({ children }: { children: React.Reac
         }
       })
       .catch(() => {});
-  }, [id]);
+  }, [id, isTabRoute]);
 
   // If on base page (progress/loading), render children without tab chrome
   if (!isTabRoute) {
