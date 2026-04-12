@@ -120,7 +120,13 @@ export class LogosService {
       }
     }
 
-    // 4. Persist + memo
+    // 4. Try OpenRouter AI as last resort
+    if (!working) {
+      const aiUrl = await this.findLogoViaAI(name);
+      if (aiUrl) working = { url: aiUrl, source: 'openrouter' };
+    }
+
+    // 5. Persist + memo
     const result: LogoResult = working ? { url: working.url, source: working.source } : { url: null, source: null };
     try {
       await this.cache.upsert(
@@ -137,6 +143,61 @@ export class LogosService {
     }
     this.memCache.set(key, result);
     return result;
+  }
+
+  /** Ask OpenRouter to find a company's logo URL. */
+  private async findLogoViaAI(companyName: string): Promise<string | null> {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) return null;
+
+    try {
+      const model = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001';
+      const res = await axios.post(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          model,
+          messages: [{
+            role: 'user',
+            content: `What is the official website domain for the company "${companyName}"? Reply with ONLY the domain name (e.g. "example.com"), nothing else. If you don't know, reply "unknown".`,
+          }],
+          temperature: 0,
+          max_tokens: 50,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 8000,
+        },
+      );
+
+      const text = (res.data?.choices?.[0]?.message?.content || '').trim().toLowerCase();
+      if (!text || text === 'unknown' || text.includes(' ') || !text.includes('.')) return null;
+
+      // Clean up: remove quotes, trailing periods, http prefix
+      const domain = text.replace(/['"]/g, '').replace(/\.$/, '').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      if (!domain || domain.length < 4) return null;
+
+      // Try favicon for this domain
+      const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+      if (await this.urlReturnsImage(faviconUrl)) {
+        this.logger.log(`AI resolved ${companyName} -> ${domain}`);
+        return faviconUrl;
+      }
+
+      // Also try DuckDuckGo
+      const ddgUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+      if (await this.urlReturnsImage(ddgUrl)) {
+        this.logger.log(`AI resolved ${companyName} -> ${domain} (DDG)`);
+        return ddgUrl;
+      }
+
+      return null;
+    } catch (e: any) {
+      this.logger.warn(`AI logo lookup failed for ${companyName}: ${e?.message}`);
+      return null;
+    }
   }
 
   /** HEAD a URL and check it returns an image with non-trivial body. */
