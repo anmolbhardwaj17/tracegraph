@@ -1021,27 +1021,52 @@ function FeatureVisual({ type }: { type: string }) {
     );
   }
   if (type === 'monitor') {
-    const scores = [35, 62, 45, 28];
-    const colors = ['rgba(255,255,255,0.35)', '#FF4D4D', 'rgba(255,255,255,0.35)', '#5EE6A1'];
+    const items = [
+      { name: 'Acme Corp', score: 35, prev: 33, color: '#5EE6A1' },
+      { name: 'Globex Inc', score: 62, prev: 48, color: '#FF4D4D' },
+      { name: 'Initech Ltd', score: 45, prev: 45, color: '#F5C518' },
+      { name: 'Wayne Ent', score: 28, prev: 35, color: '#5EE6A1' },
+    ];
     return (
       <svg viewBox="0 0 120 90" className="w-full h-full">
         <style>{`
-          @keyframes rowSlide { 0% { transform: translateX(-5px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
-          @keyframes arrowBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-          @keyframes scorePulse { 0%,100% { opacity: 0.8; } 50% { opacity: 1; } }
+          @keyframes mSlide { 0% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
+          @keyframes mPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
         `}</style>
-        {[20, 38, 56, 74].map((y, i) => (
-          <g key={i} style={{ animation: `rowSlide 0.6s ease-out ${i * 0.12}s both` }}>
-            <rect x="12" y={y} width="96" height="14" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4" />
-            <rect x="16" y={y + 3} width="8" height="8" rx="1.5" fill="rgba(255,255,255,0.08)" />
-            <rect x="28" y={y + 4} height="3" rx="0.5" fill="rgba(255,255,255,0.1)">
-              <animate attributeName="width" values={`0;${25 + i * 5}`} dur="1s" begin={`${i * 0.15}s`} fill="freeze" />
-            </rect>
-            <text x="88" y={y + 10} textAnchor="middle" fontSize="6" fill={colors[i]} fontFamily="monospace" style={{ animation: 'scorePulse 2s ease-in-out infinite' }}>{scores[i]}</text>
-            {i === 1 && <g style={{ animation: 'arrowBounce 1s ease-in-out infinite' }}><path d={`M96,${y + 5} l2,3 l-4,0 z`} fill="#FF4D4D" opacity="0.8" /></g>}
-            {i === 3 && <g style={{ animation: 'arrowBounce 1s ease-in-out infinite 0.5s' }}><path d={`M96,${y + 9} l2,-3 l-4,0 z`} fill="#5EE6A1" opacity="0.8" /></g>}
-          </g>
-        ))}
+        {items.map((item, i) => {
+          const y = 8 + i * 20;
+          const delta = item.score - item.prev;
+          const barW = (item.score / 100) * 40;
+          return (
+            <g key={i} style={{ animation: `mSlide 0.5s ease-out ${i * 0.1}s both` }}>
+              <rect x="8" y={y} width="104" height="16" rx="2" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.05)" strokeWidth="0.3" />
+              {/* Avatar circle */}
+              <circle cx="18" cy={y + 8} r="4" fill="rgba(255,255,255,0.06)" />
+              <text x="18" y={y + 9.5} textAnchor="middle" fontSize="3.5" fill="rgba(255,255,255,0.3)" fontFamily="monospace">{item.name[0]}</text>
+              {/* Company name */}
+              <text x="26" y={y + 7} fontSize="3.5" fill="rgba(255,255,255,0.5)" fontFamily="monospace">{item.name}</text>
+              {/* Score bar */}
+              <rect x="26" y={y + 10} width="40" height="2.5" rx="0.5" fill="rgba(255,255,255,0.04)" />
+              <rect x="26" y={y + 10} height="2.5" rx="0.5" fill={item.color} opacity="0.4">
+                <animate attributeName="width" values={`0;${barW}`} dur="1.2s" begin={`${i * 0.15}s`} fill="freeze" />
+              </rect>
+              {/* Score number */}
+              <text x="78" y={y + 10} fontSize="5" fill={item.color} fontFamily="monospace" fontWeight="bold" style={{ animation: 'mPulse 2.5s ease-in-out infinite' }}>{item.score}</text>
+              {/* Delta */}
+              {delta !== 0 && (
+                <g>
+                  <text x="92" y={y + 10} fontSize="3.5" fill={delta > 0 ? '#FF4D4D' : '#5EE6A1'} fontFamily="monospace">
+                    {delta > 0 ? `+${delta}` : delta}
+                  </text>
+                  <text x="104" y={y + 10} fontSize="4" fill={delta > 0 ? '#FF4D4D' : '#5EE6A1'}>
+                    {delta > 0 ? '\u25B2' : '\u25BC'}
+                  </text>
+                </g>
+              )}
+              {delta === 0 && <text x="94" y={y + 10} fontSize="3.5" fill="rgba(255,255,255,0.2)" fontFamily="monospace">--</text>}
+            </g>
+          );
+        })}
       </svg>
     );
   }
