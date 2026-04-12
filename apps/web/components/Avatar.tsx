@@ -139,7 +139,7 @@ async function fetchLogoUrl(name: string): Promise<string | null> {
 
   // Fetch from backend
   try {
-    const res = await fetch(`${API_URL}/companies/logo?name=${encodeURIComponent(name)}`);
+    const res = await fetch(`${API_URL}/api/companies/logo?name=${encodeURIComponent(name)}`);
     if (!res.ok) return null;
     const data = await res.json();
     const url = data.url || null;
