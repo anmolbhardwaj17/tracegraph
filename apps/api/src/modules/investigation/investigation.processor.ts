@@ -12,6 +12,10 @@ import { RiskScoringService } from '../risk-scoring/risk-scoring.service';
 import { CompaniesHouseService } from '../companies-house/companies-house.service';
 import { UboChainService } from '../ubo-chain/ubo-chain.service';
 import { InvestigationGateway } from './investigation.gateway';
+import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
+import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
+import { GraphNode } from '../graph/entities/graph-node.entity';
+import { GraphEdge } from '../graph/entities/graph-edge.entity';
 
 export const INVESTIGATION_QUEUE = 'investigation';
 
@@ -32,8 +36,13 @@ const TIER_OPTIONS: Record<string, { maxCompanyDepth: number; softNodeCap: numbe
 export class InvestigationProcessor extends WorkerHost {
   private readonly logger = new Logger(InvestigationProcessor.name);
 
+  private readonly gleif = new GleifProvider();
+  private readonly secEdgar = new SecEdgarProvider();
+
   constructor(
     @InjectRepository(Investigation) private readonly investigations: Repository<Investigation>,
+    @InjectRepository(GraphNode) private readonly nodes: Repository<GraphNode>,
+    @InjectRepository(GraphEdge) private readonly edges: Repository<GraphEdge>,
     private readonly expansion: GraphExpansionService,
     private readonly addressService: AddressService,
     private readonly resolution: EntityResolutionService,
@@ -47,9 +56,14 @@ export class InvestigationProcessor extends WorkerHost {
   }
 
   async process(job: Job<InvestigationJobData>): Promise<void> {
-    const { investigationId, query, tier = 'STANDARD' } = job.data;
+    const { investigationId, query, tier = 'STANDARD', jurisdiction = 'gb' } = job.data;
     const opts = TIER_OPTIONS[tier] || TIER_OPTIONS.STANDARD;
-    this.logger.log(`Processing investigation ${investigationId} (${query}) tier=${tier}`);
+    this.logger.log(`Processing investigation ${investigationId} (${query}) tier=${tier} jurisdiction=${jurisdiction}`);
+
+    // Non-UK pipeline: use GLEIF + SEC EDGAR
+    if (jurisdiction !== 'gb') {
+      return this.processNonUK(investigationId, query, tier, jurisdiction);
+    }
 
     try {
       await this.investigations.update(investigationId, { status: 'FETCHING' });
@@ -191,6 +205,188 @@ export class InvestigationProcessor extends WorkerHost {
         metadata: { error: err?.message } as any,
       });
       this.gateway.emitComplete(investigationId, { status: 'failed', error: err?.message });
+    }
+  }
+
+  /**
+   * Non-UK investigation pipeline using GLEIF + SEC EDGAR.
+   * Limited but functional: company profile, ownership chain, sanctions screening.
+   */
+  private async processNonUK(investigationId: string, query: string, tier: string, jurisdiction: string): Promise<void> {
+    try {
+      await this.investigations.update(investigationId, { status: 'FETCHING' });
+      this.gateway.emitStatusChanged(investigationId, 'FETCHING');
+
+      // Step 1: Fetch company profile via GLEIF
+      const profile = await this.gleif.getCompanyProfile(query);
+      if (!profile) throw new Error(`Company not found in GLEIF registry (LEI: ${query})`);
+
+      const companyName = profile.name;
+      const lei = profile.companyNumber;
+      this.logger.log(`Non-UK: ${companyName} (${lei}) in ${jurisdiction}`);
+
+      await this.investigations.update(investigationId, {
+        status: 'EXPANDING',
+        metadata: { companyNumber: lei, companyName, tier, jurisdiction, dataDepth: 'basic' } as any,
+      });
+      this.gateway.emitStatusChanged(investigationId, 'EXPANDING');
+
+      // Create root company node
+      const rootNode = await this.nodes.save(this.nodes.create({
+        investigationId, entityType: 'company', entityId: lei, label: companyName,
+        metadata: {
+          status: profile.status, companyType: profile.companyType,
+          jurisdiction: profile.jurisdiction, registryUrl: profile.registryUrl,
+          dataSource: 'gleif', dataDepth: 'basic',
+        },
+      }));
+      this.gateway.emitEntityDiscovered(investigationId, { id: rootNode.id, entityType: 'company', entityId: lei, label: companyName });
+
+      // Step 2: Get ownership chain from GLEIF
+      const [directParent, ultimateParent, children] = await Promise.all([
+        this.gleif.getDirectParent(lei),
+        this.gleif.getUltimateParent(lei),
+        this.gleif.getChildren(lei),
+      ]);
+
+      const uboChains: any[] = [];
+      const ownershipPath: any[] = [];
+
+      if (directParent) {
+        const parentNode = await this.nodes.save(this.nodes.create({
+          investigationId, entityType: 'company', entityId: directParent.companyNumber, label: directParent.name,
+          metadata: { status: directParent.status, jurisdiction: directParent.jurisdiction, dataSource: 'gleif' },
+        }));
+        await this.edges.save(this.edges.create({
+          investigationId, sourceNodeId: parentNode.id, targetNodeId: rootNode.id, relationshipType: 'psc',
+          metadata: { type: 'direct-parent' },
+        }));
+        this.gateway.emitEntityDiscovered(investigationId, { id: parentNode.id, entityType: 'company', entityId: directParent.companyNumber, label: directParent.name });
+        ownershipPath.push({ kind: 'company', name: directParent.name, jurisdiction: directParent.jurisdiction, companyNumber: directParent.companyNumber, level: 1 });
+      }
+
+      if (ultimateParent && ultimateParent.companyNumber !== directParent?.companyNumber) {
+        const ultNode = await this.nodes.save(this.nodes.create({
+          investigationId, entityType: 'company', entityId: ultimateParent.companyNumber, label: ultimateParent.name,
+          metadata: { status: ultimateParent.status, jurisdiction: ultimateParent.jurisdiction, dataSource: 'gleif' },
+        }));
+        if (directParent) {
+          const parentNode = await this.nodes.findOne({ where: { investigationId, entityId: directParent.companyNumber } });
+          if (parentNode) {
+            await this.edges.save(this.edges.create({
+              investigationId, sourceNodeId: ultNode.id, targetNodeId: parentNode.id, relationshipType: 'psc',
+              metadata: { type: 'ultimate-parent' },
+            }));
+          }
+        }
+        this.gateway.emitEntityDiscovered(investigationId, { id: ultNode.id, entityType: 'company', entityId: ultimateParent.companyNumber, label: ultimateParent.name });
+        ownershipPath.unshift({ kind: 'company', name: ultimateParent.name, jurisdiction: ultimateParent.jurisdiction, companyNumber: ultimateParent.companyNumber, level: 2 });
+      }
+
+      // Add target to ownership path
+      ownershipPath.push({ kind: 'company', name: companyName, companyNumber: lei, level: 0 });
+
+      if (ownershipPath.length > 1) {
+        uboChains.push({
+          id: `${lei}-0`,
+          path: ownershipPath,
+          rootCompanyName: companyName,
+          rootCompanyNumber: lei,
+          terminationReason: ultimateParent ? 'reached ultimate parent' : 'reached direct parent',
+        });
+      }
+
+      // Step 3: Add subsidiaries
+      for (const child of children.slice(0, 20)) {
+        const childNode = await this.nodes.save(this.nodes.create({
+          investigationId, entityType: 'company', entityId: child.companyNumber, label: child.name,
+          metadata: { status: child.status, jurisdiction: child.jurisdiction, dataSource: 'gleif' },
+        }));
+        await this.edges.save(this.edges.create({
+          investigationId, sourceNodeId: rootNode.id, targetNodeId: childNode.id, relationshipType: 'psc',
+          metadata: { type: 'subsidiary' },
+        }));
+        this.gateway.emitEntityDiscovered(investigationId, { id: childNode.id, entityType: 'company', entityId: child.companyNumber, label: child.name });
+      }
+
+      // Step 4: If US, try SEC EDGAR for officers
+      if (jurisdiction === 'us') {
+        const officers = await this.secEdgar.getCompanyOfficers(query);
+        for (const off of officers.slice(0, 20)) {
+          const personNode = await this.nodes.save(this.nodes.create({
+            investigationId, entityType: 'person', entityId: `sec-${off.name.replace(/\s+/g, '-').toLowerCase()}`,
+            label: off.name, metadata: { role: off.role, dataSource: 'sec-edgar' },
+          }));
+          await this.edges.save(this.edges.create({
+            investigationId, sourceNodeId: rootNode.id, targetNodeId: personNode.id,
+            relationshipType: 'director', metadata: { role: off.role },
+          }));
+          this.gateway.emitEntityDiscovered(investigationId, { id: personNode.id, entityType: 'person', entityId: personNode.entityId, label: off.name });
+        }
+      }
+
+      // Step 5: Sanctions screening
+      await this.investigations.update(investigationId, { status: 'RESOLVING' });
+      this.gateway.emitStatusChanged(investigationId, 'RESOLVING');
+
+      let resolutionResult: any = { processed: 0, matches: 0 };
+      try {
+        resolutionResult = await this.resolution.resolveInvestigation(investigationId, {
+          onEntityMatched: (m) => this.gateway.emitEntityMatched(investigationId, {
+            id: m.id, sourceEntityType: m.sourceEntityType, sourceEntityId: m.sourceEntityId,
+            matchedSource: m.matchedSource, matchedEntityId: m.matchedEntityId,
+            confidenceScore: m.confidenceScore, matchReasons: m.matchReasons,
+          }),
+          onProgress: (p) => this.gateway.emitResolutionProgress(investigationId, p),
+        });
+        this.gateway.emitResolutionComplete(investigationId, resolutionResult);
+      } catch (e: any) { this.logger.warn(`Non-UK resolution failed: ${e?.message}`); }
+
+      let proximityResult: any = { scored: 0, flagged: 0 };
+      try { proximityResult = await this.proximity.compute(investigationId); } catch {}
+
+      // Step 6: Basic risk scoring
+      await this.investigations.update(investigationId, { status: 'SCORING' });
+      this.gateway.emitStatusChanged(investigationId, 'SCORING');
+
+      let riskResult: any = { score: 0, findings: [] };
+      try {
+        riskResult = await this.riskScoring.run(investigationId, (step, detail) => {
+          this.gateway.emitScoringStep(investigationId, { step, detail });
+        });
+      } catch (e: any) { this.logger.warn(`Non-UK scoring failed: ${e?.message}`); }
+
+      // Count entities
+      const nodeCount = await this.nodes.count({ where: { investigationId } });
+      const edgeCount = await this.edges.count({ where: { investigationId } });
+
+      // Complete
+      await this.investigations.update(investigationId, {
+        status: 'COMPLETE',
+        completedAt: new Date(),
+        progress: {
+          entitiesDiscovered: nodeCount,
+          edgesCreated: edgeCount,
+          currentDepth: 1,
+          tier,
+          jurisdiction,
+          dataDepth: 'basic',
+          uboChains,
+          resolution: resolutionResult,
+          proximity: proximityResult,
+          riskScore: riskResult.score,
+          findings: riskResult.findings,
+        } as any,
+      });
+      this.gateway.emitComplete(investigationId, {});
+      this.logger.log(`Non-UK investigation ${investigationId} COMPLETE: ${companyName}, score=${riskResult.score}`);
+
+    } catch (e: any) {
+      this.logger.error(`Non-UK investigation ${investigationId} FAILED: ${e?.message}`);
+      await this.investigations.update(investigationId, {
+        status: 'FAILED',
+        metadata: () => `jsonb_set(COALESCE(metadata, '{}')::jsonb, '{error}', '"${(e?.message || 'Unknown error').replace(/"/g, '')}"')`,
+      } as any);
     }
   }
 
