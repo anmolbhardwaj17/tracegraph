@@ -291,12 +291,19 @@ export default function Home() {
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm text-ink-50 truncate">{h.title || h.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-ink-50 truncate">{h.title || h.name}</span>
+                        {(h as any).ticker && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-signal-clean/10 text-signal-clean border border-signal-clean/20 shrink-0">
+                            {(h as any).ticker}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-ink-500 font-mono mt-0.5 truncate">
-                        {h.companyNumber}
+                        {h.source === 'sec-edgar' ? `CIK ${h.companyNumber}` : h.companyNumber}
                         {h.address && ` · ${h.address}`}
                         {h.jurisdiction && h.jurisdiction !== 'gb' && ` · ${(h.jurisdictionLabel || h.jurisdiction).toUpperCase()}`}
-                        {h.source && h.source !== 'companies-house' && ` · ${h.source}`}
+                        {h.source && h.source !== 'companies-house' && ` · ${h.source === 'sec-edgar' ? 'SEC EDGAR' : h.source === 'opencorporates' ? 'GLEIF' : h.source}`}
                       </div>
                     </div>
                     {h.status && (

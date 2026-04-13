@@ -217,37 +217,58 @@ export class InvestigationProcessor extends WorkerHost {
       await this.investigations.update(investigationId, { status: 'FETCHING' });
       this.gateway.emitStatusChanged(investigationId, 'FETCHING');
 
-      // Step 1: Fetch company profile via GLEIF
-      const profile = await this.gleif.getCompanyProfile(query);
-      if (!profile) throw new Error(`Company not found in GLEIF registry (LEI: ${query})`);
+      // Step 1: Fetch company profile — try SEC first for US, then GLEIF
+      let profile = null;
+      let useCik = false;
+      if (jurisdiction === 'us') {
+        profile = await this.secEdgar.getCompanyProfile(query);
+        if (profile) useCik = true;
+      }
+      if (!profile) {
+        profile = await this.gleif.getCompanyProfile(query);
+      }
+      if (!profile) throw new Error(`Company not found (query: ${query}, jurisdiction: ${jurisdiction})`);
 
       const companyName = profile.name;
-      const lei = profile.companyNumber;
-      this.logger.log(`Non-UK: ${companyName} (${lei}) in ${jurisdiction}`);
+      this.logger.log(`Non-UK: ${companyName} (${profile.companyNumber}) in ${jurisdiction}`);
 
+      const companyId = profile.companyNumber;
       await this.investigations.update(investigationId, {
         status: 'EXPANDING',
-        metadata: { companyNumber: lei, companyName, tier, jurisdiction, dataDepth: 'basic' } as any,
+        metadata: { companyNumber: companyId, companyName, tier, jurisdiction, dataDepth: useCik ? 'moderate' : 'basic', ...(profile as any) } as any,
       });
       this.gateway.emitStatusChanged(investigationId, 'EXPANDING');
 
       // Create root company node
       const rootNode = await this.nodes.save(this.nodes.create({
-        investigationId, entityType: 'company', entityId: lei, label: companyName,
+        investigationId, entityType: 'company', entityId: companyId, label: companyName,
         metadata: {
           status: profile.status, companyType: profile.companyType,
           jurisdiction: profile.jurisdiction, registryUrl: profile.registryUrl,
-          dataSource: 'gleif', dataDepth: 'basic',
+          registeredAddress: profile.registeredAddress,
+          sicCodes: profile.sicCodes,
+          dataSource: useCik ? 'sec-edgar' : 'gleif',
+          dataDepth: useCik ? 'moderate' : 'basic',
+          ...((profile as any).ticker ? { ticker: (profile as any).ticker, exchange: (profile as any).exchange, sicDescription: (profile as any).sicDescription, stateOfIncorporation: (profile as any).stateOfIncorporation, category: (profile as any).category } : {}),
         },
       }));
-      this.gateway.emitEntityDiscovered(investigationId, { id: rootNode.id, entityType: 'company', entityId: lei, label: companyName });
+      this.gateway.emitEntityDiscovered(investigationId, { id: rootNode.id, entityType: 'company', entityId: companyId, label: companyName });
 
       // Step 2: Get ownership chain from GLEIF
-      const [directParent, ultimateParent, children] = await Promise.all([
-        this.gleif.getDirectParent(lei),
-        this.gleif.getUltimateParent(lei),
-        this.gleif.getChildren(lei),
-      ]);
+      // GLEIF ownership needs LEI - for SEC companies, try to find LEI first
+      let leiForOwnership = useCik ? null : companyId;
+      if (useCik) {
+        // Search GLEIF by company name to find LEI
+        const gleifResults = await this.gleif.searchCompanies(companyName, 'US');
+        const match = gleifResults.find((r) => r.name.toUpperCase().includes(companyName.split(' ')[0].toUpperCase()));
+        if (match) leiForOwnership = match.companyNumber;
+      }
+
+      const [directParent, ultimateParent, children] = leiForOwnership ? await Promise.all([
+        this.gleif.getDirectParent(leiForOwnership),
+        this.gleif.getUltimateParent(leiForOwnership),
+        this.gleif.getChildren(leiForOwnership),
+      ]) : [null, null, []];
 
       const uboChains: any[] = [];
       const ownershipPath: any[] = [];
@@ -284,14 +305,14 @@ export class InvestigationProcessor extends WorkerHost {
       }
 
       // Add target to ownership path
-      ownershipPath.push({ kind: 'company', name: companyName, companyNumber: lei, level: 0 });
+      ownershipPath.push({ kind: 'company', name: companyName, companyNumber: companyId, level: 0 });
 
       if (ownershipPath.length > 1) {
         uboChains.push({
-          id: `${lei}-0`,
+          id: `${companyId}-0`,
           path: ownershipPath,
           rootCompanyName: companyName,
-          rootCompanyNumber: lei,
+          rootCompanyNumber: companyId,
           terminationReason: ultimateParent ? 'reached ultimate parent' : 'reached direct parent',
         });
       }
