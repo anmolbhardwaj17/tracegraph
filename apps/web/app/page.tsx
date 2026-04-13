@@ -144,7 +144,7 @@ export default function Home() {
       pickCompany(hits[activeIdx]);
       return;
     }
-    if (COMPANY_NUMBER_RE.test(trimmed)) {
+    if (jurisdiction === 'gb' && COMPANY_NUMBER_RE.test(trimmed)) {
       // Direct number → fabricate a hit so the tier picker still appears
       setSelectedHit({ companyNumber: trimmed, title: trimmed });
       setShowDropdown(false);
