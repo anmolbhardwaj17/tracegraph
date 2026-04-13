@@ -84,7 +84,7 @@ export default function Home() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = query.trim();
-    if (!trimmed || COMPANY_NUMBER_RE.test(trimmed) || trimmed.length < 2) {
+    if (!trimmed || (jurisdiction === 'gb' && COMPANY_NUMBER_RE.test(trimmed)) || trimmed.length < 2) {
       setHits([]);
       setShowDropdown(false);
       return;
