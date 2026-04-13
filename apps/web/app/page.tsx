@@ -277,7 +277,7 @@ export default function Home() {
                 {searching && hits.length === 0 && (
                   <div className="px-5 py-4 text-xs font-mono text-ink-500 flex items-center gap-2">
                     <span className="inline-block w-3 h-3 border border-ink-500 border-t-ink-50 rounded-full animate-spin" />
-                    searching companies house…
+                    {jurisdiction === 'gb' ? 'searching companies house...' : 'searching global registries...'}
                   </div>
                 )}
                 {hits.map((h, i) => (
