@@ -42,12 +42,15 @@ export class JurisdictionsController {
       ]);
       results.push(...gleifResults, ...ocResults);
     } else if (jCode === 'us') {
-      // Search GLEIF + SEC for US
-      const [gleifResults, secResults] = await Promise.all([
-        this.gleif.searchCompanies(query, 'US'),
-        this.sec.searchCompanies(query),
-      ]);
-      results.push(...gleifResults, ...secResults);
+      // SEC first (has tickers + richer data), GLEIF after
+      const secResults = await this.sec.searchCompanies(query);
+      console.log(`SEC returned ${secResults.length} results for "${query}"`);
+      results.push(...secResults);
+      // Only add GLEIF if SEC returned few results
+      if (secResults.length < 10) {
+        const gleifResults = await this.gleif.searchCompanies(query, 'US');
+        results.push(...gleifResults);
+      }
     } else {
       // Specific jurisdiction via GLEIF + OpenCorporates fallback
       const [gleifResults, ocResults] = await Promise.all([

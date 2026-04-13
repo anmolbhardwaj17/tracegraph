@@ -44,7 +44,7 @@ const SIC_MAP: Record<string, string> = {
 };
 
 interface TickerEntry {
-  cik: number;
+  cik_str: number;
   title: string;
   ticker: string;
 }
@@ -56,56 +56,71 @@ export class SecEdgarProvider implements CompanyDataProvider, OnModuleInit {
   readonly dataDepth: DataDepth = 'moderate';
   private readonly headers = { 'User-Agent': USER_AGENT, Accept: 'application/json' };
 
-  // In-memory ticker database (loaded on startup)
-  private tickers: TickerEntry[] = [];
-  private tickersBySymbol = new Map<string, TickerEntry>();
-  private tickerLoaded = false;
+  // Static ticker database shared across all instances
+  private static tickers: TickerEntry[] = [];
+  private static tickersBySymbol = new Map<string, TickerEntry>();
+  private static tickerLoaded = false;
+  private static tickerLoading: Promise<void> | null = null;
 
   async onModuleInit() {
-    this.loadTickers().catch((e) => this.logger.warn(`Failed to load SEC tickers: ${e?.message}`));
+    await SecEdgarProvider.ensureTickersLoaded(this.logger, this.headers);
   }
 
-  private async loadTickers(): Promise<void> {
-    try {
-      const res = await axios.get('https://www.sec.gov/files/company_tickers.json', {
-        headers: this.headers, timeout: 15000,
-      });
-      const data = res.data || {};
-      this.tickers = Object.values(data) as TickerEntry[];
-      for (const t of this.tickers) {
-        this.tickersBySymbol.set(t.ticker?.toUpperCase(), t);
+  static async ensureTickersLoaded(logger?: any, headers?: any): Promise<void> {
+    if (SecEdgarProvider.tickerLoaded) return;
+    if (SecEdgarProvider.tickerLoading) return SecEdgarProvider.tickerLoading;
+    SecEdgarProvider.tickerLoading = (async () => {
+      try {
+        const hdrs = headers || { 'User-Agent': USER_AGENT, Accept: 'application/json' };
+        const res = await axios.get('https://www.sec.gov/files/company_tickers.json', {
+          headers: hdrs, timeout: 15000,
+        });
+        const data = res.data || {};
+        SecEdgarProvider.tickers = Object.values(data) as TickerEntry[];
+        for (const t of SecEdgarProvider.tickers) {
+          if (t.ticker) SecEdgarProvider.tickersBySymbol.set(t.ticker.toUpperCase(), t);
+        }
+        SecEdgarProvider.tickerLoaded = true;
+        if (logger) logger.log(`Loaded ${SecEdgarProvider.tickers.length} SEC company tickers`);
+      } catch (e: any) {
+        if (logger) logger.warn(`SEC tickers load failed: ${e?.message}`);
       }
-      this.tickerLoaded = true;
-      this.logger.log(`Loaded ${this.tickers.length} SEC company tickers`);
-    } catch (e: any) {
-      this.logger.warn(`SEC tickers load failed: ${e?.message}`);
-    }
+      SecEdgarProvider.tickerLoading = null;
+    })();
+    return SecEdgarProvider.tickerLoading;
   }
 
   async searchCompanies(query: string): Promise<CompanySearchResult[]> {
-    // Ensure tickers are loaded
-    if (!this.tickerLoaded) await this.loadTickers();
+    // Ensure tickers are loaded — block until done
+    if (!SecEdgarProvider.tickerLoaded) {
+      this.logger.log('SEC tickers not loaded yet, loading now...');
+      await SecEdgarProvider.ensureTickersLoaded(this.logger, this.headers);
+      // Double check
+      if (!SecEdgarProvider.tickerLoaded) {
+        this.logger.warn('SEC tickers still not loaded after await');
+        return [];
+      }
+    }
+    this.logger.log(`SEC search for "${query}" — ${SecEdgarProvider.tickers.length} tickers`);
 
     const q = query.trim().toLowerCase();
     const results: CompanySearchResult[] = [];
 
     // 1. Exact ticker match (highest priority)
-    const tickerMatch = this.tickersBySymbol.get(query.trim().toUpperCase());
+    const tickerMatch = SecEdgarProvider.tickersBySymbol.get(query.trim().toUpperCase());
     if (tickerMatch) {
       results.push(this.tickerToResult(tickerMatch));
     }
 
     // 2. Fuzzy name search across all tickers
-    const nameMatches = this.tickers
+    const nameMatches = SecEdgarProvider.tickers
       .filter((t) => {
         const title = t.title.toLowerCase();
-        // Exact substring match
         if (title.includes(q)) return true;
-        // Match each word
         const words = q.split(/\s+/);
-        return words.every((w) => title.includes(w));
+        return words.length > 1 && words.every((w) => title.includes(w));
       })
-      .filter((t) => t.cik !== tickerMatch?.cik) // exclude already-added ticker match
+      .filter((t) => t.cik_str !== tickerMatch?.cik_str)
       .slice(0, 19);
 
     for (const m of nameMatches) {
@@ -118,11 +133,11 @@ export class SecEdgarProvider implements CompanyDataProvider, OnModuleInit {
   private tickerToResult(t: TickerEntry): CompanySearchResult {
     return {
       name: t.title,
-      companyNumber: String(t.cik),
+      companyNumber: String(t.cik_str),
       jurisdiction: 'us',
       status: 'active',
       incorporationDate: null,
-      registryUrl: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${t.cik}`,
+      registryUrl: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${t.cik_str}`,
       source: 'sec-edgar',
       // Extra fields for display
       ...(({ ticker: t.ticker }) as any),
@@ -187,7 +202,6 @@ export class SecEdgarProvider implements CompanyDataProvider, OnModuleInit {
     const cacheKey = `sec:officers:${paddedCik}`;
     return cached(cacheKey, async () => {
       try {
-        // Get recent insider filings (Form 4) to extract officers and directors
         const res = await rateLimited(() =>
           axios.get(`${DATA_BASE}/submissions/CIK${paddedCik}.json`, {
             headers: this.headers, timeout: 10000,
@@ -198,52 +212,80 @@ export class SecEdgarProvider implements CompanyDataProvider, OnModuleInit {
         const officers: Officer[] = [];
         const seen = new Set<string>();
 
-        // Parse Form 4 filings (insider trading) to find officers/directors
+        // Parse Form 4 XML filings to extract officers and directors
         const filings = d.filings?.recent || {};
         const forms = filings.form || [];
-        const names = filings.reportingOwner || [];
+        const accessions = filings.accessionNumber || [];
         const dates = filings.filingDate || [];
 
-        // Form 4 filings list the reporting owner (officer/director)
-        // We can also check the company filing for DEF 14A (proxy) or 10-K
-        for (let i = 0; i < Math.min(forms.length, 200); i++) {
-          if (forms[i] !== '4' && forms[i] !== '4/A') continue;
-          // The primaryDocDescription sometimes contains the officer name
-          const desc = filings.primaryDocDescription?.[i] || '';
-          // Try to extract from accession number filing
-          const accession = filings.accessionNumber?.[i];
-          if (!accession) continue;
-
-          // For Form 4s, the filing name itself is often the officer
-          // We'll parse this from the actual filing later
-          // For now, use the reporting owners if available
+        // Collect unique Form 4 accession numbers (each has a different officer)
+        const form4Accessions: { accession: string; date: string }[] = [];
+        for (let i = 0; i < Math.min(forms.length, 300); i++) {
+          if (forms[i] !== '4') continue;
+          form4Accessions.push({ accession: accessions[i], date: dates[i] });
+          if (form4Accessions.length >= 30) break; // Parse up to 30 Form 4s
         }
 
-        // Fallback: search for DEF 14A (proxy statement) which lists all officers
-        // For now, return what we can extract from the submissions data
-        if (d.officers) {
-          for (const off of d.officers) {
-            const name = off.name || off.officerName || '';
-            if (!name || seen.has(name.toLowerCase())) continue;
-            seen.add(name.toLowerCase());
+        // Parse each Form 4 XML in parallel (batches of 5)
+        for (let batch = 0; batch < form4Accessions.length; batch += 5) {
+          const chunk = form4Accessions.slice(batch, batch + 5);
+          const xmlResults = await Promise.all(
+            chunk.map(async ({ accession, date }) => {
+              try {
+                const accClean = accession.replace(/-/g, '');
+                // Find the XML file in the filing index
+                const indexRes = await rateLimited(() =>
+                  axios.get(`https://www.sec.gov/Archives/edgar/data/${cik}/${accClean}/${accession}-index.htm`, {
+                    headers: this.headers, timeout: 5000, responseType: 'text',
+                  }),
+                );
+                const xmlMatch = (indexRes.data as string).match(/href="([^"]+\.xml)"[^>]*>[^<]*form4/i)
+                  || (indexRes.data as string).match(/href="([^"]+\.xml)"/);
+                if (!xmlMatch) return null;
+
+                let xmlUrl = xmlMatch[1];
+                if (!xmlUrl.startsWith('http')) xmlUrl = `https://www.sec.gov${xmlUrl.startsWith('/') ? '' : '/Archives/edgar/data/' + cik + '/' + accClean + '/'}${xmlUrl}`;
+
+                const xmlRes = await rateLimited(() =>
+                  axios.get(xmlUrl, { headers: this.headers, timeout: 5000, responseType: 'text' }),
+                );
+                const xml = xmlRes.data as string;
+
+                const nameMatch = xml.match(/<rptOwnerName>([^<]+)<\/rptOwnerName>/);
+                const titleMatch = xml.match(/<officerTitle>([^<]+)<\/officerTitle>/);
+                const isDirMatch = xml.match(/<isDirector>([^<]+)<\/isDirector>/);
+                const isOffMatch = xml.match(/<isOfficer>([^<]+)<\/isOfficer>/);
+
+                if (!nameMatch) return null;
+                const name = nameMatch[1].trim();
+                const title = titleMatch?.[1]?.trim() || '';
+                const isDirector = isDirMatch?.[1] === '1' || isDirMatch?.[1] === 'true';
+                const isOfficer = isOffMatch?.[1] === '1' || isOffMatch?.[1] === 'true';
+                const role = title || (isDirector ? 'Director' : isOfficer ? 'Officer' : 'Insider');
+
+                return { name, role, date, isDirector, isOfficer };
+              } catch {
+                return null;
+              }
+            }),
+          );
+
+          for (const r of xmlResults) {
+            if (!r || seen.has(r.name.toLowerCase())) continue;
+            seen.add(r.name.toLowerCase());
             officers.push({
-              name, role: off.title || off.position || 'Officer',
-              appointedDate: null, resignedDate: null,
-              nationality: null, dateOfBirth: null, source: 'sec-edgar',
+              name: r.name,
+              role: r.role,
+              appointedDate: null,
+              resignedDate: null,
+              nationality: null,
+              dateOfBirth: null,
+              source: 'sec-edgar',
             });
           }
         }
 
-        // Try to get officers from recent 10-K or DEF 14A
-        // Parse Form 4 filers as backup source of officer names
-        for (let i = 0; i < Math.min(forms.length, 500); i++) {
-          if (forms[i] !== '4') continue;
-          const filerName = filings.primaryDocDescription?.[i] || '';
-          // Sometimes the description has "Statement of Changes... by LASTNAME, FIRSTNAME"
-          // But more reliably we'd need to parse the XML
-          // For now skip this complex parsing
-        }
-
+        this.logger.log(`SEC officers for CIK ${cik}: ${officers.length} found from Form 4 filings`);
         return officers;
       } catch (e: any) {
         this.logger.warn(`SEC officers failed for CIK ${cik}: ${e?.message}`);
