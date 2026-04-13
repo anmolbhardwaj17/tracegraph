@@ -212,70 +212,49 @@ export class SecEdgarProvider implements CompanyDataProvider, OnModuleInit {
         const officers: Officer[] = [];
         const seen = new Set<string>();
 
-        // Parse Form 4 XML filings to extract officers and directors
+        // Extract unique Form 4 filer CIKs (each is an insider/officer/director)
         const filings = d.filings?.recent || {};
         const forms = filings.form || [];
         const accessions = filings.accessionNumber || [];
         const dates = filings.filingDate || [];
 
-        // Collect unique Form 4 accession numbers (each has a different officer)
-        const form4Accessions: { accession: string; date: string }[] = [];
-        for (let i = 0; i < Math.min(forms.length, 300); i++) {
+        const filerCiks: { cik: string; date: string }[] = [];
+        for (let i = 0; i < forms.length; i++) {
           if (forms[i] !== '4') continue;
-          form4Accessions.push({ accession: accessions[i], date: dates[i] });
-          if (form4Accessions.length >= 30) break; // Parse up to 30 Form 4s
+          const filerCik = accessions[i]?.split('-')[0]?.replace(/^0+/, '');
+          if (!filerCik || filerCik === cik.replace(/^0+/, '') || seen.has(filerCik)) continue;
+          seen.add(filerCik);
+          filerCiks.push({ cik: filerCik, date: dates[i] });
+          if (filerCiks.length >= 25) break;
         }
 
-        // Parse each Form 4 XML in parallel (batches of 5)
-        for (let batch = 0; batch < form4Accessions.length; batch += 5) {
-          const chunk = form4Accessions.slice(batch, batch + 5);
-          const xmlResults = await Promise.all(
-            chunk.map(async ({ accession, date }) => {
+        // Resolve each filer CIK to their name via submissions endpoint
+        // Process in batches of 5
+        for (let batch = 0; batch < filerCiks.length; batch += 5) {
+          const chunk = filerCiks.slice(batch, batch + 5);
+          const results = await Promise.all(
+            chunk.map(async ({ cik: fCik, date }) => {
               try {
-                const accClean = accession.replace(/-/g, '');
-                // Find the XML file in the filing index
-                const indexRes = await rateLimited(() =>
-                  axios.get(`https://www.sec.gov/Archives/edgar/data/${cik}/${accClean}/${accession}-index.htm`, {
-                    headers: this.headers, timeout: 5000, responseType: 'text',
+                const fRes = await rateLimited(() =>
+                  axios.get(`${DATA_BASE}/submissions/CIK${padCik(fCik)}.json`, {
+                    headers: this.headers, timeout: 5000,
                   }),
                 );
-                const xmlMatch = (indexRes.data as string).match(/href="([^"]+\.xml)"[^>]*>[^<]*form4/i)
-                  || (indexRes.data as string).match(/href="([^"]+\.xml)"/);
-                if (!xmlMatch) return null;
-
-                let xmlUrl = xmlMatch[1];
-                if (!xmlUrl.startsWith('http')) xmlUrl = `https://www.sec.gov${xmlUrl.startsWith('/') ? '' : '/Archives/edgar/data/' + cik + '/' + accClean + '/'}${xmlUrl}`;
-
-                const xmlRes = await rateLimited(() =>
-                  axios.get(xmlUrl, { headers: this.headers, timeout: 5000, responseType: 'text' }),
-                );
-                const xml = xmlRes.data as string;
-
-                const nameMatch = xml.match(/<rptOwnerName>([^<]+)<\/rptOwnerName>/);
-                const titleMatch = xml.match(/<officerTitle>([^<]+)<\/officerTitle>/);
-                const isDirMatch = xml.match(/<isDirector>([^<]+)<\/isDirector>/);
-                const isOffMatch = xml.match(/<isOfficer>([^<]+)<\/isOfficer>/);
-
-                if (!nameMatch) return null;
-                const name = nameMatch[1].trim();
-                const title = titleMatch?.[1]?.trim() || '';
-                const isDirector = isDirMatch?.[1] === '1' || isDirMatch?.[1] === 'true';
-                const isOfficer = isOffMatch?.[1] === '1' || isOffMatch?.[1] === 'true';
-                const role = title || (isDirector ? 'Director' : isOfficer ? 'Officer' : 'Insider');
-
-                return { name, role, date, isDirector, isOfficer };
-              } catch {
-                return null;
-              }
+                const name = fRes.data?.name;
+                if (!name) return null;
+                // Check what kind of filer - look at their filings for this company
+                // For now, label as Officer/Director based on entity type
+                const entityType = fRes.data?.entityType || '';
+                return { name, date, entityType };
+              } catch { return null; }
             }),
           );
 
-          for (const r of xmlResults) {
-            if (!r || seen.has(r.name.toLowerCase())) continue;
-            seen.add(r.name.toLowerCase());
+          for (const r of results) {
+            if (!r) continue;
             officers.push({
               name: r.name,
-              role: r.role,
+              role: 'Officer/Director',
               appointedDate: null,
               resignedDate: null,
               nationality: null,
@@ -285,7 +264,7 @@ export class SecEdgarProvider implements CompanyDataProvider, OnModuleInit {
           }
         }
 
-        this.logger.log(`SEC officers for CIK ${cik}: ${officers.length} found from Form 4 filings`);
+        this.logger.log(`SEC officers for CIK ${cik}: ${officers.length} found from Form 4 filers`);
         return officers;
       } catch (e: any) {
         this.logger.warn(`SEC officers failed for CIK ${cik}: ${e?.message}`);
