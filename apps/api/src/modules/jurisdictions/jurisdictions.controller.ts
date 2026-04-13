@@ -2,12 +2,14 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { getAllJurisdictions, getJurisdictionChoices, getJurisdiction } from './jurisdiction.registry';
 import { OpenCorporatesProvider } from './providers/opencorporates.provider';
 import { SecEdgarProvider } from './providers/sec-edgar.provider';
+import { GleifProvider } from './providers/gleif.provider';
 import { CompanySearchResult } from './data-provider.interface';
 
 @Controller('jurisdictions')
 export class JurisdictionsController {
   private readonly oc = new OpenCorporatesProvider();
   private readonly sec = new SecEdgarProvider();
+  private readonly gleif = new GleifProvider();
 
   @Get()
   list() {
@@ -33,20 +35,26 @@ export class JurisdictionsController {
     const results: CompanySearchResult[] = [];
 
     if (jCode === 'all') {
-      // Global search via OpenCorporates
-      const ocResults = await this.oc.searchCompanies(query);
-      results.push(...ocResults);
+      // Global search via GLEIF + OpenCorporates fallback
+      const [gleifResults, ocResults] = await Promise.all([
+        this.gleif.searchCompanies(query),
+        this.oc.searchCompanies(query).catch(() => []),
+      ]);
+      results.push(...gleifResults, ...ocResults);
     } else if (jCode === 'us') {
-      // Search both OpenCorporates and SEC
-      const [ocResults, secResults] = await Promise.all([
-        this.oc.searchCompanies(query, 'us'),
+      // Search GLEIF + SEC for US
+      const [gleifResults, secResults] = await Promise.all([
+        this.gleif.searchCompanies(query, 'US'),
         this.sec.searchCompanies(query),
       ]);
-      results.push(...ocResults, ...secResults);
+      results.push(...gleifResults, ...secResults);
     } else {
-      // Specific jurisdiction via OpenCorporates
-      const ocResults = await this.oc.searchCompanies(query, jCode);
-      results.push(...ocResults);
+      // Specific jurisdiction via GLEIF + OpenCorporates fallback
+      const [gleifResults, ocResults] = await Promise.all([
+        this.gleif.searchCompanies(query, jCode),
+        this.oc.searchCompanies(query, jCode).catch(() => []),
+      ]);
+      results.push(...gleifResults, ...ocResults);
     }
 
     // Deduplicate by name
