@@ -16,6 +16,7 @@ import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
 import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
+import * as SecNet from '../jurisdictions/providers/sec-network.service';
 
 export const INVESTIGATION_QUEUE = 'investigation';
 
@@ -330,20 +331,72 @@ export class InvestigationProcessor extends WorkerHost {
         this.gateway.emitEntityDiscovered(investigationId, { id: childNode.id, entityType: 'company', entityId: child.companyNumber, label: child.name });
       }
 
-      // Step 4: If US, try SEC EDGAR for officers
+      // Step 4: If US, build officer network from SEC Form 4 filings
       if (jurisdiction === 'us') {
-        const officers = await this.secEdgar.getCompanyOfficers(query);
-        for (const off of officers.slice(0, 20)) {
-          const personNode = await this.nodes.save(this.nodes.create({
-            investigationId, entityType: 'person', entityId: `sec-${off.name.replace(/\s+/g, '-').toLowerCase()}`,
-            label: off.name, metadata: { role: off.role, dataSource: 'sec-edgar' },
-          }));
-          await this.edges.save(this.edges.create({
-            investigationId, sourceNodeId: rootNode.id, targetNodeId: personNode.id,
-            relationshipType: 'director', metadata: { role: off.role },
-          }));
-          this.gateway.emitEntityDiscovered(investigationId, { id: personNode.id, entityType: 'person', entityId: personNode.entityId, label: off.name });
+        this.logger.log(`Building SEC officer network for CIK ${companyId}...`);
+        const filerCiks = await SecNet.getForm4Filers(companyId);
+        this.logger.log(`Found ${filerCiks.length} Form 4 filers for ${companyName}`);
+
+        // Get details for each officer (in batches of 3 to respect rate limits)
+        for (let batch = 0; batch < filerCiks.length; batch += 3) {
+          const chunk = filerCiks.slice(batch, batch + 3);
+          const officerResults = await Promise.all(
+            chunk.map((fCik) => SecNet.getOfficerDetails(fCik, companyId).catch(() => null)),
+          );
+
+          for (const officer of officerResults) {
+            if (!officer) continue;
+            const role = officer.title || (officer.isDirector ? 'Director' : 'Officer');
+
+            // Create person node
+            const personNode = await this.nodes.save(this.nodes.create({
+              investigationId,
+              entityType: 'person',
+              entityId: `sec-${officer.cik}`,
+              label: officer.name,
+              metadata: {
+                role, isDirector: officer.isDirector, isOfficer: officer.isOfficer,
+                cik: officer.cik, dataSource: 'sec-edgar',
+                otherCompanyCount: officer.otherCompanies.length,
+              },
+            }));
+            await this.edges.save(this.edges.create({
+              investigationId, sourceNodeId: rootNode.id, targetNodeId: personNode.id,
+              relationshipType: officer.isDirector ? 'director' : 'appointment',
+              metadata: { role },
+            }));
+            this.gateway.emitEntityDiscovered(investigationId, { id: personNode.id, entityType: 'person', entityId: personNode.entityId, label: officer.name });
+
+            // Add their other companies (cross-directorships)
+            for (const otherCo of officer.otherCompanies) {
+              // Check if company node already exists
+              let coNode = await this.nodes.findOne({ where: { investigationId, entityId: `sec-co-${otherCo.cik}` } });
+              if (!coNode) {
+                coNode = await this.nodes.save(this.nodes.create({
+                  investigationId,
+                  entityType: 'company',
+                  entityId: `sec-co-${otherCo.cik}`,
+                  label: otherCo.name,
+                  metadata: { ticker: otherCo.ticker, cik: otherCo.cik, dataSource: 'sec-edgar' },
+                }));
+                this.gateway.emitEntityDiscovered(investigationId, { id: coNode.id, entityType: 'company', entityId: coNode.entityId, label: otherCo.name });
+              }
+              // Edge: person -> other company
+              await this.edges.save(this.edges.create({
+                investigationId, sourceNodeId: coNode.id, targetNodeId: personNode.id,
+                relationshipType: 'director',
+                metadata: { role: otherCo.title || 'insider' },
+              })).catch(() => {}); // ignore duplicate edge
+            }
+          }
+          this.gateway.emitProgress(investigationId, {
+            entitiesDiscovered: await this.nodes.count({ where: { investigationId } }),
+            edgesCreated: await this.edges.count({ where: { investigationId } }),
+            currentDepth: 1,
+            apiCallsMade: 0,
+          });
         }
+        this.logger.log(`SEC officer network built: ${await this.nodes.count({ where: { investigationId } })} entities`);
       }
 
       // Step 5: Sanctions screening

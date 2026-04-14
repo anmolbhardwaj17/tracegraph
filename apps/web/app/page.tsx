@@ -25,7 +25,8 @@ interface SearchHit {
 
 type Tier = 'QUICK' | 'STANDARD' | 'DEEP';
 
-const COMPANY_NUMBER_RE = /^[A-Z0-9]{6,10}$/i;
+// UK company numbers: 8 digits, or 2 letters + 6 digits (e.g., SC123456, NI123456)
+const COMPANY_NUMBER_RE = /^(?:\d{6,8}|[A-Z]{2}\d{6})$/i;
 
 export default function Home() {
   const [query, setQuery] = useState('');
