@@ -331,72 +331,113 @@ export class InvestigationProcessor extends WorkerHost {
         this.gateway.emitEntityDiscovered(investigationId, { id: childNode.id, entityType: 'company', entityId: child.companyNumber, label: child.name });
       }
 
-      // Step 4: If US, build officer network from SEC Form 4 filings
+      // Step 4: If US, build deep officer network from SEC Form 4 filings (depth 2)
       if (jurisdiction === 'us') {
-        this.logger.log(`Building SEC officer network for CIK ${companyId}...`);
-        const filerCiks = await SecNet.getForm4Filers(companyId);
-        this.logger.log(`Found ${filerCiks.length} Form 4 filers for ${companyName}`);
+        const SOFT_CAP = tier === 'QUICK' ? 50 : tier === 'DEEP' ? 1000 : 500;
+        const MAX_DEPTH = tier === 'QUICK' ? 1 : 2;
+        const expandedCompanyCiks = new Set<string>([companyId.replace(/^0+/, '')]);
+        const knownPersonCiks = new Set<string>();
+        let totalNodes = 1;
 
-        // Get details for each officer (in batches of 3 to respect rate limits)
-        for (let batch = 0; batch < filerCiks.length; batch += 3) {
-          const chunk = filerCiks.slice(batch, batch + 3);
-          const officerResults = await Promise.all(
-            chunk.map((fCik) => SecNet.getOfficerDetails(fCik, companyId).catch(() => null)),
-          );
+        // Helper to emit progress
+        const emitProg = async (depth: number) => {
+          const nc = await this.nodes.count({ where: { investigationId } });
+          const ec = await this.edges.count({ where: { investigationId } });
+          totalNodes = nc;
+          this.gateway.emitProgress(investigationId, { entitiesDiscovered: nc, edgesCreated: ec, currentDepth: depth, apiCallsMade: 0 });
+        };
 
-          for (const officer of officerResults) {
-            if (!officer) continue;
-            const role = officer.title || (officer.isDirector ? 'Director' : 'Officer');
+        // Helper to add a person + their other companies
+        const addOfficer = async (officer: SecNet.SecOfficer, companyNodeId: string, depth: number): Promise<string[]> => {
+          if (knownPersonCiks.has(officer.cik) || totalNodes >= SOFT_CAP) return [];
+          knownPersonCiks.add(officer.cik);
 
-            // Create person node
-            const personNode = await this.nodes.save(this.nodes.create({
-              investigationId,
-              entityType: 'person',
-              entityId: `sec-${officer.cik}`,
-              label: officer.name,
-              metadata: {
-                role, isDirector: officer.isDirector, isOfficer: officer.isOfficer,
-                cik: officer.cik, dataSource: 'sec-edgar',
-                otherCompanyCount: officer.otherCompanies.length,
-              },
-            }));
-            await this.edges.save(this.edges.create({
-              investigationId, sourceNodeId: rootNode.id, targetNodeId: personNode.id,
-              relationshipType: officer.isDirector ? 'director' : 'appointment',
-              metadata: { role },
-            }));
-            this.gateway.emitEntityDiscovered(investigationId, { id: personNode.id, entityType: 'person', entityId: personNode.entityId, label: officer.name });
+          const role = officer.title || (officer.isDirector ? 'Director' : 'Officer');
+          const personNode = await this.nodes.save(this.nodes.create({
+            investigationId, entityType: 'person', entityId: `sec-${officer.cik}`, label: officer.name,
+            metadata: { role, isDirector: officer.isDirector, isOfficer: officer.isOfficer, cik: officer.cik, dataSource: 'sec-edgar', otherCompanyCount: officer.otherCompanies.length },
+          }));
+          await this.edges.save(this.edges.create({
+            investigationId, sourceNodeId: companyNodeId, targetNodeId: personNode.id,
+            relationshipType: officer.isDirector ? 'director' : 'appointment', metadata: { role },
+          }));
+          this.gateway.emitEntityDiscovered(investigationId, { id: personNode.id, entityType: 'person', entityId: personNode.entityId, label: officer.name });
+          totalNodes++;
 
-            // Add their other companies (cross-directorships)
-            for (const otherCo of officer.otherCompanies) {
-              // Check if company node already exists
-              let coNode = await this.nodes.findOne({ where: { investigationId, entityId: `sec-co-${otherCo.cik}` } });
-              if (!coNode) {
-                coNode = await this.nodes.save(this.nodes.create({
-                  investigationId,
-                  entityType: 'company',
-                  entityId: `sec-co-${otherCo.cik}`,
-                  label: otherCo.name,
-                  metadata: { ticker: otherCo.ticker, cik: otherCo.cik, dataSource: 'sec-edgar' },
-                }));
-                this.gateway.emitEntityDiscovered(investigationId, { id: coNode.id, entityType: 'company', entityId: coNode.entityId, label: otherCo.name });
-              }
-              // Edge: person -> other company
-              await this.edges.save(this.edges.create({
-                investigationId, sourceNodeId: coNode.id, targetNodeId: personNode.id,
-                relationshipType: 'director',
-                metadata: { role: otherCo.title || 'insider' },
-              })).catch(() => {}); // ignore duplicate edge
+          // Add their other companies
+          const newCompanyCiks: string[] = [];
+          for (const otherCo of officer.otherCompanies) {
+            if (totalNodes >= SOFT_CAP) break;
+            const coEntityId = `sec-co-${otherCo.cik}`;
+            let coNode = await this.nodes.findOne({ where: { investigationId, entityId: coEntityId } });
+            if (!coNode) {
+              coNode = await this.nodes.save(this.nodes.create({
+                investigationId, entityType: 'company', entityId: coEntityId, label: otherCo.name,
+                metadata: { ticker: otherCo.ticker, cik: otherCo.cik, dataSource: 'sec-edgar' },
+              }));
+              this.gateway.emitEntityDiscovered(investigationId, { id: coNode.id, entityType: 'company', entityId: coEntityId, label: otherCo.name });
+              totalNodes++;
+              if (!expandedCompanyCiks.has(otherCo.cik)) newCompanyCiks.push(otherCo.cik);
             }
+            await this.edges.save(this.edges.create({
+              investigationId, sourceNodeId: coNode.id, targetNodeId: personNode.id,
+              relationshipType: 'director', metadata: { role: otherCo.title || 'insider' },
+            })).catch(() => {});
           }
-          this.gateway.emitProgress(investigationId, {
-            entitiesDiscovered: await this.nodes.count({ where: { investigationId } }),
-            edgesCreated: await this.edges.count({ where: { investigationId } }),
-            currentDepth: 1,
-            apiCallsMade: 0,
-          });
+          return newCompanyCiks;
+        };
+
+        // === DEPTH 1: Target company officers ===
+        this.logger.log(`[Depth 1] Expanding ${companyName} (CIK ${companyId})`);
+        const depth1Filers = await SecNet.getForm4Filers(companyId);
+        this.logger.log(`[Depth 1] Found ${depth1Filers.length} Form 4 filers`);
+
+        const depth2CompanyCiks: string[] = [];
+
+        for (let batch = 0; batch < depth1Filers.length && totalNodes < SOFT_CAP; batch += 3) {
+          const chunk = depth1Filers.slice(batch, batch + 3);
+          const results = await Promise.all(chunk.map((fCik) => SecNet.getOfficerDetails(fCik, companyId).catch(() => null)));
+          for (const officer of results) {
+            if (!officer || totalNodes >= SOFT_CAP) continue;
+            const newCiks = await addOfficer(officer, rootNode.id, 1);
+            depth2CompanyCiks.push(...newCiks);
+          }
+          await emitProg(1);
         }
-        this.logger.log(`SEC officer network built: ${await this.nodes.count({ where: { investigationId } })} entities`);
+        this.logger.log(`[Depth 1] Complete: ${totalNodes} entities, ${depth2CompanyCiks.length} companies to expand at depth 2`);
+
+        // === DEPTH 2: Expand officers' other companies ===
+        if (MAX_DEPTH >= 2 && totalNodes < SOFT_CAP) {
+          // Only expand companies where the original officer has a significant role
+          const toExpand = depth2CompanyCiks.slice(0, 15); // cap at 15 companies for depth 2
+          this.logger.log(`[Depth 2] Expanding ${toExpand.length} companies...`);
+
+          for (const d2Cik of toExpand) {
+            if (totalNodes >= SOFT_CAP) break;
+            if (expandedCompanyCiks.has(d2Cik)) continue;
+            expandedCompanyCiks.add(d2Cik);
+
+            try {
+              const d2Filers = await SecNet.getForm4Filers(d2Cik);
+              const coNode = await this.nodes.findOne({ where: { investigationId, entityId: `sec-co-${d2Cik}` } });
+              if (!coNode || d2Filers.length === 0) continue;
+
+              // Only get top 10 officers per company at depth 2
+              for (let b = 0; b < Math.min(d2Filers.length, 10) && totalNodes < SOFT_CAP; b += 3) {
+                const chunk = d2Filers.slice(b, b + 3);
+                const results = await Promise.all(chunk.map((fCik) => SecNet.getOfficerDetails(fCik, d2Cik).catch(() => null)));
+                for (const officer of results) {
+                  if (!officer || totalNodes >= SOFT_CAP) continue;
+                  await addOfficer(officer, coNode.id, 2);
+                }
+              }
+              await emitProg(2);
+            } catch { continue; }
+          }
+          this.logger.log(`[Depth 2] Complete: ${totalNodes} entities total`);
+        }
+
+        this.logger.log(`SEC network built: ${totalNodes} entities across ${expandedCompanyCiks.size} companies`);
       }
 
       // Step 5: Sanctions screening
