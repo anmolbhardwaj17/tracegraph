@@ -157,7 +157,77 @@ export class IndiaIntelligenceService {
       `courts=${courtCases.length}, findings=${findings.length}`,
     );
 
+    // Step 4: Build shareholding ownership graph for listed companies
+    if (nseData?.promoterHolding != null) {
+      try {
+        await this.buildShareholdingGraph(investigationId, companyName, nseData);
+      } catch (e: any) {
+        this.logger.warn(`Shareholding graph failed: ${e?.message}`);
+      }
+    }
+
     return { nseData, courtCases, people: [], findings };
+  }
+
+  /** Build ownership graph nodes from NSE shareholding pattern */
+  private async buildShareholdingGraph(
+    investigationId: string,
+    companyName: string,
+    nseData: NseCompanyData,
+  ): Promise<void> {
+    const rootNode = await this.nodes.findOne({
+      where: { investigationId, entityType: 'company' },
+      order: { id: 'ASC' },
+    });
+    if (!rootNode) return;
+
+    // Create ownership nodes for promoter group
+    if (nseData.promoterHolding && nseData.promoterHolding > 0) {
+      const promoterNode = await this.nodes.save(this.nodes.create({
+        investigationId,
+        entityType: 'company',
+        entityId: `nse-promoter-${nseData.symbol}`,
+        label: `${companyName} — Promoter Group`,
+        metadata: {
+          isOwner: true,
+          ownershipPct: nseData.promoterHolding,
+          ownershipType: 'promoter',
+          dataSource: 'nse-india',
+        },
+      } as any)).catch(() => null);
+
+      if (promoterNode) {
+        await this.nodes.query(
+          `INSERT INTO graph_edges ("investigationId", "sourceNodeId", "targetNodeId", "relationshipType", metadata) VALUES ($1, $2, $3, 'psc', $4) ON CONFLICT DO NOTHING`,
+          [investigationId, (promoterNode as any).id, rootNode.id, JSON.stringify({ type: 'promoter-holding', ownershipPct: nseData.promoterHolding })],
+        ).catch(() => {});
+      }
+    }
+
+    // Create node for public holding
+    if (nseData.publicHolding && nseData.publicHolding > 0) {
+      const publicNode = await this.nodes.save(this.nodes.create({
+        investigationId,
+        entityType: 'company',
+        entityId: `nse-public-${nseData.symbol}`,
+        label: `Public Shareholders`,
+        metadata: {
+          isOwner: true,
+          ownershipPct: nseData.publicHolding,
+          ownershipType: 'public',
+          dataSource: 'nse-india',
+        },
+      } as any)).catch(() => null);
+
+      if (publicNode) {
+        await this.nodes.query(
+          `INSERT INTO graph_edges ("investigationId", "sourceNodeId", "targetNodeId", "relationshipType", metadata) VALUES ($1, $2, $3, 'psc', $4) ON CONFLICT DO NOTHING`,
+          [investigationId, (publicNode as any).id, rootNode.id, JSON.stringify({ type: 'public-holding', ownershipPct: nseData.publicHolding })],
+        ).catch(() => {});
+      }
+    }
+
+    this.logger.log(`Shareholding graph built for ${nseData.symbol}: promoter ${nseData.promoterHolding}%, public ${nseData.publicHolding}%`);
   }
 
   // ═══════════════════════════════════════════

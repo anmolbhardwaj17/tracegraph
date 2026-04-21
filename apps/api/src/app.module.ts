@@ -20,6 +20,7 @@ import { WatchlistModule } from './modules/watchlist/watchlist.module';
 import { JurisdictionsModule } from './modules/jurisdictions/jurisdictions.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { BatchModule } from './modules/batch/batch.module';
+import { IndiaModule } from './modules/india/india.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { BatchModule } from './modules/batch/batch.module';
     JurisdictionsModule,
     InvestigationModule,
     BatchModule,
+    IndiaModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
