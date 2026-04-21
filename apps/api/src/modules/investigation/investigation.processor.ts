@@ -1,5 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
+import axios from 'axios';
 import { Job } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -27,9 +28,11 @@ import { FatfJurisdictionService } from '../enrichment/fatf-jurisdiction.service
 import { PatentSearchService } from '../enrichment/patent-search.service';
 import { NonprofitLookupService } from '../enrichment/nonprofit-lookup.service';
 import { LinkedInIntelligenceService } from '../enrichment/linkedin-intelligence.service';
+import { IndiaIntelligenceService } from '../enrichment/india-intelligence.service';
 import { InvestigationGateway } from './investigation.gateway';
 import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
 import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
+import { IndiaMcaProvider } from '../jurisdictions/providers/india-mca.provider';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
 import * as SecNet from '../jurisdictions/providers/sec-network.service';
@@ -55,6 +58,7 @@ export class InvestigationProcessor extends WorkerHost {
 
   private readonly gleif = new GleifProvider();
   private readonly secEdgar = new SecEdgarProvider();
+  private readonly indiaMca = new IndiaMcaProvider();
 
   constructor(
     @InjectRepository(Investigation) private readonly investigations: Repository<Investigation>,
@@ -83,6 +87,7 @@ export class InvestigationProcessor extends WorkerHost {
     private readonly patentSearch: PatentSearchService,
     private readonly nonprofitLookup: NonprofitLookupService,
     private readonly linkedinIntel: LinkedInIntelligenceService,
+    private readonly indiaIntel: IndiaIntelligenceService,
     private readonly gateway: InvestigationGateway,
   ) {
     super();
@@ -399,8 +404,71 @@ export class InvestigationProcessor extends WorkerHost {
         }
         if (profile) useCik = true;
       }
+      // India: try NSE search first (most reliable for listed cos), then MCA/Zaubacorp
+      if (!profile && jurisdiction === 'in') {
+        // Try NSE autocomplete — the most reliable source for Indian listed companies
+        try {
+          const nseSearchRes = await axios.get(`https://www.nseindia.com/api/search/autocomplete?q=${encodeURIComponent(query)}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', Accept: 'application/json' },
+            timeout: 10000,
+          });
+          const symbols = nseSearchRes.data?.symbols || [];
+          const equity = symbols.find((s: any) => s.result_type === 'symbol' && s.result_sub_type === 'equity');
+          if (equity) {
+            profile = {
+              name: equity.symbol_info || equity.symbol,
+              companyNumber: equity.symbol,
+              jurisdiction: 'in',
+              jurisdictionLabel: 'India',
+              status: 'active' as any,
+              incorporationDate: equity.listing_date || null,
+              dissolutionDate: null,
+              companyType: 'Listed Company (NSE)',
+              registeredAddress: null,
+              sicCodes: [],
+              registryUrl: `https://www.nseindia.com/get-quotes/equity?symbol=${equity.symbol}`,
+              source: 'opencorporates' as any,
+              dataDepth: 'moderate' as any,
+            };
+            this.logger.log(`India: found ${equity.symbol_info} (NSE: ${equity.symbol}) via NSE search`);
+          }
+        } catch (e: any) {
+          this.logger.warn(`NSE search failed: ${e?.message}`);
+        }
+
+        // Fallback: try Zaubacorp/MCA
+        if (!profile) {
+          const indiaResults = await this.indiaMca.searchCompanies(query).catch(() => []);
+          if (indiaResults.length > 0) {
+            const best = indiaResults[0];
+            profile = {
+              name: best.name,
+              companyNumber: best.companyNumber,
+              jurisdiction: 'in',
+              jurisdictionLabel: 'India',
+              status: (best.status || 'active') as any,
+              incorporationDate: best.incorporationDate,
+              dissolutionDate: null,
+              companyType: null,
+              registeredAddress: null,
+              sicCodes: [],
+              registryUrl: best.registryUrl,
+              source: 'opencorporates' as any,
+              dataDepth: 'basic' as any,
+            };
+            this.logger.log(`India: found ${best.name} (CIN: ${best.companyNumber}) via MCA search`);
+          }
+        }
+      }
       if (!profile) {
         profile = await this.gleif.getCompanyProfile(query);
+      }
+      // Last resort: search GLEIF by name
+      if (!profile) {
+        const gleifResults = await this.gleif.searchCompanies(query, jurisdiction === 'in' ? 'IN' : undefined).catch(() => []);
+        if (gleifResults.length > 0) {
+          profile = await this.gleif.getCompanyProfile(gleifResults[0].companyNumber).catch(() => null);
+        }
       }
       if (!profile) throw new Error(`Company not found (query: ${query}, jurisdiction: ${jurisdiction})`);
 
@@ -702,6 +770,11 @@ export class InvestigationProcessor extends WorkerHost {
         // Phase D sources — run in parallel batch 2
         const linkedinResult = await this.linkedinIntel.search(investigationId, companyName).catch((e) => { this.logger.warn(`LinkedIn failed: ${e?.message}`); return null; });
 
+        // India-specific intelligence
+        const indiaResult = jurisdiction === 'in'
+          ? await this.indiaIntel.analyze(investigationId, companyName).catch((e) => { this.logger.warn(`India intel failed: ${e?.message}`); return null; })
+          : null;
+
         [cfpbResult, fatfResult, patentResult, nonprofitResult] = await Promise.all([
           this.cfpbComplaints.search(investigationId, companyName).catch((e) => { this.logger.warn(`CFPB failed: ${e?.message}`); return null; }),
           this.fatfJurisdiction.analyze(investigationId).catch((e) => { this.logger.warn(`FATF failed: ${e?.message}`); return null; }),
@@ -733,6 +806,7 @@ export class InvestigationProcessor extends WorkerHost {
           ...(patentResult?.findings || []),
           ...(nonprofitResult?.findings || []),
           ...(linkedinResult?.findings || []),
+          ...(indiaResult?.findings || []),
         ];
 
         riskResult.findings = [...riskResult.findings, ...allIntelFindings];
