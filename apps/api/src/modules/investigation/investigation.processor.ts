@@ -26,6 +26,7 @@ import { CfpbComplaintsService } from '../enrichment/cfpb-complaints.service';
 import { FatfJurisdictionService } from '../enrichment/fatf-jurisdiction.service';
 import { PatentSearchService } from '../enrichment/patent-search.service';
 import { NonprofitLookupService } from '../enrichment/nonprofit-lookup.service';
+import { LinkedInIntelligenceService } from '../enrichment/linkedin-intelligence.service';
 import { InvestigationGateway } from './investigation.gateway';
 import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
 import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
@@ -81,6 +82,7 @@ export class InvestigationProcessor extends WorkerHost {
     private readonly fatfJurisdiction: FatfJurisdictionService,
     private readonly patentSearch: PatentSearchService,
     private readonly nonprofitLookup: NonprofitLookupService,
+    private readonly linkedinIntel: LinkedInIntelligenceService,
     private readonly gateway: InvestigationGateway,
   ) {
     super();
@@ -174,12 +176,14 @@ export class InvestigationProcessor extends WorkerHost {
       const addressClusters = await this.addressService.clusterAddresses(investigationId);
 
       // Enrichment — Wikidata + OpenCorporates for UK companies
+      this.gateway.emitStatusChanged(investigationId, 'ENRICHING');
+      let ukRootNode: any = null;
       try {
-        const rootNode = await this.nodes.findOne({ where: { investigationId, entityType: 'company', entityId: companyNumber } });
-        if (rootNode) {
+        ukRootNode = await this.nodes.findOne({ where: { investigationId, entityType: 'company', entityId: companyNumber } });
+        if (ukRootNode) {
           this.logger.log(`[Enrichment] Starting enrichment for ${companyName} (UK)...`);
           await this.enrichment.enrichCompany(
-            investigationId, rootNode.id, companyName, companyNumber, 'gb',
+            investigationId, ukRootNode.id, companyName, companyNumber, 'gb',
             {
               onEntityDiscovered: (n) => this.gateway.emitEntityDiscovered(investigationId, n),
               onProgress: (msg) => this.logger.log(`[Enrichment] ${msg}`),
@@ -235,18 +239,109 @@ export class InvestigationProcessor extends WorkerHost {
         });
       }
 
+      // Intelligence — deep analysis for UK companies
+      this.gateway.emitStatusChanged(investigationId, 'INTELLIGENCE');
+      let ukWebIntelResult: any = null;
+      let ukSanctionsResult: any = null;
+      let ukAddrVerifResult: any = null;
+      let ukWaybackResult: any = null;
+      let ukFatfResult: any = null;
+      let ukNonprofitResult: any = null;
+      try {
+        this.logger.log(`[Intelligence] Starting deep intelligence for ${companyName} (UK)...`);
+        const freshUkRoot = await this.nodes.findOne({ where: { id: ukRootNode?.id } });
+        const ukRootMeta = (freshUkRoot?.metadata || {}) as any;
+        const ukWebsite = ukRootMeta.website || null;
+        const ukFounded = ukRootMeta.foundedDate || null;
+
+        [ukWebIntelResult, ukSanctionsResult, ukAddrVerifResult, ukWaybackResult, ukFatfResult, ukNonprofitResult] = await Promise.all([
+          this.webIntel.analyze(investigationId, companyName, ukWebsite).catch(() => null),
+          this.sanctionsDirect.screen(investigationId).catch(() => null),
+          this.addressVerification.verify(investigationId).catch(() => null),
+          this.wayback.analyze(investigationId, companyName, ukWebsite, ukFounded).catch(() => null),
+          this.fatfJurisdiction.analyze(investigationId).catch(() => null),
+          this.nonprofitLookup.search(investigationId, companyName).catch(() => null),
+        ]);
+
+        const ukIntelFindings = [
+          ...(ukWebIntelResult?.findings || []),
+          ...(ukSanctionsResult?.findings || []),
+          ...(ukAddrVerifResult?.findings || []),
+          ...(ukWaybackResult?.findings || []),
+          ...(ukFatfResult?.findings || []),
+          ...(ukNonprofitResult?.findings || []),
+        ];
+        riskResult.findings = [...riskResult.findings, ...ukIntelFindings];
+        const ukBoost = ukIntelFindings.filter((f: any) => f.severity === 'CRITICAL').length * 20
+          + ukIntelFindings.filter((f: any) => f.severity === 'HIGH').length * 8
+          + ukIntelFindings.filter((f: any) => f.severity === 'MEDIUM').length * 3;
+        riskResult.score = Math.min(100, riskResult.score + ukBoost);
+        this.logger.log(`[Intelligence] UK done: ${ukIntelFindings.length} findings, score now ${riskResult.score}`);
+      } catch (e: any) {
+        this.logger.warn(`[Intelligence] UK failed: ${e?.message}`);
+      }
+
+      // PEP + Adverse Media for UK
+      this.gateway.emitStatusChanged(investigationId, 'PEP_MEDIA');
+      let ukPepResults: any[] = [];
+      let ukMediaResults: any[] = [];
+      try {
+        this.logger.log(`[PEP+Media] Starting for ${companyName} (UK)...`);
+        const [pepResult, mediaResult] = await Promise.all([
+          this.pepDetection.screen(investigationId).catch(() => ({ peps: [], findings: [] })),
+          this.adverseMedia.screen(investigationId, companyName).catch(() => ({ hits: [], findings: [] })),
+        ]);
+        ukPepResults = pepResult.peps;
+        ukMediaResults = mediaResult.hits;
+        riskResult.findings = [...riskResult.findings, ...pepResult.findings, ...mediaResult.findings];
+        const pepMediaBoost = pepResult.findings.length * 15
+          + mediaResult.findings.filter((f: any) => f.severity === 'HIGH').length * 10
+          + mediaResult.findings.filter((f: any) => f.severity === 'MEDIUM').length * 5;
+        riskResult.score = Math.min(100, riskResult.score + pepMediaBoost);
+        this.logger.log(`[PEP+Media] UK done: ${ukPepResults.length} PEPs, ${ukMediaResults.length} media hits, score ${riskResult.score}`);
+      } catch (e: any) {
+        this.logger.warn(`[PEP+Media] UK failed: ${e?.message}`);
+      }
+
+      // AI Narrative for UK
+      let ukNarrative: any = null;
+      try {
+        this.gateway.emitStatusChanged(investigationId, 'NARRATIVE');
+        this.logger.log(`[Narrative] Generating for ${companyName} (UK)...`);
+        ukNarrative = await this.aiNarrative.generate(
+          investigationId, companyName, 'gb', riskResult.score, riskResult.findings,
+          ukPepResults.map((p: any) => ({ name: p.name, positions: p.positions })),
+          ukMediaResults.map((a: any) => ({ entity: a.entity, headline: a.headline, source: a.source, sentiment: a.sentiment })),
+        );
+      } catch (e: any) {
+        this.logger.warn(`[Narrative] UK failed: ${e?.message}`);
+      }
+
+      const finalNodeCount = await this.nodes.count({ where: { investigationId } });
+      const finalEdgeCount = await this.edges.count({ where: { investigationId } });
+
       await this.investigations.update(investigationId, {
         status: 'COMPLETE',
         completedAt: new Date(),
         progress: {
-          ...result,
+          entitiesDiscovered: finalNodeCount,
+          edgesCreated: finalEdgeCount,
           tier,
+          jurisdiction: 'gb',
           addressClusters,
           uboChains: uboChainResult,
           resolution: resolutionResult,
           proximity: proximityResult,
           riskScore: riskResult.score,
+          riskClassification: riskResult.score >= 75 ? 'CRITICAL' : riskResult.score >= 50 ? 'HIGH' : riskResult.score >= 25 ? 'MEDIUM' : 'LOW',
           findings: riskResult.findings,
+          narrative: ukNarrative,
+          pepCount: ukPepResults.length,
+          adverseMediaCount: ukMediaResults.length,
+          webIntelligence: ukWebIntelResult ? { websiteExists: ukWebIntelResult.websiteCheck?.exists, courtCases: ukWebIntelResult.courtCases?.length || 0, govContracts: ukWebIntelResult.govContracts?.length || 0 } : null,
+          directSanctions: ukSanctionsResult ? { matches: ukSanctionsResult.matches?.length || 0 } : null,
+          wayback: ukWaybackResult?.result ? { domain: ukWaybackResult.result.domain, firstSnapshot: ukWaybackResult.result.firstSnapshot, domainAgeYears: ukWaybackResult.result.domainAgeYears } : null,
+          fatfFlags: ukFatfResult?.results?.length || 0,
         } as any,
       });
       this.gateway.emitComplete(investigationId, result);
@@ -605,6 +700,8 @@ export class InvestigationProcessor extends WorkerHost {
         ]);
 
         // Phase D sources — run in parallel batch 2
+        const linkedinResult = await this.linkedinIntel.search(investigationId, companyName).catch((e) => { this.logger.warn(`LinkedIn failed: ${e?.message}`); return null; });
+
         [cfpbResult, fatfResult, patentResult, nonprofitResult] = await Promise.all([
           this.cfpbComplaints.search(investigationId, companyName).catch((e) => { this.logger.warn(`CFPB failed: ${e?.message}`); return null; }),
           this.fatfJurisdiction.analyze(investigationId).catch((e) => { this.logger.warn(`FATF failed: ${e?.message}`); return null; }),
@@ -635,6 +732,7 @@ export class InvestigationProcessor extends WorkerHost {
           ...(fatfResult?.findings || []),
           ...(patentResult?.findings || []),
           ...(nonprofitResult?.findings || []),
+          ...(linkedinResult?.findings || []),
         ];
 
         riskResult.findings = [...riskResult.findings, ...allIntelFindings];

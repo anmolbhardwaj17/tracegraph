@@ -300,89 +300,7 @@ export class InvestigationService {
     };
   }
 
-  /**
-   * Compare two investigations side by side. Finds shared directors, shared
-   * addresses, and merges the two graph datasets.
-   */
-  async compare(invIdA: string, invIdB: string): Promise<any> {
-    const [a, b] = await Promise.all([this.findOne(invIdA), this.findOne(invIdB)]);
-
-    // Normalise label for matching
-    const norm = (s: string) => (s || '').toLowerCase().trim();
-
-    // Shared directors (by normalised name)
-    const personsA = (a.entities?.person || []) as any[];
-    const personsB = (b.entities?.person || []) as any[];
-    const labelsA = new Map(personsA.map((p: any) => [norm(p.label), p]));
-    const sharedDirectors: any[] = [];
-    for (const p of personsB) {
-      const match = labelsA.get(norm(p.label));
-      if (match) sharedDirectors.push({ label: p.label, inA: match, inB: p });
-    }
-
-    // Shared addresses (by normalised label)
-    const addrsA = (a.entities?.address || []) as any[];
-    const addrsB = (b.entities?.address || []) as any[];
-    const addrLabelsA = new Map(addrsA.map((p: any) => [norm(p.label), p]));
-    const sharedAddresses: any[] = [];
-    for (const p of addrsB) {
-      const match = addrLabelsA.get(norm(p.label));
-      if (match) sharedAddresses.push({ label: p.label, inA: match, inB: p });
-    }
-
-    // Severity breakdown
-    const sevBreakdown = (findings: any[]) => {
-      const c = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-      for (const f of findings || []) c[f.severity as keyof typeof c]++;
-      return c;
-    };
-
-    // Extract target company metadata for comparison table
-    const targetMeta = (inv: any) => {
-      const target = (inv.entities?.company || []).find((c: any) => c.entityId === inv.rootCompanyNumber);
-      const m = target?.metadata || {};
-      return {
-        status: m.status || 'unknown',
-        companyType: m.companyType || 'unknown',
-        incorporationDate: m.incorporationDate,
-        filingHealth: m.filingHealth?.band || 'N/A',
-        shellRisk: m.shellCompanyScore?.risk || 'N/A',
-        ownershipTransparency: m.ownershipOpacity?.band || 'N/A',
-        directorsCount: (inv.entities?.person || []).filter((p: any) => {
-          // Count direct directors (rough: first N people sorted by relevance)
-          return true; // All people in first page are likely relevant
-        }).length,
-        matchCount: (inv.matches || []).length,
-      };
-    };
-
-    return {
-      a: {
-        id: a.id,
-        query: a.query,
-        companyName: a.companyName,
-        riskScore: a.riskScore,
-        findingsCount: (a.findings || []).length,
-        severityBreakdown: sevBreakdown(a.findings),
-        counts: a.counts,
-        profile: targetMeta(a),
-      },
-      b: {
-        id: b.id,
-        query: b.query,
-        companyName: b.companyName,
-        riskScore: b.riskScore,
-        findingsCount: (b.findings || []).length,
-        severityBreakdown: sevBreakdown(b.findings),
-        counts: b.counts,
-        profile: targetMeta(b),
-      },
-      sharedDirectors: sharedDirectors.map((s) => ({ label: s.label })),
-      sharedAddresses: sharedAddresses.map((s) => ({ label: s.label })),
-      sharedDirectorsCount: sharedDirectors.length,
-      sharedAddressesCount: sharedAddresses.length,
-    };
-  }
+  /** @deprecated — replaced by compare(ids: string[]) below */
 
   // ========== HELPERS ==========
 
@@ -853,6 +771,98 @@ export class InvestigationService {
       keyMoments: keyMoments.slice(0, 5),
       page, limit,
       targetCompany: rootNode.label,
+    };
+  }
+
+  /** Compare multiple investigations side-by-side */
+  async compare(ids: string[]): Promise<any> {
+    const companies: any[] = [];
+
+    for (const id of ids.slice(0, 5)) {
+      const inv = await this.investigations.findOne({ where: { id } });
+      if (!inv || inv.status !== 'COMPLETE') continue;
+
+      const progress = inv.progress || {} as any;
+      const profile = await this.getRootCompanyProfile(id);
+      const nodeCount = await this.nodes.count({ where: { investigationId: id } });
+      const companyCount = await this.nodes.count({ where: { investigationId: id, entityType: 'company' } });
+      const personCount = await this.nodes.count({ where: { investigationId: id, entityType: 'person' } });
+      const addressCount = await this.nodes.count({ where: { investigationId: id, entityType: 'address' } });
+
+      const findings = progress.findings || [];
+      const criticalFindings = findings.filter((f: any) => f.severity === 'CRITICAL');
+      const highFindings = findings.filter((f: any) => f.severity === 'HIGH');
+
+      // Get finding types breakdown
+      const findingTypes: Record<string, number> = {};
+      for (const f of findings) findingTypes[f.type] = (findingTypes[f.type] || 0) + 1;
+
+      companies.push({
+        investigationId: id,
+        companyName: inv.metadata?.companyName || inv.query,
+        jurisdiction: inv.metadata?.jurisdiction || 'gb',
+        tier: inv.tier,
+        completedAt: inv.completedAt,
+
+        // Score
+        riskScore: progress.riskScore ?? 0,
+        riskClassification: progress.riskClassification || 'LOW',
+
+        // Network
+        totalEntities: nodeCount,
+        companies: companyCount,
+        people: personCount,
+        addresses: addressCount,
+
+        // Findings
+        totalFindings: findings.length,
+        criticalFindings: criticalFindings.length,
+        highFindings: highFindings.length,
+        findingTypes,
+
+        // Intelligence
+        pepCount: progress.pepCount || 0,
+        adverseMediaCount: progress.adverseMediaCount || 0,
+        sanctionsMatches: progress.directSanctions?.matches || 0,
+        fatfFlags: progress.fatfFlags || 0,
+        courtCases: progress.webIntelligence?.courtCases || 0,
+
+        // Financials
+        financials: progress.secIntelligence?.financials || null,
+        insiderSignal: progress.secIntelligence?.insiderSignal || null,
+
+        // Profile
+        profile,
+
+        // Web
+        websiteExists: progress.webIntelligence?.websiteExists ?? null,
+        domainAge: progress.wayback?.domainAgeYears ?? null,
+
+        // Political
+        politicalDonations: progress.politicalDonations?.totalAmount || 0,
+      });
+    }
+
+    // Sort by risk score descending
+    companies.sort((a, b) => b.riskScore - a.riskScore);
+
+    // Compute comparison insights
+    const scores = companies.map((c) => c.riskScore);
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    const highest = companies[0];
+    const lowest = companies[companies.length - 1];
+
+    return {
+      companies,
+      summary: {
+        count: companies.length,
+        averageRiskScore: avgScore,
+        highestRisk: highest ? { name: highest.companyName, score: highest.riskScore } : null,
+        lowestRisk: lowest ? { name: lowest.companyName, score: lowest.riskScore } : null,
+        totalPeps: companies.reduce((s, c) => s + c.pepCount, 0),
+        totalSanctions: companies.reduce((s, c) => s + c.sanctionsMatches, 0),
+        totalCourtCases: companies.reduce((s, c) => s + c.courtCases, 0),
+      },
     };
   }
 }

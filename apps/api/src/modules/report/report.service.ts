@@ -443,6 +443,135 @@ export class ReportService {
         }
       }
 
+      // ===================== INTELLIGENCE REPORT =====================
+      const progress = inv.progress || {} as any;
+      const narrative = progress.narrative;
+      const pepCount = progress.pepCount || 0;
+      const adverseMediaCount = progress.adverseMediaCount || 0;
+      const secIntel = progress.secIntelligence;
+      const webIntel = progress.webIntelligence;
+      const wayback = progress.wayback;
+      const politicalDonations = progress.politicalDonations;
+      const fatfFlags = progress.fatfFlags || 0;
+
+      if (narrative || pepCount > 0 || secIntel || webIntel) {
+        doc.addPage();
+        this.pageHeader(doc, companyName);
+        this.sectionTitle(doc, 'Intelligence Report');
+        doc.moveDown(0.8);
+
+        // AI Narrative
+        if (narrative?.executiveSummary) {
+          doc.font('Helvetica-Bold').fontSize(10).fillColor(C.dark).text('AI Risk Assessment');
+          doc.moveDown(0.3);
+          doc.font('Helvetica').fontSize(10).fillColor(C.text).text(narrative.executiveSummary, { lineGap: 3 });
+          doc.moveDown(1);
+
+          if (narrative.keyFindings?.length > 0) {
+            doc.font('Helvetica-Bold').fontSize(9).fillColor(C.label).text('KEY FINDINGS:', { characterSpacing: 1 });
+            doc.moveDown(0.3);
+            for (const f of narrative.keyFindings) {
+              doc.font('Helvetica').fontSize(9).fillColor(C.text).text(`•  ${f}`, { indent: 10, lineGap: 2 });
+            }
+            doc.moveDown(0.8);
+          }
+
+          if (narrative.recommendations?.length > 0) {
+            doc.font('Helvetica-Bold').fontSize(9).fillColor(C.label).text('RECOMMENDATIONS:', { characterSpacing: 1 });
+            doc.moveDown(0.3);
+            for (let i = 0; i < narrative.recommendations.length; i++) {
+              doc.font('Helvetica').fontSize(9).fillColor(C.text).text(`${i + 1}. ${narrative.recommendations[i]}`, { indent: 10, lineGap: 2 });
+            }
+            doc.moveDown(0.8);
+          }
+          doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(C.faint).stroke();
+          doc.moveDown(1);
+        }
+
+        // PEP Warnings
+        if (pepCount > 0) {
+          this.checkPageBreak(doc, 60, companyName);
+          doc.font('Helvetica-Bold').fontSize(10).fillColor(C.red).text(`⚠ ${pepCount} Politically Exposed Person${pepCount !== 1 ? 's' : ''} Detected`);
+          doc.moveDown(0.3);
+          if (narrative?.pepWarnings) {
+            for (const w of narrative.pepWarnings) {
+              doc.font('Helvetica').fontSize(9).fillColor(C.text).text(`•  ${w}`, { indent: 10, lineGap: 2 });
+            }
+          }
+          doc.font('Helvetica').fontSize(8).fillColor(C.label).text('PEP status requires enhanced due diligence under AML/KYC regulations.');
+          doc.moveDown(1);
+          doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(C.faint).stroke();
+          doc.moveDown(1);
+        }
+
+        // Financial Health
+        if (secIntel?.financials) {
+          this.checkPageBreak(doc, 80, companyName);
+          const fin = secIntel.financials;
+          doc.font('Helvetica-Bold').fontSize(10).fillColor(C.dark).text('Financial Health');
+          doc.moveDown(0.3);
+          const finFields: [string, string][] = [];
+          if (fin.profitMargin != null) finFields.push(['Profit Margin', `${fin.profitMargin}%`]);
+          if (fin.debtToEquity != null) finFields.push(['Debt-to-Equity', String(fin.debtToEquity)]);
+          if (fin.currentRatio != null) finFields.push(['Current Ratio', String(fin.currentRatio)]);
+          if (fin.flags?.length > 0) finFields.push(['Flags', fin.flags.join(', ')]);
+          for (const [label, value] of finFields) this.fieldRow(doc, label, value);
+          doc.moveDown(0.8);
+          if (secIntel.materialEvents > 0) {
+            doc.font('Helvetica').fontSize(9).fillColor(C.text).text(`${secIntel.materialEvents} material events (8-K filings) in the last 6 months.`);
+          }
+          if (secIntel.insiderSignal && secIntel.insiderSignal !== 'BALANCED') {
+            doc.font('Helvetica-Bold').fontSize(9).fillColor(C.amber).text(`Insider trading signal: ${secIntel.insiderSignal} (${secIntel.insiderSignalStrength})`);
+          }
+          doc.moveDown(1);
+          doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(C.faint).stroke();
+          doc.moveDown(1);
+        }
+
+        // Web Intelligence
+        if (webIntel) {
+          this.checkPageBreak(doc, 60, companyName);
+          doc.font('Helvetica-Bold').fontSize(10).fillColor(C.dark).text('Web & Legal Intelligence');
+          doc.moveDown(0.3);
+          this.fieldRow(doc, 'Website', webIntel.websiteExists ? 'Verified' : 'Not Found');
+          if (wayback?.firstSnapshot) this.fieldRow(doc, 'Online Since', wayback.firstSnapshot);
+          if (wayback?.domainAgeYears != null) this.fieldRow(doc, 'Domain Age', `${wayback.domainAgeYears} years`);
+          this.fieldRow(doc, 'Federal Court Cases', String(webIntel.courtCases || 0));
+          this.fieldRow(doc, 'Government Contracts', String(webIntel.govContracts || 0));
+          doc.moveDown(1);
+        }
+
+        // Political Donations
+        if (politicalDonations?.totalDonations > 0) {
+          this.checkPageBreak(doc, 40, companyName);
+          doc.font('Helvetica-Bold').fontSize(10).fillColor(C.dark).text('Political Donations (FEC)');
+          doc.moveDown(0.3);
+          this.fieldRow(doc, 'Total Donations', String(politicalDonations.totalDonations));
+          this.fieldRow(doc, 'Total Amount', `$${politicalDonations.totalAmount.toLocaleString()}`);
+          doc.moveDown(1);
+        }
+
+        // FATF Jurisdiction Flags
+        if (fatfFlags > 0) {
+          this.checkPageBreak(doc, 40, companyName);
+          doc.font('Helvetica-Bold').fontSize(10).fillColor(C.orange).text(`⚠ ${fatfFlags} High-Risk Jurisdiction${fatfFlags !== 1 ? 's' : ''} (FATF)`);
+          doc.moveDown(0.3);
+          doc.font('Helvetica').fontSize(9).fillColor(C.text).text('Entities in the network operate in FATF grey/blacklisted or known secrecy jurisdictions.', { lineGap: 2 });
+          doc.moveDown(1);
+        }
+
+        // Adverse Media
+        if (adverseMediaCount > 0 && narrative?.adverseMedia?.length > 0) {
+          this.checkPageBreak(doc, 60, companyName);
+          doc.font('Helvetica-Bold').fontSize(10).fillColor(C.amber).text(`Adverse Media (${adverseMediaCount} hits)`);
+          doc.moveDown(0.3);
+          for (const m of narrative.adverseMedia.slice(0, 5)) {
+            doc.font('Helvetica').fontSize(9).fillColor(C.text).text(`•  ${m}`, { indent: 10, lineGap: 2 });
+          }
+          doc.moveDown(1);
+        }
+      }
+
       // ===================== FINAL PAGE — METHODOLOGY =====================
       doc.addPage();
       this.pageHeader(doc, companyName);
@@ -459,15 +588,29 @@ export class ReportService {
         );
       }
       doc.moveDown(0.8);
-      for (const [name, desc] of [['UK Companies House API', 'Company profiles, officers, PSCs, filing history, charges, registered offices'], ['OpenSanctions', '4.1 million sanctions, PEP, and watchlist entities from 100+ global sources'], ['ICIJ OffshoreLeaks', '770,000+ offshore entities, officers, and intermediaries from leaked databases']]) {
-        doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.dark).text(name, { continued: true });
+      for (const [name, desc] of [
+        ['UK Companies House API', 'Company profiles, officers, PSCs, filing history, charges, registered offices'],
+        ['US SEC EDGAR', 'Company profiles, Form 4 officers, 10-K filings, 8-K events, XBRL financials'],
+        ['GLEIF', 'Legal Entity Identifiers, ownership chains, parent/subsidiary relationships'],
+        ['Wikidata', 'Headquarters, key people, subsidiaries, industry, revenue, employee count'],
+        ['OFAC SDN', 'US Treasury Specially Designated Nationals sanctions list (26,000+ entities)'],
+        ['UK HMT', 'UK Treasury consolidated sanctions list (12,000+ entities)'],
+        ['OpenSanctions', '4.1 million sanctions, PEP, and watchlist entities from 100+ global sources'],
+        ['ICIJ OffshoreLeaks', '770,000+ offshore entities, officers, and intermediaries'],
+        ['CourtListener', 'US federal court records and docket information'],
+        ['FEC', 'Federal Election Commission political contribution records'],
+        ['Wayback Machine', 'Internet Archive historical website snapshots'],
+        ['FATF', 'Financial Action Task Force grey/blacklist jurisdiction ratings'],
+        ['GDELT', 'Global news and adverse media monitoring'],
+      ]) {
+        doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.dark).text(name as string, { continued: true });
         doc.font('Helvetica').fontSize(9).fillColor(C.label).text(`  -  ${desc}`);
-        doc.moveDown(0.5);
+        doc.moveDown(0.3);
       }
       doc.moveDown(1.5);
       this.sectionTitle(doc, 'Risk Scoring');
       doc.moveDown(0.5);
-      doc.font('Helvetica').fontSize(9).fillColor(C.text).text('The risk score (0-100) is computed from 30+ automated detectors analyzing shell company indicators, director network patterns, filing health, ownership transparency, and sanctions proximity.', { lineGap: 3 });
+      doc.font('Helvetica').fontSize(9).fillColor(C.text).text('The risk score (0-100) is computed from 30+ automated detectors plus intelligence signals including PEP detection, sanctions screening, adverse media, insider trading analysis, financial health ratios, litigation history, and FATF jurisdiction risk.', { lineGap: 3 });
       doc.moveDown(1);
       for (const s of [{ range: '0-24', label: 'Low Risk', color: C.green, desc: 'No significant concerns' }, { range: '25-49', label: 'Elevated', color: C.amber, desc: 'Some signals warrant review' }, { range: '50-74', label: 'High', color: C.orange, desc: 'Enhanced due diligence recommended' }, { range: '75-100', label: 'Critical', color: C.red, desc: 'Do not proceed without legal review' }]) {
         doc.font('Helvetica-Bold').fontSize(9).fillColor(s.color).text(`${s.range}  ${s.label}`, { continued: true });

@@ -15,6 +15,7 @@ import { CfpbComplaintsService } from './cfpb-complaints.service';
 import { FatfJurisdictionService } from './fatf-jurisdiction.service';
 import { PatentSearchService } from './patent-search.service';
 import { NonprofitLookupService } from './nonprofit-lookup.service';
+import { LinkedInIntelligenceService } from './linkedin-intelligence.service';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
 import { GeocodingModule } from '../geocoding/geocoding.module';
@@ -26,6 +27,7 @@ const services = [
   PoliticalDonationsService, RegulatoryViolationsService,
   CfpbComplaintsService, FatfJurisdictionService,
   PatentSearchService, NonprofitLookupService,
+  LinkedInIntelligenceService,
 ];
 
 @Module({

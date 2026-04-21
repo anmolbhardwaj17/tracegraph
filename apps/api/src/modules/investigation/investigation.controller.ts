@@ -42,11 +42,6 @@ export class InvestigationController {
     return this.service.stats();
   }
 
-  @Get('compare')
-  async compare(@Query('a') a: string, @Query('b') b: string) {
-    return this.service.compare(a, b);
-  }
-
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.service.remove(id);
@@ -116,5 +111,13 @@ export class InvestigationController {
       'Content-Length': pdf.length,
     });
     res.send(pdf);
+  }
+
+  /** GET /api/investigations/compare?ids=id1,id2 — side-by-side comparison */
+  @Get('compare')
+  async compare(@Query('ids') ids: string) {
+    const idList = (ids || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (idList.length < 2) return { error: 'Provide at least 2 investigation IDs separated by commas' };
+    return this.service.compare(idList);
   }
 }
