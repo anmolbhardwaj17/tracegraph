@@ -45,59 +45,39 @@ export class IndiaMcaProvider implements CompanyDataProvider {
     return cached(`india:search:${query.toLowerCase()}`, async () => {
       const results: CompanySearchResult[] = [];
 
-      // Source 1: Try Zaubacorp
+      // Source 1: DuckDuckGo → find Tofler company pages (gets CIN + name)
       try {
-        const res = await rl(() =>
-          axios.get(`https://www.zaubacorp.com/custom-search`, {
-            params: { search: query, filter: 'company' },
-            headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+        const searchRes = await rl(() =>
+          axios.get('https://html.duckduckgo.com/html/', {
+            params: { q: `site:tofler.in ${query} company` },
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 10000,
           }),
         );
-        const items = res.data || [];
-        if (Array.isArray(items)) {
-          for (const item of items.slice(0, 10)) {
-            results.push({
-              name: item.title || item.name || query,
-              companyNumber: item.cin || item.id || '',
-              jurisdiction: 'in',
-              status: (item.status || 'active').toLowerCase(),
-              incorporationDate: item.date_of_incorporation || null,
-              registryUrl: item.url || `https://www.zaubacorp.com/company/${item.cin || ''}`,
-              source: 'opencorporates',
-            });
-          }
+        const html = searchRes.data as string;
+        // Extract Tofler company URLs with CIN
+        const toflerLinks = html.match(/tofler\.in\/([a-z0-9\-]+)\/company\/([A-Z]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6})/gi) || [];
+        const seen = new Set<string>();
+        for (const link of toflerLinks.slice(0, 10)) {
+          const match = link.match(/tofler\.in\/([a-z0-9\-]+)\/company\/([A-Z]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6})/i);
+          if (!match || seen.has(match[2])) continue;
+          seen.add(match[2]);
+          const name = match[1].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+          results.push({
+            name,
+            companyNumber: match[2],
+            jurisdiction: 'in',
+            status: 'active',
+            incorporationDate: null,
+            registryUrl: `https://www.tofler.in/${match[1]}/company/${match[2]}`,
+            source: 'opencorporates' as DataSource,
+          });
+        }
+        if (results.length > 0) {
+          this.logger.log(`India search: found ${results.length} companies via Tofler/DuckDuckGo`);
         }
       } catch (e: any) {
-        this.logger.warn(`Zaubacorp search failed: ${e?.message}`);
-      }
-
-      // Source 2: Fallback to OpenCorporates India
-      if (results.length === 0) {
-        try {
-          const params: any = { q: query, jurisdiction_code: 'in', per_page: 10 };
-          const apiKey = process.env.OPENCORPORATES_API_KEY;
-          if (apiKey) params.api_token = apiKey;
-
-          const res = await rl(() =>
-            axios.get('https://api.opencorporates.com/v0.4/companies/search', { params, timeout: 10000 }),
-          );
-          const companies = res.data?.results?.companies || [];
-          for (const c of companies) {
-            const co = c.company;
-            results.push({
-              name: co.name,
-              companyNumber: co.company_number,
-              jurisdiction: 'in',
-              status: co.current_status || 'unknown',
-              incorporationDate: co.incorporation_date || null,
-              registryUrl: co.opencorporates_url || '',
-              source: 'opencorporates',
-            });
-          }
-        } catch (e: any) {
-          this.logger.warn(`OpenCorporates India search failed: ${e?.message}`);
-        }
+        this.logger.warn(`Tofler/DuckDuckGo search failed: ${e?.message}`);
       }
 
       return results;
@@ -107,42 +87,63 @@ export class IndiaMcaProvider implements CompanyDataProvider {
   async getCompanyProfile(cin: string): Promise<CompanyProfile | null> {
     return cached(`india:profile:${cin}`, async () => {
       try {
-        // Try Zaubacorp company page
-        const res = await rl(() =>
-          axios.get(`https://www.zaubacorp.com/company/${cin}`, {
+        // Use Tofler — need to construct the URL slug from CIN
+        // First search for the CIN to get the slug
+        const searchRes = await rl(() =>
+          axios.get('https://html.duckduckgo.com/html/', {
+            params: { q: `site:tofler.in company ${cin}` },
             headers: { 'User-Agent': USER_AGENT },
             timeout: 10000,
-            responseType: 'text',
           }),
+        );
+        const searchHtml = searchRes.data as string;
+        const urlMatch = searchHtml.match(new RegExp(`tofler\\.in/([a-z0-9\\-]+)/company/${cin}`, 'i'));
+        if (!urlMatch) {
+          this.logger.warn(`Tofler: no page found for CIN ${cin}`);
+          return null;
+        }
+
+        const toflerUrl = `https://www.tofler.in/${urlMatch[1]}/company/${cin}`;
+        const res = await rl(() =>
+          axios.get(toflerUrl, { headers: { 'User-Agent': USER_AGENT }, timeout: 15000, responseType: 'text' }),
         );
 
         const html = res.data as string;
-        const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
 
-        // Extract basic info from the page
-        const nameMatch = html.match(/<h1[^>]*>([^<]+)</);
-        const cinMatch = text.match(/CIN\s*:\s*([A-Z0-9]+)/i);
-        const statusMatch = text.match(/Status\s*:\s*(Active|Dormant|Struck Off|Under Liquidation|Amalgamated)/i);
-        const dateMatch = text.match(/Date of Incorporation\s*:\s*(\d{2}[-/]\d{2}[-/]\d{4})/);
-        const typeMatch = text.match(/Company Type\s*:\s*([^.]+?)(?:\s*Category|\s*Sub)/i);
-        const addressMatch = text.match(/Registered Address\s*:\s*([^.]{10,200})/i);
+        // Extract from JSON-LD FAQ schema
+        const faqMatch = html.match(/"FAQPage".*?"mainEntity"\s*:\s*\[(.*?)\]/s);
+        let incDate: string | null = null;
+        let capital: string | null = null;
+        if (faqMatch) {
+          const incMatch = faqMatch[1].match(/incorporation date.*?(\d{1,2}\s+\w+,?\s+\d{4})/i);
+          if (incMatch) incDate = incMatch[1];
+          const capMatch = faqMatch[1].match(/authorized share capital.*?Rs\.?\s*([\d,]+)/i);
+          if (capMatch) capital = capMatch[1];
+        }
 
-        const name = nameMatch?.[1]?.trim() || cin;
+        // Extract from page text
+        const nameMatch = text.match(/CIN.*?([A-Z]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}).*?([A-Z][A-Z\s&.,']+(?:LIMITED|LTD|PRIVATE|PVT))/i)
+          || html.match(/<title>([^<]+)/);
+        const name = nameMatch?.[2]?.trim() || nameMatch?.[1]?.replace(/ Financials.*/, '').trim() || cin;
+        const statusMatch = text.match(/(?:Status|Company Status)[:\s]*(Active|Dormant|Struck Off)/i);
+        const addressMatch = text.match(/(?:Registered (?:Office )?Address)[:\s]*([^.]{10,200})/i);
+
         return {
-          name,
-          companyNumber: cinMatch?.[1] || cin,
+          name: name.replace(/ Financials.*/, '').trim(),
+          companyNumber: cin,
           jurisdiction: 'in',
           jurisdictionLabel: 'India',
           status: statusMatch?.[1]?.toLowerCase() === 'active' ? 'active' : 'unknown',
-          incorporationDate: dateMatch?.[1] || null,
+          incorporationDate: incDate || null,
           dissolutionDate: null,
-          companyType: typeMatch?.[1]?.trim() || null,
+          companyType: null,
           registeredAddress: addressMatch?.[1]?.trim() || null,
           sicCodes: [],
-          registryUrl: `https://www.zaubacorp.com/company/${cin}`,
-          source: 'opencorporates',
-          dataDepth: 'basic',
-        } as CompanyProfile;
+          registryUrl: toflerUrl,
+          source: 'opencorporates' as DataSource,
+          dataDepth: 'basic' as DataDepth,
+        };
       } catch (e: any) {
         this.logger.warn(`India company profile failed for ${cin}: ${e?.message}`);
         return null;
@@ -151,61 +152,8 @@ export class IndiaMcaProvider implements CompanyDataProvider {
   }
 
   async getCompanyOfficers(cin: string): Promise<Officer[]> {
-    return cached(`india:officers:${cin}`, async () => {
-      try {
-        const res = await rl(() =>
-          axios.get(`https://www.zaubacorp.com/company/${cin}`, {
-            headers: { 'User-Agent': USER_AGENT },
-            timeout: 10000,
-            responseType: 'text',
-          }),
-        );
-
-        const html = res.data as string;
-        const officers: Officer[] = [];
-
-        // Parse director table
-        const directorPattern = /DIN\s*:\s*(\d+)[^<]*<[^>]*>([^<]+)<.*?(?:Designation\s*:\s*([^<]+))?/gi;
-        let match;
-        while ((match = directorPattern.exec(html)) !== null) {
-          officers.push({
-            name: match[2]?.trim() || 'Unknown',
-            role: match[3]?.trim() || 'Director',
-            appointedDate: null,
-            resignedDate: null,
-            nationality: 'Indian',
-            dateOfBirth: null,
-            source: 'opencorporates',
-          });
-        }
-
-        // Fallback: look for names in director section
-        if (officers.length === 0) {
-          const dirSection = html.match(/Directors?.*?<\/table>/is);
-          if (dirSection) {
-            const namePattern = /<td[^>]*>([A-Z][a-z]+ [A-Z][a-z]+(?:\s[A-Z][a-z]+)?)<\/td>/g;
-            while ((match = namePattern.exec(dirSection[0])) !== null) {
-              if (match[1].length > 4 && match[1].length < 50) {
-                officers.push({
-                  name: match[1].trim(),
-                  role: 'Director',
-                  appointedDate: null,
-                  resignedDate: null,
-                  nationality: 'Indian',
-                  dateOfBirth: null,
-                  source: 'opencorporates',
-                });
-              }
-            }
-          }
-        }
-
-        this.logger.log(`India officers for ${cin}: ${officers.length} found`);
-        return officers;
-      } catch (e: any) {
-        this.logger.warn(`India officers failed for ${cin}: ${e?.message}`);
-        return [];
-      }
-    });
+    // Officers are extracted from Wikidata + NSE data during enrichment
+    // Tofler requires paid subscription for director data
+    return [];
   }
 }
