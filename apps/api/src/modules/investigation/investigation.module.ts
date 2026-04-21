@@ -13,6 +13,7 @@ import { RiskScoringModule } from '../risk-scoring/risk-scoring.module';
 import { UboChainModule } from '../ubo-chain/ubo-chain.module';
 import { ReportModule } from '../report/report.module';
 import { EnrichmentModule } from '../enrichment/enrichment.module';
+import { IndiaModule } from '../india/india.module';
 import { EntityMatch } from '../entity-resolution/entities/entity-match.entity';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
@@ -35,6 +36,7 @@ import { GraphEdge } from '../graph/entities/graph-edge.entity';
     RiskScoringModule,
     UboChainModule,
     EnrichmentModule,
+    IndiaModule,
     forwardRef(() => ReportModule),
   ],
   exports: [InvestigationService],

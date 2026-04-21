@@ -6,68 +6,89 @@ import { IndiaCompany } from './india-company.entity';
 /**
  * India Company Search Service.
  *
- * Searches the local india_companies table (bulk-imported MCA data)
- * for instant results. Falls back to NSE/Wikidata if table is empty.
+ * Searches the local india_companies table for instant results.
+ * Auto-populates: when a company is discovered via NSE/Tofler/Wikidata
+ * during an investigation, it's saved to the local DB for future searches.
  *
- * Provides:
- * - Full-text search by company name
- * - Fuzzy matching via trigram similarity
- * - CIN lookup
- * - State/status filtering
+ * Over time the DB grows organically — every investigated company
+ * becomes searchable locally without API calls.
  */
 @Injectable()
 export class IndiaSearchService {
   private readonly logger = new Logger(IndiaSearchService.name);
-  private tableExists: boolean | null = null;
 
   constructor(
     @InjectRepository(IndiaCompany) private readonly repo: Repository<IndiaCompany>,
   ) {}
 
-  /** Check if india_companies table has data */
-  async isAvailable(): Promise<boolean> {
-    if (this.tableExists != null) return this.tableExists;
-    try {
-      const count = await this.repo.count();
-      this.tableExists = count > 0;
-      if (this.tableExists) this.logger.log(`India company database: ${count.toLocaleString()} companies loaded`);
-      return this.tableExists;
-    } catch {
-      this.tableExists = false;
-      return false;
-    }
-  }
-
   /** Search companies by name (fuzzy) */
   async search(query: string, limit = 20): Promise<IndiaCompany[]> {
-    if (!(await this.isAvailable())) return [];
-
     try {
-      // Try trigram similarity first (fuzzy match)
       const results = await this.repo
-        .createQueryBuilder('c')
-        .where(`c.company_name ILIKE :pattern`, { pattern: `%${query}%` })
-        .orderBy(`similarity(c.company_name, :query)`, 'DESC')
-        .setParameter('query', query)
-        .take(limit)
-        .getMany();
-
-      return results;
-    } catch {
-      // Fallback to simple ILIKE if trigram extension not available
-      return this.repo
         .createQueryBuilder('c')
         .where(`c.company_name ILIKE :pattern`, { pattern: `%${query}%` })
         .orderBy('c.paid_up_capital', 'DESC', 'NULLS LAST')
         .take(limit)
         .getMany();
+      return results;
+    } catch {
+      return [];
     }
   }
 
   /** Lookup by CIN */
   async getByCin(cin: string): Promise<IndiaCompany | null> {
-    if (!(await this.isAvailable())) return null;
-    return this.repo.findOne({ where: { cin } });
+    try {
+      return this.repo.findOne({ where: { cin } });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Auto-populate: save a company discovered during investigation.
+   * Called by the investigation processor after NSE/Tofler/Wikidata finds a company.
+   * Upserts — updates existing records, inserts new ones.
+   */
+  async saveDiscovered(data: {
+    cin: string;
+    companyName: string;
+    status?: string;
+    companyType?: string;
+    category?: string;
+    dateOfRegistration?: string | null;
+    authorizedCapital?: number | null;
+    paidUpCapital?: number | null;
+    state?: string;
+    registeredAddress?: string;
+    email?: string;
+    listedStatus?: string;
+    activityDescription?: string;
+  }): Promise<void> {
+    if (!data.cin || !data.companyName) return;
+    try {
+      await this.repo.query(
+        `INSERT INTO india_companies (cin, company_name, status, company_type, category, date_of_registration, authorized_capital, paid_up_capital, state, registered_address, email, listed_status, activity_description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT (cin) DO UPDATE SET
+           company_name = COALESCE(EXCLUDED.company_name, india_companies.company_name),
+           status = COALESCE(EXCLUDED.status, india_companies.status),
+           company_type = COALESCE(EXCLUDED.company_type, india_companies.company_type),
+           registered_address = COALESCE(EXCLUDED.registered_address, india_companies.registered_address),
+           listed_status = COALESCE(EXCLUDED.listed_status, india_companies.listed_status),
+           activity_description = COALESCE(EXCLUDED.activity_description, india_companies.activity_description)`,
+        [
+          data.cin, data.companyName, data.status || null, data.companyType || null,
+          data.category || null, data.dateOfRegistration || null,
+          data.authorizedCapital || null, data.paidUpCapital || null,
+          data.state || null, data.registeredAddress || null,
+          data.email || null, data.listedStatus || null, data.activityDescription || null,
+        ],
+      );
+      this.logger.log(`India DB auto-populated: ${data.companyName} (${data.cin})`);
+    } catch (e: any) {
+      this.logger.warn(`India DB save failed for ${data.cin}: ${e?.message}`);
+    }
   }
 
   /** Get company profile for investigation */
@@ -84,10 +105,8 @@ export class IndiaSearchService {
     listed: boolean;
     activityDescription: string | null;
   } | null> {
-    if (!(await this.isAvailable())) return null;
-
     // Try CIN first
-    let company = await this.repo.findOne({ where: { cin: cinOrName } });
+    let company = await this.getByCin(cinOrName);
 
     // Fallback to name search
     if (!company) {
@@ -110,5 +129,10 @@ export class IndiaSearchService {
       listed: company.listedStatus === 'Listed',
       activityDescription: company.activityDescription,
     };
+  }
+
+  /** Get total count for stats */
+  async count(): Promise<number> {
+    try { return this.repo.count(); } catch { return 0; }
   }
 }

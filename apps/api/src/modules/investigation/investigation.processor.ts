@@ -29,6 +29,7 @@ import { PatentSearchService } from '../enrichment/patent-search.service';
 import { NonprofitLookupService } from '../enrichment/nonprofit-lookup.service';
 import { LinkedInIntelligenceService } from '../enrichment/linkedin-intelligence.service';
 import { IndiaIntelligenceService } from '../enrichment/india-intelligence.service';
+import { IndiaSearchService } from '../india/india-search.service';
 import { InvestigationGateway } from './investigation.gateway';
 import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
 import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
@@ -88,6 +89,7 @@ export class InvestigationProcessor extends WorkerHost {
     private readonly nonprofitLookup: NonprofitLookupService,
     private readonly linkedinIntel: LinkedInIntelligenceService,
     private readonly indiaIntel: IndiaIntelligenceService,
+    private readonly indiaSearch: IndiaSearchService,
     private readonly gateway: InvestigationGateway,
   ) {
     super();
@@ -431,12 +433,21 @@ export class InvestigationProcessor extends WorkerHost {
               dataDepth: 'moderate' as any,
             };
             this.logger.log(`India: found ${equity.symbol_info} (NSE: ${equity.symbol}) via NSE search`);
+
+            // Auto-populate local India DB
+            this.indiaSearch.saveDiscovered({
+              cin: equity.symbol, // Use NSE symbol as identifier
+              companyName: equity.symbol_info || equity.symbol,
+              status: 'Active',
+              listedStatus: 'Listed',
+              companyType: 'Listed Company (NSE)',
+            }).catch(() => {});
           }
         } catch (e: any) {
           this.logger.warn(`NSE search failed: ${e?.message}`);
         }
 
-        // Fallback: try Zaubacorp/MCA
+        // Fallback: try Tofler/MCA
         if (!profile) {
           const indiaResults = await this.indiaMca.searchCompanies(query).catch(() => []);
           if (indiaResults.length > 0) {
@@ -457,6 +468,13 @@ export class InvestigationProcessor extends WorkerHost {
               dataDepth: 'basic' as any,
             };
             this.logger.log(`India: found ${best.name} (CIN: ${best.companyNumber}) via MCA search`);
+
+            // Auto-populate local India DB
+            this.indiaSearch.saveDiscovered({
+              cin: best.companyNumber,
+              companyName: best.name,
+              status: (best.status as string) || 'Active',
+            }).catch(() => {});
           }
         }
       }
