@@ -2,20 +2,16 @@
  * MCA Company Master Data Ingestion Script.
  *
  * Usage:
- *   1. Download company master CSVs from MCA website:
- *      https://www.mca.gov.in/content/mca/global/en/data-and-reports/company-llp-master-data.html
- *      (requires manual CAPTCHA — download state-by-state or all-India CSV)
+ *   1. Download company CSVs from MCA website:
+ *      Data & Reports → Company/LLP Information → Incorporated Or Closed During The Month
+ *      Download the monthly CSV files (120+ files available)
  *
  *   2. Place CSV file(s) in apps/api/data/india/
  *
  *   3. Run: npm run ingest:india
- *      Or:  npx ts-node src/seeds/ingest-india-companies.ts [path-to-csv]
+ *      Or:  npx ts-node src/seeds/ingest-india-companies.ts [path-to-csv-or-directory]
  *
- * CSV Expected Format (MCA Company Master):
- *   CIN, Company Name, Status, Company Type, Class, Category, Sub Category,
- *   Date of Registration, Authorized Capital, Paid Up Capital, State, ROC,
- *   Activity Code, Activity Description, Registered Address, Email,
- *   Listed Status, Last AGM Date, Balance Sheet Date
+ *   If a directory is provided, ALL .csv files in it will be ingested.
  */
 
 import * as fs from 'fs';
@@ -24,33 +20,49 @@ import { DataSource } from 'typeorm';
 import { dataSourceOptions } from '../data-source';
 
 async function main() {
-  const csvPath = process.argv[2] || path.resolve(__dirname, '../../data/india/company-master.csv');
+  const target = process.argv[2] || path.resolve(__dirname, '../../data/india');
 
-  if (!fs.existsSync(csvPath)) {
+  // Collect CSV files to process
+  let csvFiles: string[] = [];
+
+  if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
+    csvFiles = fs.readdirSync(target)
+      .filter((f) => f.endsWith('.csv'))
+      .map((f) => path.join(target, f))
+      .sort();
+  } else if (fs.existsSync(target) && target.endsWith('.csv')) {
+    csvFiles = [target];
+  }
+
+  if (csvFiles.length === 0) {
     console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║  MCA Company Master Data Ingestion                          ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
-║  No CSV file found at: ${csvPath.slice(-40).padEnd(36)}  ║
+║  No CSV files found.                                         ║
 ║                                                              ║
 ║  To ingest Indian company data:                              ║
 ║                                                              ║
 ║  1. Go to MCA website:                                       ║
-║     mca.gov.in > Data & Reports > Company/LLP Master Data    ║
+║     mca.gov.in → Data & Reports → Company/LLP Information    ║
+║     → Incorporated Or Closed During The Month                ║
 ║                                                              ║
-║  2. Download the CSV (requires CAPTCHA)                      ║
+║  2. Download the monthly CSV files                           ║
 ║                                                              ║
-║  3. Place it at: apps/api/data/india/company-master.csv      ║
+║  3. Place them in: apps/api/data/india/                      ║
 ║                                                              ║
-║  4. Run: npx ts-node src/seeds/ingest-india-companies.ts     ║
+║  4. Run: npm run ingest:india                                ║
+║                                                              ║
+║  The script will auto-scan and ingest ALL .csv files         ║
+║  in the directory.                                           ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 `);
     process.exit(0);
   }
 
-  console.log(`Loading MCA Company Master from: ${csvPath}`);
+  console.log(`Found ${csvFiles.length} CSV file(s) to ingest`);
   const ds = new DataSource(dataSourceOptions);
   await ds.initialize();
 
@@ -79,93 +91,108 @@ async function main() {
     )
   `);
 
-  const content = fs.readFileSync(csvPath, 'utf-8');
-  const lines = content.split('\n');
-  console.log(`Found ${lines.length} lines`);
+  let totalInserted = 0;
+  let totalSkipped = 0;
 
-  let inserted = 0;
-  let skipped = 0;
-  const batchSize = 500;
-  let batch: string[][] = [];
+  for (let fileIdx = 0; fileIdx < csvFiles.length; fileIdx++) {
+    const csvPath = csvFiles[fileIdx];
+    const fileName = path.basename(csvPath);
+    console.log(`\n[${fileIdx + 1}/${csvFiles.length}] Processing: ${fileName}`);
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    const content = fs.readFileSync(csvPath, 'utf-8');
+    const lines = content.split('\n');
+    console.log(`  ${lines.length} lines`);
 
-    // Parse CSV (handle quoted fields)
-    const fields = parseCSVLine(line);
-    if (fields.length < 5 || !fields[0]) { skipped++; continue; }
+    let inserted = 0;
+    let skipped = 0;
 
-    batch.push(fields);
+    // Detect header row and field positions
+    const header = lines[0]?.toLowerCase() || '';
+    const hasHeader = header.includes('cin') || header.includes('company') || header.includes('name');
+    const startLine = hasHeader ? 1 : 0;
 
-    if (batch.length >= batchSize) {
-      await insertBatch(ds, batch);
-      inserted += batch.length;
-      batch = [];
-      if (inserted % 10000 === 0) {
-        console.log(`  Processed ${inserted.toLocaleString()} companies...`);
+    for (let i = startLine; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const fields = parseCSVLine(line);
+      if (fields.length < 2) { skipped++; continue; }
+
+      // Try to identify CIN (21 chars, starts with letter) and company name
+      let cin = '';
+      let companyName = '';
+      let status = '';
+      let dateOfReg = '';
+      let state = '';
+      let registeredAddress = '';
+      let email = '';
+
+      // MCA monthly CSV format varies — try to detect
+      for (let j = 0; j < Math.min(fields.length, 5); j++) {
+        const val = fields[j]?.trim();
+        if (!val) continue;
+        // CIN is 21 chars: L/U + 5 digits + 2 letters + 4 digits + 3 letters + 6 digits + check
+        if (/^[A-Z]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/i.test(val)) {
+          cin = val.toUpperCase();
+        } else if (!companyName && val.length > 3 && val.length < 300 && !/^\d+$/.test(val)) {
+          companyName = val;
+        }
+      }
+
+      if (!cin && !companyName) { skipped++; continue; }
+
+      // Try to extract other fields based on position
+      if (fields.length >= 3) status = fields[2]?.trim() || '';
+      if (fields.length >= 8) dateOfReg = fields[7]?.trim() || '';
+      if (fields.length >= 11) state = fields[10]?.trim() || '';
+      if (fields.length >= 15) registeredAddress = fields[14]?.trim() || '';
+      if (fields.length >= 16) email = fields[15]?.trim() || '';
+
+      // Use CIN as primary key, or generate one from name
+      const key = cin || `TEMP-${companyName.replace(/[^A-Z0-9]/gi, '').slice(0, 15)}`;
+
+      try {
+        await ds.query(
+          `INSERT INTO india_companies (cin, company_name, status, date_of_registration, state, registered_address, email)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (cin) DO UPDATE SET company_name=EXCLUDED.company_name, status=COALESCE(EXCLUDED.status, india_companies.status)`,
+          [key, companyName || cin, status || null, parseDate(dateOfReg), state || null, registeredAddress || null, email || null],
+        );
+        inserted++;
+      } catch {
+        skipped++;
+      }
+
+      if (inserted % 5000 === 0 && inserted > 0) {
+        console.log(`  ${inserted.toLocaleString()} inserted...`);
       }
     }
-  }
 
-  if (batch.length > 0) {
-    await insertBatch(ds, batch);
-    inserted += batch.length;
+    totalInserted += inserted;
+    totalSkipped += skipped;
+    console.log(`  Done: ${inserted.toLocaleString()} inserted, ${skipped} skipped`);
   }
 
   // Create indexes
-  console.log('Creating indexes...');
+  console.log('\nCreating indexes...');
   await ds.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`).catch(() => {});
   await ds.query(`CREATE INDEX IF NOT EXISTS idx_india_co_name ON india_companies USING gin(to_tsvector('simple', company_name))`).catch(() => {});
   await ds.query(`CREATE INDEX IF NOT EXISTS idx_india_co_state ON india_companies (state)`).catch(() => {});
   await ds.query(`CREATE INDEX IF NOT EXISTS idx_india_co_status ON india_companies (status)`).catch(() => {});
   await ds.query(`CREATE INDEX IF NOT EXISTS idx_india_co_name_trgm ON india_companies USING gin(company_name gin_trgm_ops)`).catch(() => {});
 
-  console.log(`\nDone: ${inserted.toLocaleString()} companies inserted, ${skipped} skipped`);
+  console.log(`\n${'═'.repeat(50)}`);
+  console.log(`TOTAL: ${totalInserted.toLocaleString()} companies from ${csvFiles.length} file(s)`);
+  console.log(`Skipped: ${totalSkipped.toLocaleString()}`);
+  console.log(`${'═'.repeat(50)}`);
+
   await ds.destroy();
-}
-
-async function insertBatch(ds: DataSource, batch: string[][]): Promise<void> {
-  const values: string[] = [];
-  const params: any[] = [];
-  let paramIdx = 1;
-
-  for (const fields of batch) {
-    const cin = fields[0]?.trim();
-    if (!cin || cin.length < 5) continue;
-
-    const placeholders = [];
-    for (let j = 0; j < 19; j++) {
-      const val = fields[j]?.trim() || null;
-      // Handle date fields (7, 17, 18)
-      if ((j === 7 || j === 17 || j === 18) && val) {
-        const parsed = parseDate(val);
-        params.push(parsed);
-      } else if ((j === 8 || j === 9) && val) {
-        // Capital fields — parse as number
-        params.push(parseInt(val.replace(/[^0-9]/g, ''), 10) || null);
-      } else {
-        params.push(val);
-      }
-      placeholders.push(`$${paramIdx++}`);
-    }
-    values.push(`(${placeholders.join(',')})`);
-  }
-
-  if (values.length === 0) return;
-
-  await ds.query(
-    `INSERT INTO india_companies (cin, company_name, status, company_type, company_class, category, sub_category, date_of_registration, authorized_capital, paid_up_capital, state, roc, activity_code, activity_description, registered_address, email, listed_status, last_agm_date, balance_sheet_date) VALUES ${values.join(',')} ON CONFLICT (cin) DO UPDATE SET company_name=EXCLUDED.company_name, status=EXCLUDED.status, paid_up_capital=EXCLUDED.paid_up_capital`,
-    params,
-  );
 }
 
 function parseDate(val: string): string | null {
   if (!val) return null;
-  // Try DD-MM-YYYY or DD/MM/YYYY
   const dmy = val.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
-  // Try YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
   return null;
 }
