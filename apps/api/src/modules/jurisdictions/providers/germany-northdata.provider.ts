@@ -31,10 +31,33 @@ export class GermanyNorthdataProvider implements CompanyDataProvider {
   readonly source: DataSource = 'opencorporates';
   readonly dataDepth: DataDepth = 'basic';
 
+  /**
+   * Search: tries local DB first (if ingested), then DuckDuckGo → North Data.
+   * To populate local DB: npm run ingest:germany
+   */
   async searchCompanies(query: string): Promise<CompanySearchResult[]> {
     return cached(`germany:search:${query.toLowerCase()}`, async () => {
+      // Try local DB first
       try {
-        // Use DuckDuckGo to find North Data company pages
+        const localResults = await axios.get('http://localhost:4000/api/germany/search', {
+          params: { q: query, limit: 10 },
+          timeout: 3000,
+        }).catch(() => null);
+        if (localResults && localResults.data?.length > 0) {
+          return localResults.data.map((r: any) => ({
+            name: r.name,
+            companyNumber: r.company_number,
+            jurisdiction: 'de',
+            status: r.status === 'currently registered' ? 'active' : r.status || 'unknown',
+            incorporationDate: null,
+            registryUrl: `https://www.northdata.com/${encodeURIComponent(r.name)}`,
+            source: 'opencorporates' as DataSource,
+          }));
+        }
+      } catch {}
+
+      try {
+        // Fallback: DuckDuckGo to find North Data company pages
         const searchRes = await axios.get('https://html.duckduckgo.com/html/', {
           params: { q: `site:northdata.com ${query} Germany` },
           headers: { 'User-Agent': USER_AGENT },

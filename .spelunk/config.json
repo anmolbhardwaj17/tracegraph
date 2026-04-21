@@ -1,0 +1,55 @@
+{
+  "appName": "tracegraph",
+  "baseUrl": "http://localhost:3000",
+  "cdpEndpoint": "http://localhost:9222",
+  "policy": {
+    "maxNodes": 200,
+    "maxDepth": 6,
+    "maxTimePerRun": 900,
+    "blockKeywords": [
+      "delete",
+      "remove",
+      "logout",
+      "sign out",
+      "deactivate",
+      "clear all",
+      "reset"
+    ],
+    "blockSelectors": [
+      "[data-spelunk=\"danger\"]",
+      "button.btn-danger"
+    ],
+    "priorityKeywords": [
+      "create",
+      "new",
+      "add",
+      "open",
+      "view",
+      "edit"
+    ],
+    "routesToSkip": [
+      "/logout",
+      "/auth/signout"
+    ],
+    "viewports": [
+      {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900
+      },
+      {
+        "name": "tablet",
+        "width": 834,
+        "height": 1112
+      },
+      {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "screenshotDiffThreshold": 0.02,
+    "strictVisual": false,
+    "staleRunsThreshold": 5
+  }
+}

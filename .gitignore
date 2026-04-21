@@ -9,3 +9,6 @@ dist
 coverage
 *.tsbuildinfo
 apps/api/data/full/
+apps/api/data/germany/de_companies.jsonl
+apps/api/data/germany/de_companies.jsonl.bz2
+apps/api/data/germany/de_companies.csv
