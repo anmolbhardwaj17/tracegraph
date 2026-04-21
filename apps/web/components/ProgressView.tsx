@@ -42,20 +42,21 @@ export interface Discovery {
 }
 
 const STAGES = [
-  { key: 'FETCHING',    label: 'Fetching company profile',          hint: 'UK Companies House' },
-  { key: 'EXPANDING',   label: 'Expanding ownership network',       hint: 'Directors . PSC . addresses' },
-  { key: 'EXPANDING_2', label: 'UBO chain resolution',              hint: 'Tracing corporate PSCs to natural persons' },
-  { key: 'RESOLVING',   label: 'Cross-source matching',             hint: 'OpenSanctions 4M+ . ICIJ 770K+' },
-  { key: 'RESOLVING_2', label: 'Disqualified director screening',   hint: 'CH disqualified-officers register' },
-  { key: 'SCORING',     label: 'Filing health & jurisdiction risk',  hint: 'Late filings . phoenix . offshore' },
-  { key: 'SCORING_2',   label: 'Anomaly detection & risk scoring',  hint: 'Shell . cross-directorship . age anomalies' },
+  { key: 'FETCHING',      label: 'Fetching company profile',           hint: 'SEC EDGAR . Companies House . GLEIF' },
+  { key: 'EXPANDING',     label: 'Expanding ownership network',        hint: 'Directors . Form 4 . subsidiaries' },
+  { key: 'ENRICHING',     label: 'Deep enrichment',                    hint: 'Wikidata . SEC filings . locations' },
+  { key: 'RESOLVING',     label: 'Sanctions screening',                hint: 'OpenSanctions . ICIJ . OFAC . UK HMT' },
+  { key: 'SCORING',       label: 'Risk scoring',                       hint: '15 anomaly detectors . shell detection' },
+  { key: 'INTELLIGENCE',  label: 'Deep intelligence',                  hint: '8-K . insider . financials . courts . FATF' },
+  { key: 'PEP_MEDIA',     label: 'PEP + adverse media screening',      hint: 'Wikidata political . GDELT news . FEC' },
+  { key: 'NARRATIVE',     label: 'Generating risk narrative',           hint: 'AI-powered executive summary' },
 ];
 
-const ORDER = ['QUEUED', 'FETCHING', 'EXPANDING', 'EXPANDING_2', 'RESOLVING', 'RESOLVING_2', 'SCORING', 'SCORING_2', 'COMPLETE'];
+const ORDER = ['QUEUED', 'FETCHING', 'EXPANDING', 'ENRICHING', 'RESOLVING', 'SCORING', 'INTELLIGENCE', 'PEP_MEDIA', 'NARRATIVE', 'COMPLETE'];
 
-const PCT_MAP: Record<string, number> = { QUEUED: 0, FETCHING: 7, EXPANDING: 21, RESOLVING: 50, SCORING: 78, COMPLETE: 100 };
-const STAGE_MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5 };
-const ACTIVE_MAP: Record<string, number> = { QUEUED: -1, FETCHING: 0, EXPANDING: 1, RESOLVING: 3, SCORING: 5, COMPLETE: 99 };
+const PCT_MAP: Record<string, number> = { QUEUED: 0, FETCHING: 5, EXPANDING: 15, ENRICHING: 30, RESOLVING: 45, SCORING: 58, INTELLIGENCE: 72, PEP_MEDIA: 85, NARRATIVE: 95, COMPLETE: 100 };
+const STAGE_MAP: Record<string, number> = { FETCHING: 0, EXPANDING: 1, ENRICHING: 2, RESOLVING: 3, SCORING: 4, INTELLIGENCE: 5, PEP_MEDIA: 6, NARRATIVE: 7 };
+const ACTIVE_MAP: Record<string, number> = { QUEUED: -1, FETCHING: 0, EXPANDING: 1, ENRICHING: 2, RESOLVING: 3, SCORING: 4, INTELLIGENCE: 5, PEP_MEDIA: 6, NARRATIVE: 7, COMPLETE: 99 };
 
 const TIER_EST: Record<string, [number, number]> = { QUICK: [60, 120], STANDARD: [300, 600], DEEP: [900, 1800] };
 

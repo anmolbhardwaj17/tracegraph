@@ -128,7 +128,209 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* ROW 2: AI Insights + Globe */}
+      {/* ROW 2: AI Risk Narrative (if available) */}
+      {data.narrative && (
+        <div className="border border-white/5 bg-ink-850 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ AI Risk Narrative</div>
+            <div className="text-[10px] font-mono text-ink-600">Generated {data.narrative.generatedAt ? new Date(data.narrative.generatedAt).toLocaleDateString() : ''}</div>
+          </div>
+
+          {/* Executive Summary */}
+          <p className="text-sm text-ink-200 leading-relaxed mb-5">{data.narrative.executiveSummary}</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Key Findings */}
+            {data.narrative.keyFindings?.length > 0 && (
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-3">Key findings</div>
+                <ul className="space-y-2">
+                  {data.narrative.keyFindings.map((f: string, i: number) => (
+                    <li key={i} className="text-xs text-ink-300 leading-relaxed flex gap-2">
+                      <span className="text-signal-clean shrink-0 mt-0.5">-</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {data.narrative.recommendations?.length > 0 && (
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-3">Recommendations</div>
+                <ul className="space-y-2">
+                  {data.narrative.recommendations.map((r: string, i: number) => (
+                    <li key={i} className="text-xs text-ink-300 leading-relaxed flex gap-2">
+                      <span className="text-ink-500 shrink-0 mt-0.5">{i + 1}.</span>
+                      <span>{r}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* PEP Warnings */}
+          {data.narrative.pepWarnings?.length > 0 && (
+            <div className="mt-5 border-t border-white/5 pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border bg-signal-high/15 text-signal-high border-signal-high/30">PEP</span>
+                <span className="text-[10px] font-mono text-ink-500">{data.narrative.pepWarnings.length} Politically Exposed Person{data.narrative.pepWarnings.length !== 1 ? 's' : ''}</span>
+              </div>
+              {data.narrative.pepWarnings.map((w: string, i: number) => (
+                <p key={i} className="text-xs text-signal-high/80 leading-relaxed mb-1">{w}</p>
+              ))}
+            </div>
+          )}
+
+          {/* Adverse Media */}
+          {data.narrative.adverseMedia?.length > 0 && (
+            <div className="mt-4 border-t border-white/5 pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border bg-signal-medium/15 text-signal-medium border-signal-medium/30">MEDIA</span>
+                <span className="text-[10px] font-mono text-ink-500">{data.narrative.adverseMedia.length} adverse media hit{data.narrative.adverseMedia.length !== 1 ? 's' : ''}</span>
+              </div>
+              {data.narrative.adverseMedia.map((m: string, i: number) => (
+                <p key={i} className="text-xs text-ink-400 leading-relaxed mb-1">{m}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ROW 2c: Intelligence Dashboard */}
+      {(data.companyProfile || data.secIntelligence || data.webIntelligence || data.wayback || data.politicalDonations) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Company Profile Card */}
+          {data.companyProfile && (data.companyProfile.revenue || data.companyProfile.employees) && (
+            <div className="border border-white/5 bg-ink-850 p-5">
+              <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-3">Company profile</div>
+              <div className="space-y-2">
+                {data.companyProfile.revenue && <div className="flex justify-between"><span className="text-[10px] text-ink-500">Revenue</span><span className="text-sm font-medium text-ink-100">{data.companyProfile.revenue}</span></div>}
+                {data.companyProfile.employees && <div className="flex justify-between"><span className="text-[10px] text-ink-500">Employees</span><span className="text-sm font-medium text-ink-100">{data.companyProfile.employees}</span></div>}
+                {data.companyProfile.industry && <div className="flex justify-between"><span className="text-[10px] text-ink-500">Industry</span><span className="text-xs text-ink-300 text-right max-w-[120px] truncate">{data.companyProfile.industry}</span></div>}
+                {data.companyProfile.founded && <div className="flex justify-between"><span className="text-[10px] text-ink-500">Founded</span><span className="text-xs text-ink-300">{data.companyProfile.founded}</span></div>}
+                {data.companyProfile.ticker && <div className="flex justify-between"><span className="text-[10px] text-ink-500">Ticker</span><span className="text-xs text-ink-300">{data.companyProfile.ticker} ({data.companyProfile.exchange})</span></div>}
+              </div>
+            </div>
+          )}
+
+          {/* Financial Ratios Card */}
+          {data.secIntelligence?.financials && (
+            <div className="border border-white/5 bg-ink-850 p-5">
+              <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-3">Financial health</div>
+              <div className="space-y-2">
+                {data.secIntelligence.financials.profitMargin != null && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-ink-500">Profit margin</span>
+                    <span className={`text-sm font-medium ${data.secIntelligence.financials.profitMargin < 0 ? 'text-signal-critical' : data.secIntelligence.financials.profitMargin < 5 ? 'text-signal-medium' : 'text-signal-clean'}`}>
+                      {data.secIntelligence.financials.profitMargin}%
+                    </span>
+                  </div>
+                )}
+                {data.secIntelligence.financials.debtToEquity != null && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-ink-500">Debt / equity</span>
+                    <span className={`text-sm font-medium ${data.secIntelligence.financials.debtToEquity > 3 ? 'text-signal-critical' : data.secIntelligence.financials.debtToEquity > 1.5 ? 'text-signal-medium' : 'text-ink-100'}`}>
+                      {data.secIntelligence.financials.debtToEquity}
+                    </span>
+                  </div>
+                )}
+                {data.secIntelligence.financials.currentRatio != null && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-ink-500">Current ratio</span>
+                    <span className={`text-sm font-medium ${data.secIntelligence.financials.currentRatio < 1 ? 'text-signal-critical' : data.secIntelligence.financials.currentRatio < 1.5 ? 'text-signal-medium' : 'text-signal-clean'}`}>
+                      {data.secIntelligence.financials.currentRatio}
+                    </span>
+                  </div>
+                )}
+                {data.secIntelligence.financials.flags?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-white/5">
+                    {data.secIntelligence.financials.flags.map((f: string, i: number) => (
+                      <span key={i} className="inline-block text-[8px] font-mono px-1.5 py-0.5 mr-1 mb-1 rounded-sm bg-signal-critical/15 text-signal-critical border border-signal-critical/30">
+                        {f.replace(/_/g, ' ')}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {(!data.secIntelligence.financials.flags || data.secIntelligence.financials.flags.length === 0) && (
+                  <div className="mt-2 pt-2 border-t border-white/5">
+                    <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-sm bg-signal-clean/15 text-signal-clean border border-signal-clean/30">HEALTHY</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Web Intelligence Card */}
+          <div className="border border-white/5 bg-ink-850 p-5">
+            <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-3">Web intelligence</div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-ink-500">Website</span>
+                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-sm border ${data.webIntelligence?.websiteExists ? 'bg-signal-clean/15 text-signal-clean border-signal-clean/30' : 'bg-signal-critical/15 text-signal-critical border-signal-critical/30'}`}>
+                  {data.webIntelligence?.websiteExists ? 'VERIFIED' : 'NOT FOUND'}
+                </span>
+              </div>
+              {data.wayback?.firstSnapshot && (
+                <div className="flex justify-between"><span className="text-[10px] text-ink-500">Online since</span><span className="text-xs text-ink-300">{data.wayback.firstSnapshot}</span></div>
+              )}
+              {data.wayback?.domainAgeYears != null && (
+                <div className="flex justify-between"><span className="text-[10px] text-ink-500">Domain age</span><span className="text-xs text-ink-300">{data.wayback.domainAgeYears} years</span></div>
+              )}
+              <div className="flex justify-between"><span className="text-[10px] text-ink-500">Court cases</span><span className="text-sm font-medium text-ink-100">{data.webIntelligence?.courtCases || 0}</span></div>
+              <div className="flex justify-between"><span className="text-[10px] text-ink-500">Gov contracts</span><span className="text-sm font-medium text-ink-100">{data.webIntelligence?.govContracts || 0}</span></div>
+            </div>
+          </div>
+
+          {/* Compliance Signals Card */}
+          <div className="border border-white/5 bg-ink-850 p-5">
+            <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-3">Compliance signals</div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-ink-500">OFAC / UK HMT</span>
+                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-sm border ${(data.directSanctions?.matches || 0) > 0 ? 'bg-signal-critical/15 text-signal-critical border-signal-critical/30' : 'bg-signal-clean/15 text-signal-clean border-signal-clean/30'}`}>
+                  {(data.directSanctions?.matches || 0) > 0 ? `${data.directSanctions.matches} MATCH` : 'CLEAR'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-ink-500">PEP screening</span>
+                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-sm border ${(data.pepCount || 0) > 0 ? 'bg-signal-high/15 text-signal-high border-signal-high/30' : 'bg-signal-clean/15 text-signal-clean border-signal-clean/30'}`}>
+                  {(data.pepCount || 0) > 0 ? `${data.pepCount} PEP${data.pepCount !== 1 ? 's' : ''}` : 'CLEAR'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-ink-500">Adverse media</span>
+                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-sm border ${(data.adverseMediaCount || 0) > 0 ? 'bg-signal-medium/15 text-signal-medium border-signal-medium/30' : 'bg-signal-clean/15 text-signal-clean border-signal-clean/30'}`}>
+                  {(data.adverseMediaCount || 0) > 0 ? `${data.adverseMediaCount} HIT${data.adverseMediaCount !== 1 ? 'S' : ''}` : 'CLEAR'}
+                </span>
+              </div>
+              {(data.politicalDonations?.totalDonations || 0) > 0 && (
+                <div className="flex justify-between"><span className="text-[10px] text-ink-500">Political donations</span><span className="text-xs text-ink-300">${(data.politicalDonations.totalAmount || 0).toLocaleString()}</span></div>
+              )}
+              {data.regulatoryViolations && (data.regulatoryViolations.epa > 0 || data.regulatoryViolations.osha > 0) && (
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-ink-500">Regulatory</span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm border bg-signal-high/15 text-signal-high border-signal-high/30">
+                    {data.regulatoryViolations.epa + data.regulatoryViolations.osha} VIOLATION{data.regulatoryViolations.epa + data.regulatoryViolations.osha !== 1 ? 'S' : ''}
+                  </span>
+                </div>
+              )}
+              {data.addressVerification?.flagged > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-ink-500">Address flags</span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm border bg-signal-medium/15 text-signal-medium border-signal-medium/30">
+                    {data.addressVerification.flagged} FLAGGED
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ROW 2b: AI Insights + Globe */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Insights */}
         <div className="lg:col-span-8" style={{ minHeight: 300 }}>
@@ -168,6 +370,48 @@ export default function OverviewPage() {
           ))}
         </div>
       </div>
+
+      {/* ROW 3b: Network Red Flags */}
+      {(() => {
+        const redFlagTypes = ['PEP_DETECTED', 'DIRECT_SANCTIONS_HIT', 'ADVERSE_MEDIA', 'INSIDER_SELLING',
+          'MATERIAL_EVENT', 'SELF_DISCLOSED_RISK', 'FINANCIAL_DISTRESS', 'LITIGATION', 'EPA_VIOLATION',
+          'OSHA_VIOLATION', 'NO_WEB_PRESENCE', 'PARKED_WEBSITE', 'NEW_DOMAIN', 'WEBSITE_AGE_MISMATCH',
+          'NO_WEB_HISTORY', 'VIRTUAL_OFFICE_ADDRESS', 'FORMATION_AGENT_ADDRESS', 'POLITICAL_DONOR', 'POLITICAL_NETWORK'];
+        const redFlags = findings.filter((f: any) => redFlagTypes.includes(f.type));
+        if (redFlags.length === 0) return null;
+        return (
+          <div className="border border-white/5 bg-ink-850 p-6">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Intelligence red flags ({redFlags.length})</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {redFlags.slice(0, 9).map((f: any, i: number) => {
+                const typeLabels: Record<string, string> = {
+                  PEP_DETECTED: 'PEP', DIRECT_SANCTIONS_HIT: 'SANCTIONS', ADVERSE_MEDIA: 'MEDIA',
+                  INSIDER_SELLING: 'INSIDER', MATERIAL_EVENT: '8-K', SELF_DISCLOSED_RISK: '10-K RISK',
+                  FINANCIAL_DISTRESS: 'FINANCIAL', LITIGATION: 'COURT', EPA_VIOLATION: 'EPA',
+                  OSHA_VIOLATION: 'OSHA', NO_WEB_PRESENCE: 'WEB', PARKED_WEBSITE: 'WEB',
+                  WEBSITE_AGE_MISMATCH: 'WAYBACK', NO_WEB_HISTORY: 'WAYBACK', VIRTUAL_OFFICE_ADDRESS: 'ADDRESS',
+                  FORMATION_AGENT_ADDRESS: 'ADDRESS', POLITICAL_DONOR: 'FEC', POLITICAL_NETWORK: 'FEC',
+                  NEW_DOMAIN: 'DOMAIN',
+                };
+                return (
+                  <div key={i} className="flex items-start gap-2 p-3 border border-white/5 rounded-sm">
+                    <span className={`text-[7px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border shrink-0 mt-0.5 ${
+                      f.severity === 'CRITICAL' ? 'bg-signal-critical/15 text-signal-critical border-signal-critical/30' :
+                      f.severity === 'HIGH' ? 'bg-signal-high/15 text-signal-high border-signal-high/30' :
+                      f.severity === 'MEDIUM' ? 'bg-signal-medium/15 text-signal-medium border-signal-medium/30' :
+                      'bg-white/5 text-ink-400 border-white/10'
+                    }`}>{typeLabels[f.type] || f.type}</span>
+                    <span className="text-[11px] text-ink-300 leading-snug">{f.title}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {redFlags.length > 9 && (
+              <div className="text-[10px] font-mono text-ink-500 mt-3">+ {redFlags.length - 9} more intelligence flags</div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ROW 4: Top 3 actions */}
       {topActions.length > 0 && (

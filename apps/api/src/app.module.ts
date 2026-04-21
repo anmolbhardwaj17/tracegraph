@@ -19,6 +19,7 @@ import { LogosModule } from './modules/logos/logos.module';
 import { WatchlistModule } from './modules/watchlist/watchlist.module';
 import { JurisdictionsModule } from './modules/jurisdictions/jurisdictions.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { BatchModule } from './modules/batch/batch.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ApiKeysModule } from './modules/api-keys/api-keys.module';
     ApiKeysModule,
     JurisdictionsModule,
     InvestigationModule,
+    BatchModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

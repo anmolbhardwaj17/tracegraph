@@ -487,7 +487,39 @@ export class InvestigationService {
         people: await this.nodes.count({ where: { investigationId: id, entityType: 'person' } }),
         addresses: await this.nodes.count({ where: { investigationId: id, entityType: 'address' } }),
       },
+      narrative: inv.progress?.narrative || null,
+      pepCount: inv.progress?.pepCount || 0,
+      adverseMediaCount: inv.progress?.adverseMediaCount || 0,
+      secIntelligence: inv.progress?.secIntelligence || null,
+      webIntelligence: inv.progress?.webIntelligence || null,
+      directSanctions: inv.progress?.directSanctions || null,
+      addressVerification: inv.progress?.addressVerification || null,
+      wayback: inv.progress?.wayback || null,
+      politicalDonations: inv.progress?.politicalDonations || null,
+      regulatoryViolations: inv.progress?.regulatoryViolations || null,
+      // Root company enrichment data
+      companyProfile: await this.getRootCompanyProfile(id),
     };
+  }
+
+  /** Get enrichment data from root company node */
+  private async getRootCompanyProfile(investigationId: string): Promise<any> {
+    try {
+      // Find the enriched root node (the one with enriched=true)
+      const allCompanies = await this.nodes.find({ where: { investigationId, entityType: 'company' } });
+      const rootNode = allCompanies.find((n) => (n.metadata as any)?.enriched) || allCompanies[0];
+      if (!rootNode) return null;
+      const m = (rootNode.metadata || {}) as any;
+      return {
+        revenue: m.revenue || null,
+        employees: m.employeeCount || null,
+        industry: m.industry || null,
+        founded: m.foundedDate || null,
+        website: m.website || null,
+        ticker: m.ticker || null,
+        exchange: m.exchange || null,
+      };
+    } catch { return null; }
   }
 
   /** Findings with relationship context */

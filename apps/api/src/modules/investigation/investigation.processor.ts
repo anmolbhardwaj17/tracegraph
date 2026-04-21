@@ -11,6 +11,21 @@ import { SanctionsProximityService } from '../entity-resolution/proximity.servic
 import { RiskScoringService } from '../risk-scoring/risk-scoring.service';
 import { CompaniesHouseService } from '../companies-house/companies-house.service';
 import { UboChainService } from '../ubo-chain/ubo-chain.service';
+import { EnrichmentService } from '../enrichment/enrichment.service';
+import { PepDetectionService } from '../enrichment/pep-detection.service';
+import { AdverseMediaService } from '../enrichment/adverse-media.service';
+import { AiNarrativeService } from '../enrichment/ai-narrative.service';
+import { SecIntelligenceService } from '../enrichment/sec-intelligence.service';
+import { WebIntelligenceService } from '../enrichment/web-intelligence.service';
+import { SanctionsDirectService } from '../enrichment/sanctions-direct.service';
+import { AddressVerificationService } from '../enrichment/address-verification.service';
+import { WaybackService } from '../enrichment/wayback.service';
+import { PoliticalDonationsService } from '../enrichment/political-donations.service';
+import { RegulatoryViolationsService } from '../enrichment/regulatory-violations.service';
+import { CfpbComplaintsService } from '../enrichment/cfpb-complaints.service';
+import { FatfJurisdictionService } from '../enrichment/fatf-jurisdiction.service';
+import { PatentSearchService } from '../enrichment/patent-search.service';
+import { NonprofitLookupService } from '../enrichment/nonprofit-lookup.service';
 import { InvestigationGateway } from './investigation.gateway';
 import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
 import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
@@ -51,9 +66,48 @@ export class InvestigationProcessor extends WorkerHost {
     private readonly riskScoring: RiskScoringService,
     private readonly ch: CompaniesHouseService,
     private readonly uboChains: UboChainService,
+    private readonly enrichment: EnrichmentService,
+    private readonly pepDetection: PepDetectionService,
+    private readonly adverseMedia: AdverseMediaService,
+    private readonly aiNarrative: AiNarrativeService,
+    private readonly secIntel: SecIntelligenceService,
+    private readonly webIntel: WebIntelligenceService,
+    private readonly sanctionsDirect: SanctionsDirectService,
+    private readonly addressVerification: AddressVerificationService,
+    private readonly wayback: WaybackService,
+    private readonly politicalDonations: PoliticalDonationsService,
+    private readonly regulatoryViolations: RegulatoryViolationsService,
+    private readonly cfpbComplaints: CfpbComplaintsService,
+    private readonly fatfJurisdiction: FatfJurisdictionService,
+    private readonly patentSearch: PatentSearchService,
+    private readonly nonprofitLookup: NonprofitLookupService,
     private readonly gateway: InvestigationGateway,
   ) {
     super();
+  }
+
+  /** Upsert a graph node — returns existing node if duplicate */
+  private async upsertNode(data: Partial<GraphNode>): Promise<GraphNode> {
+    try {
+      return await this.nodes.save(this.nodes.create(data as any)) as any;
+    } catch (e: any) {
+      if (e?.code === '23505' || e?.message?.includes('duplicate key')) {
+        const existing = await this.nodes.findOne({
+          where: { investigationId: data.investigationId, entityType: data.entityType, entityId: data.entityId },
+        });
+        if (existing) return existing;
+      }
+      throw e;
+    }
+  }
+
+  /** Upsert a graph edge — silently skip duplicates */
+  private async upsertEdge(data: Partial<GraphEdge>): Promise<GraphEdge | null> {
+    try {
+      return await this.edges.save(this.edges.create(data as any)) as any;
+    } catch {
+      return null;
+    }
   }
 
   async process(job: Job<InvestigationJobData>): Promise<void> {
@@ -118,6 +172,23 @@ export class InvestigationProcessor extends WorkerHost {
       );
 
       const addressClusters = await this.addressService.clusterAddresses(investigationId);
+
+      // Enrichment — Wikidata + OpenCorporates for UK companies
+      try {
+        const rootNode = await this.nodes.findOne({ where: { investigationId, entityType: 'company', entityId: companyNumber } });
+        if (rootNode) {
+          this.logger.log(`[Enrichment] Starting enrichment for ${companyName} (UK)...`);
+          await this.enrichment.enrichCompany(
+            investigationId, rootNode.id, companyName, companyNumber, 'gb',
+            {
+              onEntityDiscovered: (n) => this.gateway.emitEntityDiscovered(investigationId, n),
+              onProgress: (msg) => this.logger.log(`[Enrichment] ${msg}`),
+            },
+          );
+        }
+      } catch (e: any) {
+        this.logger.warn(`[Enrichment] UK enrichment failed: ${e?.message}`);
+      }
 
       // UBO chain build — walks PSC tree from the root company up to humans
       let uboChainResult: any[] = [];
@@ -222,7 +293,15 @@ export class InvestigationProcessor extends WorkerHost {
       let profile = null;
       let useCik = false;
       if (jurisdiction === 'us') {
-        profile = await this.secEdgar.getCompanyProfile(query);
+        // If query looks like a CIK (all digits), fetch directly; otherwise search first
+        if (/^\d+$/.test(query.trim())) {
+          profile = await this.secEdgar.getCompanyProfile(query.trim());
+        } else {
+          const searchResults = await this.secEdgar.searchCompanies(query);
+          if (searchResults.length > 0) {
+            profile = await this.secEdgar.getCompanyProfile(searchResults[0].companyNumber);
+          }
+        }
         if (profile) useCik = true;
       }
       if (!profile) {
@@ -241,7 +320,7 @@ export class InvestigationProcessor extends WorkerHost {
       this.gateway.emitStatusChanged(investigationId, 'EXPANDING');
 
       // Create root company node
-      const rootNode = await this.nodes.save(this.nodes.create({
+      const rootNode = await this.upsertNode({
         investigationId, entityType: 'company', entityId: companyId, label: companyName,
         metadata: {
           status: profile.status, companyType: profile.companyType,
@@ -252,7 +331,7 @@ export class InvestigationProcessor extends WorkerHost {
           dataDepth: useCik ? 'moderate' : 'basic',
           ...((profile as any).ticker ? { ticker: (profile as any).ticker, exchange: (profile as any).exchange, sicDescription: (profile as any).sicDescription, stateOfIncorporation: (profile as any).stateOfIncorporation, category: (profile as any).category } : {}),
         },
-      }));
+      });
       this.gateway.emitEntityDiscovered(investigationId, { id: rootNode.id, entityType: 'company', entityId: companyId, label: companyName });
 
       // Step 2: Get ownership chain from GLEIF
@@ -275,10 +354,10 @@ export class InvestigationProcessor extends WorkerHost {
       const ownershipPath: any[] = [];
 
       if (directParent) {
-        const parentNode = await this.nodes.save(this.nodes.create({
+        const parentNode = await this.upsertNode({
           investigationId, entityType: 'company', entityId: directParent.companyNumber, label: directParent.name,
           metadata: { status: directParent.status, jurisdiction: directParent.jurisdiction, dataSource: 'gleif' },
-        }));
+        });
         await this.edges.save(this.edges.create({
           investigationId, sourceNodeId: parentNode.id, targetNodeId: rootNode.id, relationshipType: 'psc',
           metadata: { type: 'direct-parent' },
@@ -288,10 +367,10 @@ export class InvestigationProcessor extends WorkerHost {
       }
 
       if (ultimateParent && ultimateParent.companyNumber !== directParent?.companyNumber) {
-        const ultNode = await this.nodes.save(this.nodes.create({
+        const ultNode = await this.upsertNode({
           investigationId, entityType: 'company', entityId: ultimateParent.companyNumber, label: ultimateParent.name,
           metadata: { status: ultimateParent.status, jurisdiction: ultimateParent.jurisdiction, dataSource: 'gleif' },
-        }));
+        });
         if (directParent) {
           const parentNode = await this.nodes.findOne({ where: { investigationId, entityId: directParent.companyNumber } });
           if (parentNode) {
@@ -320,10 +399,10 @@ export class InvestigationProcessor extends WorkerHost {
 
       // Step 3: Add subsidiaries
       for (const child of children.slice(0, 20)) {
-        const childNode = await this.nodes.save(this.nodes.create({
+        const childNode = await this.upsertNode({
           investigationId, entityType: 'company', entityId: child.companyNumber, label: child.name,
           metadata: { status: child.status, jurisdiction: child.jurisdiction, dataSource: 'gleif' },
-        }));
+        });
         await this.edges.save(this.edges.create({
           investigationId, sourceNodeId: rootNode.id, targetNodeId: childNode.id, relationshipType: 'psc',
           metadata: { type: 'subsidiary' },
@@ -353,10 +432,10 @@ export class InvestigationProcessor extends WorkerHost {
           knownPersonCiks.add(officer.cik);
 
           const role = officer.title || (officer.isDirector ? 'Director' : 'Officer');
-          const personNode = await this.nodes.save(this.nodes.create({
+          const personNode = await this.upsertNode({
             investigationId, entityType: 'person', entityId: `sec-${officer.cik}`, label: officer.name,
             metadata: { role, isDirector: officer.isDirector, isOfficer: officer.isOfficer, cik: officer.cik, dataSource: 'sec-edgar', otherCompanyCount: officer.otherCompanies.length },
-          }));
+          });
           await this.edges.save(this.edges.create({
             investigationId, sourceNodeId: companyNodeId, targetNodeId: personNode.id,
             relationshipType: officer.isDirector ? 'director' : 'appointment', metadata: { role },
@@ -371,10 +450,10 @@ export class InvestigationProcessor extends WorkerHost {
             const coEntityId = `sec-co-${otherCo.cik}`;
             let coNode = await this.nodes.findOne({ where: { investigationId, entityId: coEntityId } });
             if (!coNode) {
-              coNode = await this.nodes.save(this.nodes.create({
+              coNode = await this.upsertNode({
                 investigationId, entityType: 'company', entityId: coEntityId, label: otherCo.name,
                 metadata: { ticker: otherCo.ticker, cik: otherCo.cik, dataSource: 'sec-edgar' },
-              }));
+              });
               this.gateway.emitEntityDiscovered(investigationId, { id: coNode.id, entityType: 'company', entityId: coEntityId, label: otherCo.name });
               totalNodes++;
               if (!expandedCompanyCiks.has(otherCo.cik)) newCompanyCiks.push(otherCo.cik);
@@ -440,6 +519,25 @@ export class InvestigationProcessor extends WorkerHost {
         this.logger.log(`SEC network built: ${totalNodes} entities across ${expandedCompanyCiks.size} companies`);
       }
 
+      // Step 4b: Deep enrichment — scrape Wikidata, SEC filings (DEF14A/10-K), OpenCorporates
+      this.gateway.emitStatusChanged(investigationId, 'ENRICHING');
+      this.logger.log(`[Enrichment] Starting deep enrichment for ${companyName}...`);
+      try {
+        const enrichStats = await this.enrichment.enrichCompany(
+          investigationId, rootNode.id, companyName, companyId, jurisdiction,
+          {
+            onEntityDiscovered: (n) => this.gateway.emitEntityDiscovered(investigationId, n),
+            onProgress: (msg) => this.logger.log(`[Enrichment] ${msg}`),
+          },
+        );
+        this.logger.log(
+          `[Enrichment] Done: +${enrichStats.locationsAdded} locations, +${enrichStats.peopleAdded} people, ` +
+          `+${enrichStats.subsidiariesAdded} subsidiaries, +${enrichStats.ownersAdded} owners`,
+        );
+      } catch (e: any) {
+        this.logger.warn(`[Enrichment] Failed: ${e?.message}`);
+      }
+
       // Step 5: Sanctions screening
       await this.investigations.update(investigationId, { status: 'RESOLVING' });
       this.gateway.emitStatusChanged(investigationId, 'RESOLVING');
@@ -471,6 +569,138 @@ export class InvestigationProcessor extends WorkerHost {
         });
       } catch (e: any) { this.logger.warn(`Non-UK scoring failed: ${e?.message}`); }
 
+      // Step 7: Deep Intelligence — all sources in parallel
+      this.gateway.emitStatusChanged(investigationId, 'INTELLIGENCE');
+      let secIntelResult: any = null;
+      let webIntelResult: any = null;
+      let sanctionsDirectResult: any = null;
+      let addressVerifResult: any = null;
+      let waybackResult: any = null;
+      let donationsResult: any = null;
+      let regulatoryResult: any = null;
+      let cfpbResult: any = null;
+      let fatfResult: any = null;
+      let patentResult: any = null;
+      let nonprofitResult: any = null;
+      try {
+        this.logger.log(`[Intelligence] Starting deep intelligence analysis (7 sources)...`);
+        // Reload root node to get enriched metadata (website, foundedDate etc)
+        const freshRoot = await this.nodes.findOne({ where: { id: rootNode.id } });
+        const rootMeta = (freshRoot?.metadata || {}) as any;
+        const website = rootMeta.website || null;
+        const foundedDate = rootMeta.foundedDate || rootMeta.incorporationDate || null;
+
+        const [secResult, webResult, sanctionsResult, addrResult, wbResult, donResult, regResult] = await Promise.all([
+          jurisdiction === 'us'
+            ? this.secIntel.analyze(investigationId, companyId, companyName).catch((e) => { this.logger.warn(`SEC intelligence failed: ${e?.message}`); return null; })
+            : Promise.resolve(null),
+          this.webIntel.analyze(investigationId, companyName, website).catch((e) => { this.logger.warn(`Web intelligence failed: ${e?.message}`); return null; }),
+          this.sanctionsDirect.screen(investigationId).catch((e) => { this.logger.warn(`Direct sanctions failed: ${e?.message}`); return null; }),
+          this.addressVerification.verify(investigationId).catch((e) => { this.logger.warn(`Address verification failed: ${e?.message}`); return null; }),
+          this.wayback.analyze(investigationId, companyName, website, foundedDate).catch((e) => { this.logger.warn(`Wayback failed: ${e?.message}`); return null; }),
+          this.politicalDonations.search(investigationId).catch((e) => { this.logger.warn(`FEC donations failed: ${e?.message}`); return null; }),
+          jurisdiction === 'us'
+            ? this.regulatoryViolations.search(investigationId, companyName).catch((e) => { this.logger.warn(`Regulatory violations failed: ${e?.message}`); return null; })
+            : Promise.resolve(null),
+        ]);
+
+        // Phase D sources — run in parallel batch 2
+        [cfpbResult, fatfResult, patentResult, nonprofitResult] = await Promise.all([
+          this.cfpbComplaints.search(investigationId, companyName).catch((e) => { this.logger.warn(`CFPB failed: ${e?.message}`); return null; }),
+          this.fatfJurisdiction.analyze(investigationId).catch((e) => { this.logger.warn(`FATF failed: ${e?.message}`); return null; }),
+          jurisdiction === 'us'
+            ? this.patentSearch.search(investigationId, companyName).catch((e) => { this.logger.warn(`Patent search failed: ${e?.message}`); return null; })
+            : Promise.resolve(null),
+          this.nonprofitLookup.search(investigationId, companyName).catch((e) => { this.logger.warn(`Nonprofit lookup failed: ${e?.message}`); return null; }),
+        ]);
+
+        secIntelResult = secResult;
+        webIntelResult = webResult;
+        sanctionsDirectResult = sanctionsResult;
+        addressVerifResult = addrResult;
+        waybackResult = wbResult;
+        donationsResult = donResult;
+        regulatoryResult = regResult;
+
+        // Merge all findings and boost score
+        const allIntelFindings = [
+          ...(secResult?.findings || []),
+          ...(webResult?.findings || []),
+          ...(sanctionsResult?.findings || []),
+          ...(addrResult?.findings || []),
+          ...(wbResult?.findings || []),
+          ...(donResult?.findings || []),
+          ...(regResult?.findings || []),
+          ...(cfpbResult?.findings || []),
+          ...(fatfResult?.findings || []),
+          ...(patentResult?.findings || []),
+          ...(nonprofitResult?.findings || []),
+        ];
+
+        riskResult.findings = [...riskResult.findings, ...allIntelFindings];
+
+        const boost =
+          allIntelFindings.filter((f: any) => f.severity === 'CRITICAL').length * 20
+          + allIntelFindings.filter((f: any) => f.severity === 'HIGH').length * 8
+          + allIntelFindings.filter((f: any) => f.severity === 'MEDIUM').length * 3;
+        riskResult.score = Math.min(100, riskResult.score + boost);
+
+        this.logger.log(
+          `[Intelligence] Done: ${allIntelFindings.length} total findings from 7 sources, score now ${riskResult.score}`,
+        );
+      } catch (e: any) {
+        this.logger.warn(`[Intelligence] Failed: ${e?.message}`);
+      }
+
+      // Step 8: PEP Detection + Adverse Media (run in parallel)
+      this.gateway.emitStatusChanged(investigationId, 'PEP_MEDIA');
+      this.logger.log(`[PEP+Media] Starting PEP detection and adverse media screening...`);
+      let pepResults: any[] = [];
+      let adverseMediaResults: any[] = [];
+      try {
+        const [pepResult, mediaResult] = await Promise.all([
+          this.pepDetection.screen(investigationId).catch((e) => {
+            this.logger.warn(`PEP detection failed: ${e?.message}`);
+            return { peps: [], findings: [] };
+          }),
+          this.adverseMedia.screen(investigationId, companyName).catch((e) => {
+            this.logger.warn(`Adverse media failed: ${e?.message}`);
+            return { hits: [], findings: [] };
+          }),
+        ]);
+
+        pepResults = pepResult.peps;
+        adverseMediaResults = mediaResult.hits;
+
+        // Merge PEP + media findings into risk results
+        riskResult.findings = [...riskResult.findings, ...pepResult.findings, ...mediaResult.findings];
+
+        // Recalculate score with PEP + media
+        const pepBoost = pepResult.findings.length * 15;
+        const mediaBoost = mediaResult.findings.filter((f: any) => f.severity === 'HIGH').length * 10
+          + mediaResult.findings.filter((f: any) => f.severity === 'MEDIUM').length * 5;
+        riskResult.score = Math.min(100, riskResult.score + pepBoost + mediaBoost);
+
+        this.logger.log(`[PEP+Media] Done: ${pepResults.length} PEPs, ${adverseMediaResults.length} media hits, score now ${riskResult.score}`);
+      } catch (e: any) {
+        this.logger.warn(`[PEP+Media] Failed: ${e?.message}`);
+      }
+
+      // Step 8: AI Risk Narrative
+      let narrative: any = null;
+      try {
+        this.gateway.emitStatusChanged(investigationId, 'NARRATIVE');
+        this.logger.log(`[Narrative] Generating AI risk narrative...`);
+        narrative = await this.aiNarrative.generate(
+          investigationId, companyName, jurisdiction, riskResult.score, riskResult.findings,
+          pepResults.map((p: any) => ({ name: p.name, positions: p.positions })),
+          adverseMediaResults.map((a: any) => ({ entity: a.entity, headline: a.headline, source: a.source, sentiment: a.sentiment })),
+        );
+        this.logger.log(`[Narrative] Generated: ${narrative.keyFindings?.length || 0} key findings`);
+      } catch (e: any) {
+        this.logger.warn(`[Narrative] Failed: ${e?.message}`);
+      }
+
       // Count entities
       const nodeCount = await this.nodes.count({ where: { investigationId } });
       const edgeCount = await this.edges.count({ where: { investigationId } });
@@ -485,16 +715,70 @@ export class InvestigationProcessor extends WorkerHost {
           currentDepth: 1,
           tier,
           jurisdiction,
-          dataDepth: 'basic',
+          dataDepth: 'enriched',
           uboChains,
           resolution: resolutionResult,
           proximity: proximityResult,
           riskScore: riskResult.score,
+          riskClassification: riskResult.score >= 75 ? 'CRITICAL' : riskResult.score >= 50 ? 'HIGH' : riskResult.score >= 25 ? 'MEDIUM' : 'LOW',
           findings: riskResult.findings,
+          narrative,
+          pepCount: pepResults.length,
+          adverseMediaCount: adverseMediaResults.length,
+          secIntelligence: secIntelResult ? {
+            materialEvents: secIntelResult.events?.length || 0,
+            insiderSignal: secIntelResult.insiderSignal?.netDirection,
+            insiderSignalStrength: secIntelResult.insiderSignal?.signalStrength,
+            riskFactorCount: secIntelResult.riskFactors?.totalRiskFactors || 0,
+            financials: secIntelResult.financials ? {
+              profitMargin: secIntelResult.financials.profitMargin,
+              debtToEquity: secIntelResult.financials.debtToEquity,
+              currentRatio: secIntelResult.financials.currentRatio,
+              flags: secIntelResult.financials.flags,
+            } : null,
+          } : null,
+          webIntelligence: webIntelResult ? {
+            websiteExists: webIntelResult.websiteCheck?.exists,
+            govContracts: webIntelResult.govContracts?.length || 0,
+            courtCases: webIntelResult.courtCases?.length || 0,
+          } : null,
+          directSanctions: sanctionsDirectResult ? {
+            matches: sanctionsDirectResult.matches?.length || 0,
+            sources: [...new Set((sanctionsDirectResult.matches || []).map((m: any) => m.source))],
+          } : null,
+          addressVerification: addressVerifResult ? {
+            checked: addressVerifResult.results?.length || 0,
+            flagged: addressVerifResult.results?.filter((r: any) => r.flags.length > 0).length || 0,
+          } : null,
+          wayback: waybackResult?.result ? {
+            domain: waybackResult.result.domain,
+            firstSnapshot: waybackResult.result.firstSnapshot,
+            totalSnapshots: waybackResult.result.totalSnapshots,
+            domainAgeYears: waybackResult.result.domainAgeYears,
+            flags: waybackResult.result.flags,
+          } : null,
+          politicalDonations: donationsResult ? {
+            totalDonations: donationsResult.donations?.length || 0,
+            totalAmount: donationsResult.donations?.reduce((s: number, d: any) => s + (d.amount || 0), 0) || 0,
+          } : null,
+          regulatoryViolations: regulatoryResult ? {
+            epa: regulatoryResult.epaViolations?.length || 0,
+            osha: regulatoryResult.oshaViolations?.length || 0,
+          } : null,
+          cfpbComplaints: cfpbResult?.result ? {
+            total: cfpbResult.result.totalComplaints,
+            recent: cfpbResult.result.recentComplaints,
+          } : null,
+          fatfFlags: fatfResult?.results?.length || 0,
+          patents: patentResult?.result ? {
+            total: patentResult.result.totalPatents,
+            recent: patentResult.result.recentPatents,
+          } : null,
+          nonprofit: nonprofitResult?.result?.found || false,
         } as any,
       });
       this.gateway.emitComplete(investigationId, {});
-      this.logger.log(`Non-UK investigation ${investigationId} COMPLETE: ${companyName}, score=${riskResult.score}`);
+      this.logger.log(`Non-UK investigation ${investigationId} COMPLETE: ${companyName}, score=${riskResult.score}, PEPs=${pepResults.length}, media=${adverseMediaResults.length}`);
 
     } catch (e: any) {
       this.logger.error(`Non-UK investigation ${investigationId} FAILED: ${e?.message}`);
