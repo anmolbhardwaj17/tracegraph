@@ -1,6 +1,8 @@
 import { Controller, Post, Get, Body, Param, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { BatchService, BatchCompany } from './batch.service';
 
+@ApiTags('Batch Screening')
 @Controller('batch')
 export class BatchController {
   constructor(private readonly batchService: BatchService) {}
@@ -13,6 +15,7 @@ export class BatchController {
    * Or: { companies: ["Apple Inc", "Google", ...] } — simple string array
    */
   @Post()
+  @ApiOperation({ summary: 'Create batch screening', description: 'Screen up to 500 companies at once. Accepts JSON array or CSV.' })
   async create(@Body() body: any) {
     let companies: BatchCompany[] = [];
 
@@ -47,14 +50,14 @@ export class BatchController {
     });
   }
 
-  /** GET /api/batch — list all batches */
   @Get()
+  @ApiOperation({ summary: 'List all batches' })
   async list() {
     return this.batchService.list();
   }
 
-  /** GET /api/batch/:id — get batch status + results */
   @Get(':id')
+  @ApiOperation({ summary: 'Get batch status + results', description: 'Returns progress, company results sorted by risk, and summary stats.' })
   async get(@Param('id') id: string) {
     const result = await this.batchService.get(id);
     if (!result) throw new BadRequestException('Batch not found');

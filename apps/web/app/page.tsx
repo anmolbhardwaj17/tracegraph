@@ -323,9 +323,26 @@ export default function Home() {
           </div>
           {error && <p className="text-signal-critical text-sm mt-3">{error}</p>}
           {!selectedHit && (
-            <p className="text-xs text-ink-500 mt-3 font-mono">
-              Try → Tesco PLC  ·  00445790  ·  type to search
-            </p>
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-ink-500 font-mono">Try a company →</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { name: 'Amazon', flag: 'US', j: 'us' },
+                  { name: 'Tesco PLC', flag: 'GB', j: 'gb' },
+                  { name: 'Reliance Industries', flag: 'IN', j: 'in' },
+                  { name: 'Apple', flag: 'US', j: 'us' },
+                  { name: 'Tesla', flag: 'US', j: 'us' },
+                ].map((demo) => (
+                  <button
+                    key={demo.name}
+                    onClick={() => { setQuery(demo.name); setJurisdiction(demo.j); }}
+                    className="text-[11px] font-mono px-3 py-1.5 border border-white/10 text-ink-400 hover:text-ink-50 hover:border-white/20 transition-colors rounded-sm"
+                  >
+                    <span className="mr-1.5">{demo.flag}</span>{demo.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </form>
 
@@ -398,6 +415,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Recent investigations showcase */}
+      <RecentInvestigations />
+
       {/* Beyond the report - feature strip */}
       <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
@@ -426,15 +446,15 @@ export default function Home() {
             / 003 · What it detects
           </div>
           <p className="text-sm text-ink-400 mb-12 max-w-2xl">
-            20+ automated risk signals from three data sources - UK Companies House, OpenSanctions (4.1M entities), and ICIJ OffshoreLeaks (770K+ records).
+            25+ intelligence sources across US, UK, and India. OFAC + UK HMT + EU sanctions (50K+ names), SEC EDGAR, NSE India, Wikidata, court records, political donations, and more.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
-            <Capability title="Shell company networks" body="Multi-factor scoring: director count, rapid dissolutions, dormant accounts, virtual office addresses, micro-entity filings." color="#FF4D4D" icon="shell" />
-            <Capability title="UBO chain resolution" body="Traces corporate PSC chains through ownership layers until reaching a natural person. Computes effective ownership % and flags offshore jurisdictions." color="#F5C518" icon="chain" />
-            <Capability title="Sanctions & PEP screening" body="Every entity screened against 4.1M OpenSanctions records and 770K ICIJ OffshoreLeaks entries with fuzzy name matching." color="#FF8A3D" icon="shield" />
-            <Capability title="Disqualified directors" body="All directors checked against the Companies House disqualified-officers register. CRITICAL finding on match." color="#FF4D4D" icon="ban" />
-            <Capability title="Filing & financial health" body="Late filings, account-type regression, dormant cycling, phoenix company patterns, and multi-year filing gaps." color="#5EE6A1" icon="file" />
-            <Capability title="Director network conflicts" body="Same-SIC competitor conflicts, incestuous director cliques, cross-directorship patterns, and dual-sided relationships." color="#60A5FA" icon="network" />
+            <Capability title="Direct sanctions screening" body="Screen against OFAC SDN (26K), UK HMT (12K), EU consolidated list, OpenSanctions (4.1M), and ICIJ OffshoreLeaks (770K+)." color="#FF4D4D" icon="shell" />
+            <Capability title="PEP + political donations" body="Detect politically exposed persons via Wikidata. Track FEC campaign contributions by key officers. Map political connections." color="#FF8A3D" icon="shield" />
+            <Capability title="Financial intelligence" body="SEC XBRL financials: profit margin, debt/equity, current ratio. NSE India: shareholding patterns, quarterly results. Distress flags." color="#5EE6A1" icon="file" />
+            <Capability title="Court cases + adverse media" body="CourtListener (US), Indian Kanoon (India) for litigation. GDELT news screening with 30+ adverse keywords." color="#F5C518" icon="chain" />
+            <Capability title="Corporate events + insider trading" body="SEC 8-K material events, Form 4 insider buy/sell signals, 10-K self-disclosed risk factors, officer departures." color="#60A5FA" icon="network" />
+            <Capability title="Web + address verification" body="Website existence, domain age (Wayback Machine), virtual office detection, formation agent addresses, FATF jurisdiction risk." color="#FF4D4D" icon="ban" />
           </div>
         </div>
       </section>
@@ -475,7 +495,7 @@ export default function Home() {
       <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24 text-center">
           <h2 className="text-2xl font-medium tracking-tight text-ink-50 mb-4">Start an investigation</h2>
-          <p className="text-sm text-ink-400 mb-10">Enter any UK company name or number.</p>
+          <p className="text-sm text-ink-400 mb-10">Search any company across US, UK, India, and 20+ jurisdictions.</p>
           <button
             onClick={() => {
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1214,5 +1234,71 @@ function RiskPill({ score }: { score: number }) {
     'bg-signal-clean/15 text-signal-clean border-signal-clean/30';
   return (
     <span className={`text-xs font-mono px-2 py-1 rounded-sm border ${color}`}>{score}</span>
+  );
+}
+
+/** Recent investigations showcase — shows completed investigations as clickable demos */
+function RecentInvestigations() {
+  const [investigations, setInvestigations] = useState<any[]>([]);
+  const router = useRouter();
+
+  useEffect(() => {
+    fetch(`${API}/api/investigations?limit=6&status=COMPLETE`)
+      .then((r) => r.json())
+      .then((data) => {
+        const items = (Array.isArray(data) ? data : data.items || [])
+          .filter((i: any) => i.status === 'COMPLETE' && i.riskScore != null)
+          .slice(0, 6);
+        setInvestigations(items);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (investigations.length === 0) return null;
+
+  return (
+    <section className="border-t border-white/5">
+      <div className="max-w-6xl mx-auto px-8 py-16">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-2">/ Recent investigations</div>
+            <p className="text-sm text-ink-500">Click any to view the full intelligence report</p>
+          </div>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="text-[11px] font-mono text-ink-500 hover:text-ink-50 transition-colors"
+          >
+            View all →
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5">
+          {investigations.map((inv: any) => {
+            const score = inv.riskScore ?? 0;
+            const sc = score >= 75 ? 'text-signal-critical' : score >= 50 ? 'text-signal-high' : score >= 25 ? 'text-signal-medium' : 'text-signal-clean';
+            const cls = score >= 75 ? 'CRITICAL' : score >= 50 ? 'HIGH' : score >= 25 ? 'MEDIUM' : 'LOW';
+            return (
+              <button
+                key={inv.id}
+                onClick={() => router.push(`/investigate/${inv.id}/overview`)}
+                className="bg-ink-900 hover:bg-ink-850 transition-colors p-6 text-left group"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-mono text-ink-500 uppercase">
+                    {inv.jurisdiction?.toUpperCase() || 'GB'}
+                  </span>
+                  <span className={`text-2xl font-medium tabular-nums ${sc}`}>{score}</span>
+                </div>
+                <div className="text-sm font-medium text-ink-100 group-hover:text-ink-50 transition-colors mb-1 truncate">
+                  {inv.companyName || inv.query}
+                </div>
+                <div className="text-[10px] font-mono text-ink-600">
+                  {cls} · {inv.findingsCount || '?'} findings
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }

@@ -1,7 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { WatchlistService } from './watchlist.service';
 import { WatchlistMonitorService } from './watchlist-monitor.service';
 
+@ApiTags('Watchlist & Monitoring')
 @Controller('api/watchlist')
 export class WatchlistController {
   constructor(

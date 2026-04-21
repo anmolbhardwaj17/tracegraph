@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { InvestigationService } from './investigation.service';
 import { CreateInvestigationDto } from './dto/create-investigation.dto';
 import { ReportService } from '../report/report.service';
 
+@ApiTags('Investigations')
 @Controller('investigations')
 export class InvestigationController {
   constructor(

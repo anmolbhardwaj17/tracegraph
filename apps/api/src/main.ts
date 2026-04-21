@@ -15,7 +15,7 @@ async function bootstrap() {
   // Swagger / OpenAPI docs at /api/docs
   const config = new DocumentBuilder()
     .setTitle('TraceGraph API')
-    .setDescription('Corporate intelligence engine — investigate, screen, and monitor UK companies')
+    .setDescription('Corporate intelligence engine with 25+ data sources. Investigate companies across US, UK, India, and 20+ jurisdictions. Sanctions screening (OFAC/UK HMT/EU), PEP detection, adverse media, financial analysis, court records, and AI-powered risk narratives.')
     .setVersion('1.0')
     .addApiKey({ type: 'apiKey', name: 'X-API-Key', in: 'header' }, 'X-API-Key')
     .build();
