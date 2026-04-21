@@ -20,7 +20,11 @@ COPY --from=builder /repo/packages/shared/package.json ./packages/shared/package
 COPY --from=builder /repo/apps/api/dist ./dist
 COPY --from=builder /repo/apps/api/package.json ./package.json
 COPY --from=builder /repo/apps/api/data ./data
+COPY --from=builder /repo/apps/api/src/migrations ./src/migrations
+COPY --from=builder /repo/apps/api/src/data-source.ts ./src/data-source.ts
+COPY --from=builder /repo/apps/api/tsconfig.json ./tsconfig.json
+COPY --from=builder /repo/tsconfig.base.json ./tsconfig.base.json
 EXPOSE 4000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -qO- http://localhost:4000/api/investigations >/dev/null 2>&1 || exit 1
 CMD ["node", "dist/main.js"]

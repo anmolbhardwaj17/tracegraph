@@ -21,12 +21,17 @@ import { JurisdictionsModule } from './modules/jurisdictions/jurisdictions.modul
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { BatchModule } from './modules/batch/batch.module';
 import { IndiaModule } from './modules/india/india.module';
+import { RedisModule } from './common/redis/redis.module';
+import { EnrichmentCacheService } from './common/cache/enrichment-cache.service';
+import { ApiRateLimiterService } from './common/rate-limiter/api-rate-limiter.service';
+import { CircuitBreakerService } from './common/resilience/circuit-breaker.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRoot(dataSourceOptions),
+    RedisModule,
     CompaniesHouseModule,
     GraphModule,
     OpenSanctionsModule,
@@ -45,6 +50,12 @@ import { IndiaModule } from './modules/india/india.module';
     BatchModule,
     IndiaModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    EnrichmentCacheService,
+    ApiRateLimiterService,
+    CircuitBreakerService,
+  ],
+  exports: [EnrichmentCacheService, ApiRateLimiterService, CircuitBreakerService],
 })
 export class AppModule {}

@@ -1,146 +1,237 @@
 # TraceGraph
 
-```
-████████ ██████   █████   ██████ ███████  ██████  ██████   █████  ██████  ██   ██
-   ██    ██   ██ ██   ██ ██      ██      ██       ██   ██ ██   ██ ██   ██ ██   ██
-   ██    ██████  ███████ ██      █████   ██   ███ ██████  ███████ ██████  ███████
-   ██    ██   ██ ██   ██ ██      ██      ██    ██ ██   ██ ██   ██ ██      ██   ██
-   ██    ██   ██ ██   ██  ██████ ███████  ██████  ██   ██ ██   ██ ██      ██   ██
-```
+**Open-source corporate intelligence engine.** Enter a company name, get a full risk report with graph visualization, sanctions screening, PEP detection, financial analysis, and AI-powered narrative.
 
-**Open-source corporate intelligence engine — enter a company, get a complete risk report.**
-
-TraceGraph autonomously investigates UK companies by walking ownership and director networks across multiple public data sources, then surfaces shell-company patterns, sanctions exposure, and structural anomalies in a single interactive report.
+25+ intelligence sources | US, UK, India | Batch screening | Watchlist monitoring
 
 ---
 
-## Features
+## What it does
 
-- **Multi-source intelligence** — UK Companies House (live API), OpenSanctions (FollowTheMoney), and ICIJ OffshoreLeaks (Panama / Paradise / Pandora Papers) unified into one network view.
-- **Recursive graph expansion** — BFS through directors, PSCs, and addresses with cycle detection, deduplication, and large-corp pruning.
-- **Entity resolution** — name normalization, Double Metaphone phonetic keys, Jaro-Winkler fuzzy matching, and DOB/nationality scoring with explainable evidence.
-- **Anomaly detection** — shell-company scoring, virtual-office address clustering, circular ownership detection (DFS back-edge), Louvain community detection, bridge-node identification, and temporal anomalies (mass incorporation, rapid dissolution, pre-event resignations).
-- **Risk scoring** — every signal aggregated into a 0–100 score with severity-weighted findings (CRITICAL / HIGH / MEDIUM / LOW), each carrying evidence and a recommendation.
-- **Interactive D3 graph** — force-directed visualization with type-colored nodes, risk-colored borders, hover tooltips, click-to-inspect side panels, and zoom/pan/drag.
-- **Real-time progress** — WebSocket-streamed expansion, resolution, and scoring updates with a live counter and mini graph preview.
-- **PDF export** — A4 report with risk gauge, executive summary, findings, matches, and discovered entities.
+1. **Search** any company across US, UK, India, and 20+ jurisdictions
+2. **Expand** the ownership network — directors, subsidiaries, addresses
+3. **Enrich** from 25+ public data sources (SEC, NSE, Wikidata, OFAC, courts, etc.)
+4. **Score** risk using 15+ anomaly detectors
+5. **Generate** an AI-powered risk narrative with actionable recommendations
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                            Next.js (apps/web)                       │
-│        Search · D3 Graph · Tabbed Report · Live Progress · PDF      │
-└──────────────────┬──────────────────────────────────┬───────────────┘
-                   │ REST + WebSocket                 │ PDF download
-┌──────────────────▼──────────────────────────────────▼───────────────┐
-│                           NestJS API (apps/api)                     │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌───────────┐  │
-│  │ Investiga-  │→ │ Companies   │→ │ Graph        │→ │ Entity    │  │
-│  │ tion ctrl   │  │ House       │  │ Expansion    │  │ Resolution│  │
-│  │ (BullMQ)    │  │ (rate-lim)  │  │ (BFS + dedup)│  │ (M+JW+DOB)│  │
-│  └─────────────┘  └─────────────┘  └──────┬───────┘  └─────┬─────┘  │
-│                                           ▼                ▼        │
-│                              ┌────────────────┐  ┌────────────────┐ │
-│                              │ Anomaly        │  │ Risk Scoring   │ │
-│                              │ shell/cycle/   │  │ findings → 0-100│ │
-│                              │ temporal/comm. │  └────┬────────────┘ │
-│                              └────────────────┘       │              │
-│                                                       ▼              │
-│                                              ┌──────────────┐        │
-│                                              │ PDF Report   │        │
-│                                              └──────────────┘        │
-└──────────┬─────────────────────┬─────────────────────┬───────────────┘
-           │                     │                     │
-      ┌────▼────┐          ┌─────▼─────┐         ┌─────▼─────┐
-      │ Postgres│          │   Redis   │         │  Neo4j    │
-      │ + pg_trgm│          │ BullMQ +  │         │ (reserved │
-      │         │          │   cache   │         │  Phase 4+)│
-      └─────────┘          └───────────┘         └───────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Next.js Frontend (port 3000)                            │
+│  Search · Graph Viz · Risk Report · Batch · Compare      │
+├──────────────────────────────────────────────────────────┤
+│  NestJS API (port 4000)                                  │
+│  ┌────────────┐ ┌──────────┐ ┌──────────┐ ┌───────────┐ │
+│  │Investigation│ │Enrichment│ │ Risk     │ │ Report    │ │
+│  │ Processor  │ │ (25+src) │ │ Scoring  │ │ Generator │ │
+│  └─────┬──────┘ └────┬─────┘ └────┬─────┘ └───────────┘ │
+│        │ BullMQ      │            │                      │
+├────────┼─────────────┼────────────┼──────────────────────┤
+│  PostgreSQL    │  Redis      │  Neo4j (optional)         │
+│  (entities +   │  (queue +   │  (graph algorithms)       │
+│   graph nodes) │   cache)    │                           │
+└──────────────────────────────────────────────────────────┘
 ```
 
----
+## Intelligence Sources (25+)
 
-## Tech stack
+| Source | Data | Jurisdiction |
+|--------|------|-------------|
+| SEC EDGAR | Company profile, Form 4 officers, 10-K, 8-K, DEF 14A | US |
+| SEC XBRL | Revenue, profit margin, debt/equity, current ratio | US |
+| NSE India | Shareholding pattern, financials, announcements | India |
+| Wikidata | HQ, key people, subsidiaries, revenue, industry | All |
+| OFAC SDN | US sanctions (26K+ names) | All |
+| UK HMT | UK sanctions (12K+ names) | All |
+| EU Sanctions | EU consolidated list (via OpenSanctions) | All |
+| OpenSanctions | 4.1M sanctions/PEP/watchlist entities | All |
+| ICIJ OffshoreLeaks | 770K+ offshore entities | All |
+| PEP Detection | Political positions via Wikidata P39 | All |
+| GDELT | Adverse media screening (30+ keywords) | All |
+| CourtListener | US federal court cases | US |
+| Indian Kanoon | Indian court cases | India |
+| FEC | Political donations | US |
+| Wayback Machine | Historical website age analysis | All |
+| FATF | Grey/blacklist jurisdiction risk | All |
+| EPA ECHO | Environmental violations | US |
+| OSHA | Workplace safety violations | US |
+| CFPB | Consumer complaints | US |
+| Address Verification | Virtual office/formation agent detection | All |
+| Website Verification | Domain age, SSL, parked detection | All |
+| Google Patents | Patent portfolio | US |
+| LinkedIn | Employee count, industry (via DuckDuckGo) | All |
+| AI Narrative | LLM-generated risk summary (OpenRouter) | All |
 
-| Layer       | Choice                                     |
-| ----------- | ------------------------------------------ |
-| Backend     | NestJS · TypeScript                        |
-| Frontend    | Next.js 14 · React 18 · Tailwind CSS · D3  |
-| Queue       | BullMQ (Redis)                             |
-| Primary DB  | PostgreSQL 16 + `pg_trgm`                  |
-| Graph DB    | Neo4j 5 Community (reserved for expansion) |
-| Cache       | Redis 7                                    |
-| Realtime    | Socket.IO via @nestjs/websockets           |
-| PDF         | PDFKit                                     |
-| Monorepo    | Turborepo                                  |
+## Quick Start
 
----
+### Prerequisites
+- Node.js 18+
+- Docker and Docker Compose
+- npm 9+
 
-## Quick start
+### Setup
 
 ```bash
-git clone https://github.com/yourname/tracegraph
+# Clone
+git clone https://github.com/anmolbhardwaj17/tracegraph.git
 cd tracegraph
+
+# Install dependencies
+npm install
+
+# Start infrastructure (PostgreSQL, Redis, Neo4j)
+docker compose up -d postgres redis neo4j
+
+# Copy environment file
 cp .env.example .env
-docker compose up -d
-# wait for postgres to be healthy, then:
-cd apps/api && npm run migration:run && npm run seed:demo
-# open http://localhost:3000
+# Edit .env with your keys (see Environment Variables below)
+
+# Run database migrations
+cd apps/api && npm run migration:run
+
+# Start both servers (from root)
+cd ../.. && npm run dev
 ```
 
-Click the seeded **DEMO: Petrov Holdings UK Ltd** investigation in the recent list to explore the full feature set without an API key.
+### Access
+- **Frontend:** http://localhost:3000
+- **API:** http://localhost:4000
+- **Swagger Docs:** http://localhost:4000/api/docs
 
-To run live investigations, get a free Companies House API key from https://developer.company-information.service.gov.uk/ and set `COMPANIES_HOUSE_API_KEY` in `.env`.
+## API Endpoints
 
----
+### Investigations
+```bash
+# Create investigation
+POST /api/investigations
+{ "query": "Amazon", "jurisdiction": "us", "tier": "STANDARD" }
 
-## Screenshots
+# Get results
+GET /api/investigations/:id
 
-> *(Replace these descriptions with real screenshots after first run.)*
+# Get overview (score, intelligence, narrative)
+GET /api/investigations/:id/overview
 
-1. **Home / search** — Hero, search bar, three feature cards, recent investigations list with risk pills.
-2. **Investigation overview tab** — Circular SVG risk gauge, six stat cards, top 3 critical findings.
-3. **Graph tab** — Full-width D3 force-directed network with colored nodes, risk borders, side panel showing the selected entity's details.
-4. **Findings tab** — Severity-sorted expandable rows with evidence and recommendations.
-5. **Matches tab** — Cross-source matches with OpenSanctions / ICIJ badges and confidence pills.
-6. **Live progress** — 5-stage indicator, live counters, mini graph that grows during expansion.
+# Compare investigations
+GET /api/investigations/compare?ids=id1,id2
 
----
+# Export PDF
+POST /api/investigations/:id/export
+```
 
-## Data sources
+### Batch Screening
+```bash
+# Screen up to 500 companies
+POST /api/batch
+{ "companies": ["Apple", "Microsoft", "Tesla"], "tier": "QUICK", "jurisdiction": "us" }
 
-| Source                    | Type      | Coverage                                         |
-| ------------------------- | --------- | ------------------------------------------------ |
-| UK Companies House        | Live API  | Company profiles, officers, PSC, filing history  |
-| OpenSanctions             | Bulk JSON | Global sanctions, PEPs, criminal entities (FtM)  |
-| ICIJ OffshoreLeaks        | Bulk CSV  | Panama / Paradise / Pandora Papers, Bahamas Leaks|
+# Check results
+GET /api/batch/:id
+```
 
-All sources are **public**. TraceGraph never scrapes, never uses leaked data beyond what ICIJ has officially published, and rate-limits Companies House to 600 requests per 5 minutes.
+### Watchlist
+```bash
+# Add to watchlist
+POST /api/watchlist
+{ "companyNumber": "00445790", "companyName": "Tesco PLC" }
 
----
+# Trigger monitoring
+POST /api/watchlist/monitor
 
-## How it works
+# Get alerts
+GET /api/watchlist/alerts/list
+```
 
-1. **Resolve** — User submits a company name or number. The API resolves it via Companies House search.
-2. **Fetch** — The root company profile, officers, and PSC list are pulled from Companies House (cached in Redis for 24h, retried with exponential backoff on 429/5xx).
-3. **Expand** — A BullMQ worker walks the network: for each director, fetch their other appointments; for each new company, fetch its officers; for each address, attach all companies sharing it. Cycles detected via visited sets, dedup via per-investigation unique node lookup, large-corp pruning above 100 officers.
-4. **Resolve entities** — Every person and company is matched against OpenSanctions and ICIJ via trigram fuzzy search + a weighted scoring pipeline (exact name 40 + phonetic 20 + JW>0.85 15 + DOB 30 + nationality 10).
-5. **Score proximity** — Multi-source BFS from every sanctioned node propagates hop distance through the graph (0=CRITICAL, 1=HIGH, 2=MEDIUM, 3+=LOW).
-6. **Detect anomalies** — Shell-company scoring, address clustering, circular ownership detection (DFS), label-propagation community detection with bridge nodes, and temporal clustering (mass incorporation, rapid dissolution, resignation clusters).
-7. **Aggregate findings** — Each signal becomes a structured Finding (severity, evidence, recommendation). Severity-weighted sum produces a 0–100 risk score.
-8. **Render** — WebSocket events stream live progress to the frontend; on completion the tabbed report is rendered with the D3 graph and PDF export.
+## Environment Variables
 
----
+```bash
+# Required
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5433
+POSTGRES_USER=tracegraph
+POSTGRES_PASSWORD=tracegraph
+POSTGRES_DB=tracegraph
+REDIS_HOST=localhost
+REDIS_PORT=6379
+PORT=4000
 
-## Contributing
+# Optional
+COMPANIES_HOUSE_API_KEY=     # UK Companies House (free — get at developer.company-information.service.gov.uk)
+OPENROUTER_API_KEY=          # AI narrative (OpenRouter)
+OPENROUTER_MODEL=google/gemini-2.0-flash-001
+NEXT_PUBLIC_API_URL=http://localhost:4000
+```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). PRs welcome — every signal, every connector, every finding type is meant to be extensible.
+## Investigation Tiers
 
----
+| Tier | Depth | Max Nodes | Sources | Typical Time |
+|------|-------|-----------|---------|-------------|
+| QUICK | 1 hop | 200 | Basic profile | 30s - 2min |
+| STANDARD | 2 hops | 1,000 | All 25+ | 2 - 5min |
+| DEEP | 3 hops | 5,000 | All, no filtering | 10 - 30min |
+
+## India Data
+
+Indian company investigations use three data layers:
+1. **NSE India API** — live stock data for listed companies (shareholding, financials)
+2. **Tofler + DuckDuckGo** — company profiles for any Indian company
+3. **Local MCA database** — auto-populates as companies are investigated
+
+Optional bulk import from MCA:
+```bash
+# Download CSVs from mca.gov.in > Data & Reports > Company/LLP Information
+# Place in apps/api/data/india/
+cd apps/api && npm run ingest:india
+```
+
+## Tech Stack
+
+- **Backend:** NestJS + TypeScript
+- **Frontend:** Next.js 14 + React 18 + Tailwind CSS
+- **Database:** PostgreSQL 16
+- **Cache/Queue:** Redis 7 + BullMQ
+- **Graph Viz:** D3.js force-directed layout
+- **Monorepo:** Turborepo
+
+## Project Structure
+
+```
+tracegraph/
+├── apps/
+│   ├── api/                     # NestJS backend
+│   │   └── src/
+│   │       ├── modules/
+│   │       │   ├── investigation/   # Pipeline orchestrator
+│   │       │   ├── enrichment/      # 25+ intelligence services
+│   │       │   ├── graph/           # Graph construction
+│   │       │   ├── anomaly/         # 15+ risk detectors
+│   │       │   ├── batch/           # Batch screening
+│   │       │   ├── watchlist/       # Monitoring + alerts
+│   │       │   ├── india/           # MCA data + search
+│   │       │   └── report/          # PDF generation
+│   │       └── common/
+│   │           ├── redis/           # Redis cache
+│   │           ├── cache/           # Enrichment cache
+│   │           ├── rate-limiter/    # API rate coordination
+│   │           └── resilience/      # Circuit breakers
+│   └── web/                     # Next.js frontend
+│       ├── app/
+│       │   ├── page.tsx             # Landing + search
+│       │   ├── investigate/[id]/    # Investigation results
+│       │   ├── compare/             # Side-by-side comparison
+│       │   └── dashboard/           # Investigation list
+│       └── components/
+│           ├── GraphVisualization.tsx
+│           ├── ProgressView.tsx
+│           └── Insights.tsx
+├── packages/shared/             # Shared types
+├── docker-compose.yml
+└── .env.example
+```
 
 ## License
 
-[MIT](./LICENSE) © 2026 TraceGraph contributors
+MIT

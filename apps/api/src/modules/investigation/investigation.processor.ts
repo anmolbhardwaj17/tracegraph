@@ -771,36 +771,28 @@ export class InvestigationProcessor extends WorkerHost {
         const website = rootMeta.website || null;
         const foundedDate = rootMeta.foundedDate || rootMeta.incorporationDate || null;
 
-        const [secResult, webResult, sanctionsResult, addrResult, wbResult, donResult, regResult] = await Promise.all([
-          jurisdiction === 'us'
-            ? this.secIntel.analyze(investigationId, companyId, companyName).catch((e) => { this.logger.warn(`SEC intelligence failed: ${e?.message}`); return null; })
-            : Promise.resolve(null),
-          this.webIntel.analyze(investigationId, companyName, website).catch((e) => { this.logger.warn(`Web intelligence failed: ${e?.message}`); return null; }),
-          this.sanctionsDirect.screen(investigationId).catch((e) => { this.logger.warn(`Direct sanctions failed: ${e?.message}`); return null; }),
-          this.addressVerification.verify(investigationId).catch((e) => { this.logger.warn(`Address verification failed: ${e?.message}`); return null; }),
-          this.wayback.analyze(investigationId, companyName, website, foundedDate).catch((e) => { this.logger.warn(`Wayback failed: ${e?.message}`); return null; }),
-          this.politicalDonations.search(investigationId).catch((e) => { this.logger.warn(`FEC donations failed: ${e?.message}`); return null; }),
-          jurisdiction === 'us'
-            ? this.regulatoryViolations.search(investigationId, companyName).catch((e) => { this.logger.warn(`Regulatory violations failed: ${e?.message}`); return null; })
-            : Promise.resolve(null),
+        // ALL intelligence sources in ONE Promise.all — maximum parallelization
+        const catch_ = (name: string) => (e: any) => { this.logger.warn(`${name} failed: ${e?.message}`); return null; };
+
+        const [
+          secResult, webResult, sanctionsResult, addrResult, wbResult, donResult, regResult,
+          linkedinResult, indiaResult, cfpbRes, fatfRes, patentRes, nonprofitRes,
+        ] = await Promise.all([
+          jurisdiction === 'us' ? this.secIntel.analyze(investigationId, companyId, companyName).catch(catch_('SEC intel')) : Promise.resolve(null),
+          this.webIntel.analyze(investigationId, companyName, website).catch(catch_('Web intel')),
+          this.sanctionsDirect.screen(investigationId).catch(catch_('Sanctions')),
+          this.addressVerification.verify(investigationId).catch(catch_('Address')),
+          this.wayback.analyze(investigationId, companyName, website, foundedDate).catch(catch_('Wayback')),
+          this.politicalDonations.search(investigationId).catch(catch_('FEC')),
+          jurisdiction === 'us' ? this.regulatoryViolations.search(investigationId, companyName).catch(catch_('EPA/OSHA')) : Promise.resolve(null),
+          this.linkedinIntel.search(investigationId, companyName).catch(catch_('LinkedIn')),
+          jurisdiction === 'in' ? this.indiaIntel.analyze(investigationId, companyName).catch(catch_('India intel')) : Promise.resolve(null),
+          this.cfpbComplaints.search(investigationId, companyName).catch(catch_('CFPB')),
+          this.fatfJurisdiction.analyze(investigationId).catch(catch_('FATF')),
+          jurisdiction === 'us' ? this.patentSearch.search(investigationId, companyName).catch(catch_('Patents')) : Promise.resolve(null),
+          this.nonprofitLookup.search(investigationId, companyName).catch(catch_('Nonprofit')),
         ]);
-
-        // Phase D sources — run in parallel batch 2
-        const linkedinResult = await this.linkedinIntel.search(investigationId, companyName).catch((e) => { this.logger.warn(`LinkedIn failed: ${e?.message}`); return null; });
-
-        // India-specific intelligence
-        const indiaResult = jurisdiction === 'in'
-          ? await this.indiaIntel.analyze(investigationId, companyName).catch((e) => { this.logger.warn(`India intel failed: ${e?.message}`); return null; })
-          : null;
-
-        [cfpbResult, fatfResult, patentResult, nonprofitResult] = await Promise.all([
-          this.cfpbComplaints.search(investigationId, companyName).catch((e) => { this.logger.warn(`CFPB failed: ${e?.message}`); return null; }),
-          this.fatfJurisdiction.analyze(investigationId).catch((e) => { this.logger.warn(`FATF failed: ${e?.message}`); return null; }),
-          jurisdiction === 'us'
-            ? this.patentSearch.search(investigationId, companyName).catch((e) => { this.logger.warn(`Patent search failed: ${e?.message}`); return null; })
-            : Promise.resolve(null),
-          this.nonprofitLookup.search(investigationId, companyName).catch((e) => { this.logger.warn(`Nonprofit lookup failed: ${e?.message}`); return null; }),
-        ]);
+        cfpbResult = cfpbRes; fatfResult = fatfRes; patentResult = patentRes; nonprofitResult = nonprofitRes;
 
         secIntelResult = secResult;
         webIntelResult = webResult;

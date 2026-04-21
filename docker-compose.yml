@@ -60,6 +60,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       COMPANIES_HOUSE_API_KEY: ${COMPANIES_HOUSE_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.0-flash-001}
       PORT: 4000
     ports:
       - "4000:4000"

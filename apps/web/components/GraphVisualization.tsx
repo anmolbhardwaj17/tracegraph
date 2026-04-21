@@ -325,7 +325,11 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
     // Edge labels for small graphs
     if (simNodes.length <= 20) {
       const edgeLabels = root.append('g').selectAll('text').data(simLinks).enter().append('text')
-        .text((d) => d.type === 'director' ? 'director' : d.type === 'psc' ? 'owner' : d.type === 'address' ? 'address' : d.type)
+        .text((d) => {
+          const ownerPct = (d as any).metadata?.ownershipPct;
+          if (d.type === 'psc' && ownerPct) return `${ownerPct}%`;
+          return d.type === 'director' ? 'director' : d.type === 'psc' ? 'owner' : d.type === 'address' ? 'address' : d.type;
+        })
         .attr('font-size', 8).attr('fill', isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)').attr('text-anchor', 'middle').attr('font-family', 'ui-monospace, monospace');
       sim.on('tick.labels', () => {
         edgeLabels.attr('x', (d) => ((d.source as GraphNode).x! + (d.target as GraphNode).x!) / 2)
@@ -366,6 +370,27 @@ export function GraphVisualization({ nodes, links, findings = [], rootNodeId, he
       .attr('r', (d) => isCenter(d) ? 18 : mode === 'suspicious' && isRisky(d) ? 10 : Math.max(5, Math.min(12, 4 + Math.sqrt(d.degree || 1) * 1.5)))
       .attr('fill', (d) => isCenter(d) ? (isLight ? '#1E293B' : ROOT_COLOR) : mode === 'suspicious' && isRisky(d) ? RISK_RED : TYPE_COLOR[d.entityType] || '#94A3B8')
       .attr('stroke', (d) => isCenter(d) ? (isLight ? '#1E293B' : '#FFF') : isLight ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.3)').attr('stroke-width', (d) => isCenter(d) ? 2 : 0.5);
+
+    // PEP badges — small orange "PEP" tag on person nodes with isPep
+    nodeGroup.filter((d) => d.metadata?.isPep).append('text')
+      .text('PEP')
+      .attr('x', 10).attr('y', -8)
+      .attr('font-size', 7).attr('font-weight', 700).attr('font-family', 'ui-monospace, monospace')
+      .attr('fill', '#FF8A3D').attr('paint-order', 'stroke').attr('stroke', isLight ? '#FFF' : '#0A0A0A').attr('stroke-width', 2);
+
+    // Sanctions hit — red exclamation
+    nodeGroup.filter((d) => d.metadata?.sanctionsHit).append('text')
+      .text('!')
+      .attr('x', -14).attr('y', -6)
+      .attr('font-size', 12).attr('font-weight', 900).attr('font-family', 'system-ui')
+      .attr('fill', RISK_RED).attr('paint-order', 'stroke').attr('stroke', isLight ? '#FFF' : '#0A0A0A').attr('stroke-width', 2);
+
+    // Subsidiary jurisdiction tag
+    nodeGroup.filter((d) => d.metadata?.isSubsidiary && d.metadata?.jurisdiction).append('text')
+      .text((d) => (d.metadata?.jurisdiction || '').slice(0, 6))
+      .attr('x', 0).attr('y', 18)
+      .attr('text-anchor', 'middle').attr('font-size', 6).attr('font-family', 'ui-monospace, monospace')
+      .attr('fill', isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)');
 
     // Node images — only for small views (< 30 nodes)
     if (simNodes.length <= 30) {
