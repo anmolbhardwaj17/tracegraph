@@ -29,7 +29,12 @@ const CACHE_TTL = 24 * 60 * 60 * 1000;
 function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) return Promise.resolve(hit.data as T);
-  return fn().then((d) => { cache.set(key, { data: d, expiresAt: Date.now() + CACHE_TTL }); return d; });
+  return fn().then((d) => {
+    // Never cache empty arrays for subsidiary/executive results (may be rate-limit artifacts)
+    if (Array.isArray(d) && d.length === 0 && (key.includes(':subs:') || key.includes(':execs:'))) return d;
+    cache.set(key, { data: d, expiresAt: Date.now() + CACHE_TTL });
+    return d;
+  });
 }
 
 /**

@@ -67,27 +67,31 @@ export class PatentSearchService {
   private async queryPatents(name: string): Promise<PatentResult> {
     return cached(`patents:${name.toLowerCase()}`, async () => {
       try {
-        // USPTO PatentsView API
-        const res = await axios.get('https://api.patentsview.org/patents/query', {
+        // Google Patents public search (no API key needed)
+        const res = await axios.get('https://patents.google.com/xhr/query', {
           params: {
-            q: JSON.stringify({ _contains: { assignee_organization: name } }),
-            f: JSON.stringify(['patent_number', 'patent_title', 'patent_date', 'patent_type']),
-            o: JSON.stringify({ page: 1, per_page: 25, sort: [{ patent_date: 'desc' }] }),
+            url: `assignee="${name}"`,
+            num: 25,
+            type: 'PATENT',
           },
           headers: { 'User-Agent': USER_AGENT },
           timeout: 15000,
         });
 
-        const patents = res.data?.patents || [];
-        const total = res.data?.total_patent_count || patents.length;
+        const results = res.data?.results?.cluster || [];
+        const patents = results.flatMap((c: any) => c.result || []);
+        const total = res.data?.results?.total_num_results || patents.length;
 
         // Count recent (last 2 years)
         const twoYearsAgo = new Date();
         twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-        const recent = patents.filter((p: any) => new Date(p.patent_date) > twoYearsAgo).length;
+        const recent = patents.filter((p: any) => {
+          const date = p.patent?.publication_date || p.patent?.filing_date || '';
+          return date && new Date(date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) > twoYearsAgo;
+        }).length;
 
-        const categories: string[] = [...new Set(patents.map((p: any) => p.patent_type).filter(Boolean) as string[])];
-        const titles = patents.slice(0, 5).map((p: any) => p.patent_title);
+        const categories: string[] = [...new Set(patents.map((p: any) => p.patent?.type || '').filter(Boolean) as string[])];
+        const titles = patents.slice(0, 5).map((p: any) => p.patent?.title || '');
 
         return { totalPatents: total, recentPatents: recent, topCategories: categories, sampleTitles: titles };
       } catch (e: any) {

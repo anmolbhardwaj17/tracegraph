@@ -14,7 +14,8 @@ const USER_AGENT = 'TraceGraph/0.1 (open-source corporate intelligence)';
  */
 const OFAC_SDN_URL = 'https://www.treasury.gov/ofac/downloads/sdn.csv';
 const UK_HMT_URL = 'https://ofsistorage.blob.core.windows.net/publishlive/2022format/ConList.csv';
-const EU_SANCTIONS_URL = 'https://webgate.ec.europa.eu/fsd/fsf/public/files/csvFullSanctionsList/content';
+// EU sanctions via OpenSanctions mirror (original EU endpoint blocks automated access)
+const EU_SANCTIONS_URL = 'https://data.opensanctions.org/datasets/latest/eu_fsf/targets.simple.csv';
 
 // In-memory sanctions cache — loaded once per process lifetime
 let ofacNames: Set<string> | null = null;
@@ -223,7 +224,7 @@ export class SanctionsDirectService {
       if (!ukNames) ukNames = new Set();
     }
 
-    // Load EU Sanctions
+    // Load EU Sanctions (via OpenSanctions mirror — simple CSV: id,schema,name,aliases,...)
     try {
       const res = await axios.get(EU_SANCTIONS_URL, {
         timeout: 30000,
@@ -233,16 +234,23 @@ export class SanctionsDirectService {
       const names = new Set<string>();
       const lines = (res.data as string).split('\n');
       for (const line of lines) {
-        // EU CSV has name fields — extract quoted values that look like names
-        const quotedValues = line.match(/"([^"]{3,80})"/g) || [];
-        for (const qv of quotedValues) {
-          const val = qv.replace(/"/g, '').trim();
-          if (val.length > 3 && val.length < 80 && !/^\d+$/.test(val) && !/^(entity|individual|programme|regulation)/i.test(val)) {
-            names.add(this.normalize(val));
-            if (val.includes(',')) {
-              const reversed = val.split(',').map((s: string) => s.trim()).reverse().join(' ');
+        if (line.startsWith('"id"')) continue; // skip header
+        // Simple CSV format: "id","schema","name","aliases",...
+        const parts = line.split('","');
+        if (parts.length >= 3) {
+          const name = (parts[2] || '').replace(/"/g, '').trim();
+          if (name.length > 2 && name.length < 100) {
+            names.add(this.normalize(name));
+            if (name.includes(',')) {
+              const reversed = name.split(',').map((s: string) => s.trim()).reverse().join(' ');
               names.add(this.normalize(reversed));
             }
+          }
+          // Also add aliases
+          const aliases = (parts[3] || '').replace(/"/g, '').split(';');
+          for (const alias of aliases) {
+            const a = alias.trim();
+            if (a.length > 2 && a.length < 100) names.add(this.normalize(a));
           }
         }
       }

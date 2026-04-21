@@ -95,29 +95,26 @@ export class LinkedInIntelligenceService {
       };
 
       try {
-        // Use Google to find the LinkedIn company page
-        // Search for: site:linkedin.com/company "CompanyName"
-        const searchQuery = `site:linkedin.com/company "${name}"`;
-        const res = await axios.get('https://www.google.com/search', {
-          params: { q: searchQuery, num: 3 },
+        // Try DuckDuckGo instead of Google (less aggressive blocking)
+        const searchQuery = `site:linkedin.com/company ${name}`;
+        const res = await axios.get('https://html.duckduckgo.com/html/', {
+          params: { q: searchQuery },
           headers: {
             'User-Agent': USER_AGENT,
             Accept: 'text/html',
-            'Accept-Language': 'en-US,en;q=0.9',
           },
           timeout: 10000,
         });
 
         const html = res.data as string;
 
-        // Extract LinkedIn URL from Google results
+        // Extract LinkedIn URL
         const urlMatch = html.match(/https?:\/\/(?:www\.)?linkedin\.com\/company\/[a-z0-9\-]+/i);
         if (!urlMatch) return empty;
 
         const linkedinUrl = urlMatch[0];
 
-        // Extract info from Google's snippet/cache
-        // Google often shows employee count, industry, and location in the snippet
+        // Extract info from search snippets
         const snippet = html
           .replace(/<[^>]+>/g, ' ')
           .replace(/&nbsp;/g, ' ')

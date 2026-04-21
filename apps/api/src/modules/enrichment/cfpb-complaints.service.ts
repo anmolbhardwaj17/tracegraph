@@ -5,7 +5,8 @@ import axios from 'axios';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { Finding } from '../risk-scoring/finding.types';
 
-const CFPB_API = 'https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/';
+// CFPB API blocked by CDN. Use Socrata/data.gov mirror instead.
+const CFPB_API = 'https://data.consumerfinance.gov/resource/s6ew-h6mp.json';
 const USER_AGENT = 'TraceGraph/0.1 (open-source corporate intelligence)';
 
 const cache = new Map<string, { data: any; expiresAt: number }>();
@@ -77,52 +78,41 @@ export class CfpbComplaintsService {
   private async queryComplaints(name: string): Promise<CfpbResult> {
     return cached(`cfpb:${name.toLowerCase()}`, async () => {
       try {
+        // Socrata API — CFPB's open data portal (no CDN block)
+        const minDate = new Date(Date.now() - 3 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         const res = await axios.get(CFPB_API, {
           params: {
-            company: name,
-            size: 0, // we only want aggregations
-            date_received_min: new Date(Date.now() - 3 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            $where: `upper(company) LIKE '%${name.toUpperCase().replace(/'/g, "''")}%' AND date_received > '${minDate}'`,
+            $limit: 50,
+            $order: 'date_received DESC',
           },
           headers: { 'User-Agent': USER_AGENT },
           timeout: 15000,
         });
 
-        const total = res.data?.hits?.total?.value || res.data?.hits?.total || 0;
+        const records = res.data || [];
+        const total = records.length;
 
-        // Get recent (last 12 months)
-        const recentRes = await axios.get(CFPB_API, {
-          params: {
-            company: name,
-            size: 10,
-            date_received_min: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            sort: 'date_received_desc',
-          },
-          headers: { 'User-Agent': USER_AGENT },
-          timeout: 15000,
-        });
+        // Count recent (last 12 months)
+        const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+        const recent = records.filter((r: any) => new Date(r.date_received) > oneYearAgo);
 
-        const recentTotal = recentRes.data?.hits?.total?.value || recentRes.data?.hits?.total || 0;
-        const recentHits = recentRes.data?.hits?.hits || [];
-
-        // Aggregate products and issues
+        // Aggregate
         const products: Record<string, number> = {};
         const issues: Record<string, number> = {};
         let disputed = 0;
         let timely = 0;
-        let counted = 0;
 
-        for (const hit of recentHits) {
-          const src = hit._source || {};
-          if (src.product) products[src.product] = (products[src.product] || 0) + 1;
-          if (src.issue) issues[src.issue] = (issues[src.issue] || 0) + 1;
-          if (src.consumer_disputed === 'Yes') disputed++;
-          if (src.timely === 'Yes') timely++;
-          counted++;
+        for (const r of records) {
+          if (r.product) products[r.product] = (products[r.product] || 0) + 1;
+          if (r.issue) issues[r.issue] = (issues[r.issue] || 0) + 1;
+          if (r.consumer_disputed === 'Yes') disputed++;
+          if (r.timely === 'Yes') timely++;
         }
 
         return {
           totalComplaints: total,
-          recentComplaints: recentTotal,
+          recentComplaints: recent.length,
           topProducts: Object.entries(products)
             .map(([product, count]) => ({ product, count }))
             .sort((a, b) => b.count - a.count)
@@ -131,8 +121,8 @@ export class CfpbComplaintsService {
             .map(([issue, count]) => ({ issue, count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 5),
-          disputeRate: counted > 0 ? Math.round((disputed / counted) * 100) : 0,
-          timelyResponseRate: counted > 0 ? Math.round((timely / counted) * 100) : 0,
+          disputeRate: total > 0 ? Math.round((disputed / total) * 100) : 0,
+          timelyResponseRate: total > 0 ? Math.round((timely / total) * 100) : 0,
         };
       } catch (e: any) {
         this.logger.warn(`CFPB query failed: ${e?.message}`);
