@@ -34,6 +34,8 @@ import { InvestigationGateway } from './investigation.gateway';
 import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
 import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
 import { IndiaMcaProvider } from '../jurisdictions/providers/india-mca.provider';
+import { FranceSireneProvider } from '../jurisdictions/providers/france-sirene.provider';
+import { GermanyNorthdataProvider } from '../jurisdictions/providers/germany-northdata.provider';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
 import * as SecNet from '../jurisdictions/providers/sec-network.service';
@@ -60,6 +62,8 @@ export class InvestigationProcessor extends WorkerHost {
   private readonly gleif = new GleifProvider();
   private readonly secEdgar = new SecEdgarProvider();
   private readonly indiaMca = new IndiaMcaProvider();
+  private readonly franceSirene = new FranceSireneProvider();
+  private readonly germanyNorthdata = new GermanyNorthdataProvider();
 
   constructor(
     @InjectRepository(Investigation) private readonly investigations: Repository<Investigation>,
@@ -478,12 +482,35 @@ export class InvestigationProcessor extends WorkerHost {
           }
         }
       }
+      // France: Sirene API (free, rich data with directors + financials)
+      if (!profile && jurisdiction === 'fr') {
+        try {
+          const frResults = await this.franceSirene.searchCompanies(query);
+          if (frResults.length > 0) {
+            profile = await this.franceSirene.getCompanyProfile(frResults[0].companyNumber);
+            if (profile) this.logger.log(`France: found ${profile.name} (SIREN: ${profile.companyNumber}) via Sirene API`);
+          }
+        } catch (e: any) { this.logger.warn(`France search failed: ${e?.message}`); }
+      }
+
+      // Germany: North Data (scraped JSON-LD)
+      if (!profile && jurisdiction === 'de') {
+        try {
+          const deResults = await this.germanyNorthdata.searchCompanies(query);
+          if (deResults.length > 0) {
+            profile = await this.germanyNorthdata.getCompanyProfile(deResults[0].registryUrl);
+            if (profile) this.logger.log(`Germany: found ${profile.name} via North Data`);
+          }
+        } catch (e: any) { this.logger.warn(`Germany search failed: ${e?.message}`); }
+      }
+
       if (!profile) {
         profile = await this.gleif.getCompanyProfile(query);
       }
       // Last resort: search GLEIF by name
       if (!profile) {
-        const gleifResults = await this.gleif.searchCompanies(query, jurisdiction === 'in' ? 'IN' : undefined).catch(() => []);
+        const jCodeMap: Record<string, string> = { in: 'IN', fr: 'FR', de: 'DE', nl: 'NL', ie: 'IE', sg: 'SG' };
+        const gleifResults = await this.gleif.searchCompanies(query, jCodeMap[jurisdiction] || undefined).catch(() => []);
         if (gleifResults.length > 0) {
           profile = await this.gleif.getCompanyProfile(gleifResults[0].companyNumber).catch(() => null);
         }

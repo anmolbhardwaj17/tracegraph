@@ -4,6 +4,8 @@ import { OpenCorporatesProvider } from './providers/opencorporates.provider';
 import { SecEdgarProvider } from './providers/sec-edgar.provider';
 import { GleifProvider } from './providers/gleif.provider';
 import { IndiaMcaProvider } from './providers/india-mca.provider';
+import { FranceSireneProvider } from './providers/france-sirene.provider';
+import { GermanyNorthdataProvider } from './providers/germany-northdata.provider';
 import { CompanySearchResult } from './data-provider.interface';
 
 @Controller('jurisdictions')
@@ -12,6 +14,8 @@ export class JurisdictionsController {
   private readonly sec = new SecEdgarProvider();
   private readonly gleif = new GleifProvider();
   private readonly india = new IndiaMcaProvider();
+  private readonly france = new FranceSireneProvider();
+  private readonly germany = new GermanyNorthdataProvider();
 
   @Get()
   list() {
@@ -54,12 +58,26 @@ export class JurisdictionsController {
         results.push(...gleifResults);
       }
     } else if (jCode === 'in') {
-      // India: MCA provider first, then GLEIF + OpenCorporates
+      // India: MCA provider first, then GLEIF
       const [indiaResults, gleifResults] = await Promise.all([
         this.india.searchCompanies(query).catch(() => []),
         this.gleif.searchCompanies(query, 'IN').catch(() => []),
       ]);
       results.push(...indiaResults, ...gleifResults);
+    } else if (jCode === 'fr') {
+      // France: Sirene API (free, rich data)
+      const [franceResults, gleifResults] = await Promise.all([
+        this.france.searchCompanies(query).catch(() => []),
+        this.gleif.searchCompanies(query, 'FR').catch(() => []),
+      ]);
+      results.push(...franceResults, ...gleifResults);
+    } else if (jCode === 'de') {
+      // Germany: North Data + GLEIF
+      const [germanyResults, gleifResults] = await Promise.all([
+        this.germany.searchCompanies(query).catch(() => []),
+        this.gleif.searchCompanies(query, 'DE').catch(() => []),
+      ]);
+      results.push(...germanyResults, ...gleifResults);
     } else {
       // Specific jurisdiction via GLEIF + OpenCorporates fallback
       const [gleifResults, ocResults] = await Promise.all([
