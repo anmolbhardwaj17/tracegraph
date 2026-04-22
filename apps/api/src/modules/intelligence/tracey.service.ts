@@ -105,7 +105,7 @@ export class TraceyService {
       // Handle models that dump thinking as plain text before the answer
       if (/^(Okay|Alright|Hmm|Let me think|Looking at|I notice|The user|Wait,)/i.test(cleaned)) {
         const paragraphs = cleaned.split('\n\n');
-        const answerStart = paragraphs.findIndex((p) =>
+        const answerStart = paragraphs.findIndex((p: string) =>
           /^(Hey|Hi |Based|Here|The investigation|Your |So,|Great|#{1,3} |\*\*|Anmol)/i.test(p.trim())
         );
         if (answerStart > 0) {
