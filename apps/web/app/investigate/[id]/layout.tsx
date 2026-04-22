@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Download, Eye, EyeOff } from 'lucide-react';
 import { Avatar } from '../../../components/Avatar';
 import { NavBar } from '../../../components/NavBar';
+import { TraceyChat } from '../../../components/TraceyChat';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -182,6 +183,11 @@ export default function InvestigationLayout({ children }: { children: React.Reac
       <div className="max-w-7xl mx-auto px-8 py-6">
         {children}
       </div>
+
+      {/* Tracey AI Chat */}
+      {meta?.status === 'COMPLETE' && (
+        <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} />
+      )}
     </main>
   );
 }

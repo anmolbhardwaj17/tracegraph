@@ -5,6 +5,7 @@ import { CreateInvestigationDto } from './dto/create-investigation.dto';
 import { ReportService } from '../report/report.service';
 import { Public } from '../auth/guards/jwt-auth.guard';
 import { AuthService } from '../auth/auth.service';
+import { TraceyService } from '../intelligence/tracey.service';
 
 @ApiTags('Investigations')
 @Controller('investigations')
@@ -13,6 +14,7 @@ export class InvestigationController {
     private readonly service: InvestigationService,
     private readonly reports: ReportService,
     private readonly auth: AuthService,
+    private readonly tracey: TraceyService,
   ) {}
 
   @Post()
@@ -149,5 +151,14 @@ export class InvestigationController {
     const idList = (ids || '').split(',').map((s) => s.trim()).filter(Boolean);
     if (idList.length < 2) return { error: 'Provide at least 2 investigation IDs separated by commas' };
     return this.service.compare(idList);
+  }
+
+  /** POST /api/investigations/:id/chat — chat with Tracey about this investigation */
+  @Post(':id/chat')
+  @Public()
+  @ApiOperation({ summary: 'Chat with Tracey AI about this investigation' })
+  async chat(@Param('id') id: string, @Body() body: { question: string; history?: Array<{ role: 'user' | 'assistant'; content: string }> }) {
+    if (!body.question?.trim()) return { reply: 'Please ask a question about this investigation.', sources: [] };
+    return this.tracey.chat(id, body.question, body.history || []);
   }
 }

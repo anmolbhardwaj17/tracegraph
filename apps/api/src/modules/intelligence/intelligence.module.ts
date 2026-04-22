@@ -6,6 +6,7 @@ import { TemporalAnalysisService } from './temporal-analysis.service';
 import { PeerComparisonService } from './peer-comparison.service';
 import { FilingNlpService } from './filing-nlp.service';
 import { ProactiveCrawlerService } from './proactive-crawler.service';
+import { TraceyService } from './tracey.service';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
 import { Investigation } from '../investigation/entities/investigation.entity';
@@ -17,6 +18,7 @@ const services = [
   PeerComparisonService,
   FilingNlpService,
   ProactiveCrawlerService,
+  TraceyService,
 ];
 
 @Module({
