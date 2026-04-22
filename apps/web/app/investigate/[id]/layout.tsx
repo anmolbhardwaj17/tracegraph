@@ -185,14 +185,9 @@ export default function InvestigationLayout({ children }: { children: React.Reac
         {children}
       </div>
 
-      {/* Tracey sidebar — fixed overlay, does NOT affect content layout */}
-      {meta?.status === 'COMPLETE' && (
-        <div
-          className="fixed top-0 bottom-0 right-0 w-[400px] z-40 border-l border-white/10 transition-transform duration-300"
-          style={{ transform: traceyOpen ? 'translateX(0)' : 'translateX(100%)', height: '100dvh' }}
-        >
-          <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
-        </div>
+      {/* Tracey sidebar — renders via React portal on document.body */}
+      {meta?.status === 'COMPLETE' && traceyOpen && (
+        <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
       )}
 
       {/* Tracey AI orb — bottom right */}

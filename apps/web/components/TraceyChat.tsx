@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Send } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -21,16 +22,14 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Only auto-scroll after user sends a message (not on welcome message)
-  useEffect(() => {
-    if (messages.length > 1) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { if (messages.length > 1) bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
 
-  // Welcome
   useEffect(() => {
     if (messages.length === 0) {
       setMessages([{
@@ -54,8 +53,6 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
       });
       const data = await res.json();
       const fullReply = data.reply || 'Sorry, I encountered an issue.';
-      // Stream effect — add message empty then fill word by word
-      const msgIdx = messages.length + 1; // +1 for the user message we just added
       setMessages((prev) => [...prev, { role: 'assistant', content: '', sources: data.sources }]);
       const words = fullReply.split(' ');
       for (let w = 0; w < words.length; w++) {
@@ -63,9 +60,8 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
         const partial = words.slice(0, w + 1).join(' ');
         setMessages((prev) => {
           const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last && last.role === 'assistant') {
-            updated[updated.length - 1] = { ...last, content: partial };
+          if (updated[updated.length - 1]?.role === 'assistant') {
+            updated[updated.length - 1] = { ...updated[updated.length - 1], content: partial };
           }
           return updated;
         });
@@ -84,77 +80,108 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
     'What should I do next?',
   ];
 
-  return (
-    <div className="absolute inset-0 overflow-hidden" style={{ background: '#08090a' }}>
-      {/* Gradient glow */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[40%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(180,230,0,0.12) 0%, rgba(100,160,0,0.05) 40%, transparent 65%)' }} />
-      <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 w-[250px] h-[250px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,255,0,0.08) 0%, transparent 60%)' }} />
+  // Render via portal on document.body — bypasses all CSS containment
+  if (!mounted) return null;
 
-      {/* Close button */}
-      <button onClick={onClose} className="absolute top-4 right-4 z-10 w-7 h-7 rounded-full bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center transition-colors">
-        <X className="w-3.5 h-3.5 text-white/25 hover:text-white/60" />
+  const panel = (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        width: 400,
+        height: '100vh',
+        zIndex: 9999,
+        background: '#08090a',
+        borderLeft: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Gradient glow */}
+      <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%) translateY(40%)', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(180,230,0,0.12) 0%, rgba(100,160,0,0.05) 40%, transparent 65%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '10%', left: '50%', transform: 'translateX(-50%)', width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(212,255,0,0.08) 0%, transparent 60%)', pointerEvents: 'none' }} />
+
+      {/* Close */}
+      <button
+        onClick={onClose}
+        style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <X size={14} color="rgba(255,255,255,0.3)" />
       </button>
 
-      {/* Chat — absolute positioned: top to bottom minus input height */}
-      <div className="absolute top-0 left-0 right-0 bottom-[70px] overflow-y-auto px-6 pt-7 pb-4 space-y-6 z-[1]">
-        {messages.map((msg, i) => (
-          <div key={i}>
-            {msg.role === 'assistant' ? (
-              <div>
-                {i === 0 && (
-                  <p className="text-[10px] font-medium tracking-[0.2em] uppercase mb-4" style={{ color: 'rgba(212,255,0,0.35)' }}>Tracey</p>
-                )}
-                <div className="text-[13.5px] leading-[1.75] text-white/65">
-                  {msg.content.split('\n').map((line, j) => (
-                    <p key={j} className={j > 0 ? 'mt-3' : ''}>
-                      {line.split('**').map((part, k) =>
-                        k % 2 === 1 ? <span key={k} className="text-white/90 font-medium">{part}</span> : part
-                      )}
-                    </p>
-                  ))}
+      {/* Messages — takes remaining space, scrollable */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '28px 24px 16px',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {messages.map((msg, i) => (
+            <div key={i}>
+              {msg.role === 'assistant' ? (
+                <div>
+                  {i === 0 && (
+                    <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.2em', color: 'rgba(212,255,0,0.35)', textTransform: 'uppercase', marginBottom: 16 }}>Tracey</p>
+                  )}
+                  <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'rgba(255,255,255,0.65)' }}>
+                    {msg.content.split('\n').map((line, j) => (
+                      <p key={j} style={{ marginTop: j > 0 ? 12 : 0 }}>
+                        {line.split('**').map((part, k) =>
+                          k % 2 === 1 ? <span key={k} style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>{part}</span> : part
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                  {msg.sources && msg.sources.length > 0 && (
+                    <p style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.1)', marginTop: 12, letterSpacing: '0.05em' }}>{msg.sources.join(' · ')}</p>
+                  )}
                 </div>
-                {msg.sources && msg.sources.length > 0 && (
-                  <p className="text-[8px] font-mono text-white/10 mt-3 tracking-wide">{msg.sources.join(' · ')}</p>
-                )}
-              </div>
-            ) : (
-              <div className="flex justify-end">
-                <div className="max-w-[85%] text-[13.5px] leading-[1.7] text-white/85 bg-white/[0.06] rounded-2xl px-4 py-2.5">
-                  {msg.content}
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ maxWidth: '85%', fontSize: 13.5, lineHeight: 1.7, color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '10px 16px' }}>
+                    {msg.content}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          ))}
 
-        {loading && (
-          <div className="flex items-center gap-2 h-6">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ animationDelay: `${i * 200}ms`, background: 'rgba(212,255,0,0.4)' }} />
-            ))}
-          </div>
-        )}
+          {loading && (
+            <div style={{ display: 'flex', gap: 6, height: 24, alignItems: 'center' }}>
+              {[0, 1, 2].map((i) => (
+                <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(212,255,0,0.4)', animation: `traceyDot 1s ease-in-out ${i * 0.2}s infinite` }} />
+              ))}
+            </div>
+          )}
 
-        {messages.length <= 1 && !loading && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {quickActions.map((q, i) => (
-              <button
-                key={i}
-                onClick={() => send(q)}
-                className="text-[11px] text-white/25 hover:text-white/60 px-3.5 py-2 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.03] hover:border-white/[0.08] transition-all duration-200"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        )}
+          {messages.length <= 1 && !loading && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
+              {quickActions.map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => send(q)}
+                  style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', padding: '8px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.25)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)'; }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
 
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
       </div>
 
-      {/* Input — absolute bottom */}
-      <div className="absolute bottom-0 left-0 right-0 px-5 pb-5 pt-3 z-[1]" style={{ background: 'linear-gradient(to top, #08090a 60%, transparent)' }}>
-        <form onSubmit={(e) => { e.preventDefault(); send(); }} className="relative">
+      {/* Input — always at bottom */}
+      <div style={{ padding: '12px 20px 20px', position: 'relative', zIndex: 1, background: 'linear-gradient(to top, #08090a 70%, transparent)', flexShrink: 0 }}>
+        <form onSubmit={(e) => { e.preventDefault(); send(); }} style={{ position: 'relative' }}>
           <input
             ref={inputRef}
             type="text"
@@ -162,18 +189,21 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about this investigation..."
             disabled={loading}
-            className="w-full pl-4 pr-12 py-3 bg-white/[0.03] border border-white/[0.05] rounded-2xl text-[13px] text-white/85 placeholder:text-white/15 focus:outline-none focus:border-white/[0.1] focus:bg-white/[0.05] disabled:opacity-40 transition-all"
+            style={{ width: '100%', padding: '12px 48px 12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, fontSize: 13, color: 'rgba(255,255,255,0.85)', outline: 'none', boxSizing: 'border-box' }}
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center disabled:opacity-15 hover:opacity-90 transition-opacity"
-            style={{ background: 'linear-gradient(135deg, #c0e800, #7aab00)' }}
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: 12, background: 'linear-gradient(135deg, #c0e800, #7aab00)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: loading || !input.trim() ? 0.15 : 1 }}
           >
-            <Send className="w-3.5 h-3.5 text-black" />
+            <Send size={14} color="#000" />
           </button>
         </form>
       </div>
+
+      <style>{`@keyframes traceyDot { 0%,100% { opacity:0.3; transform:scale(0.8); } 50% { opacity:1; transform:scale(1.2); } }`}</style>
     </div>
   );
+
+  return createPortal(panel, document.body);
 }
