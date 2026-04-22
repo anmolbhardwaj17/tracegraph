@@ -24,7 +24,10 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  // Only auto-scroll after user sends a message (not on welcome message)
+  useEffect(() => {
+    if (messages.length > 1) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   // Welcome
