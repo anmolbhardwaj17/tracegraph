@@ -80,6 +80,37 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
     'What should I do next?',
   ];
 
+  // Generate contextual follow-up suggestions based on last question
+  function getFollowUps(): string[] {
+    if (messages.length < 2) return [];
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content.toLowerCase() || '';
+    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')?.content.toLowerCase() || '';
+
+    if (lastUser.includes('concern') || lastUser.includes('main') || lastUser.includes('issue'))
+      return ['Explain the risk score', 'Who are the key people?', 'What should I do next?'];
+    if (lastUser.includes('risk') || lastUser.includes('score'))
+      return ['What are the main findings?', 'Any sanctions matches?', 'How do we compare to peers?'];
+    if (lastUser.includes('pep') || lastUser.includes('political'))
+      return ['Show me the directors', 'Any political donations?', 'What are the sanctions results?'];
+    if (lastUser.includes('sanction') || lastUser.includes('ofac'))
+      return ['Any PEP flags?', 'Show court cases', 'What should I do next?'];
+    if (lastUser.includes('financial') || lastUser.includes('revenue') || lastUser.includes('profit'))
+      return ['How does this compare to peers?', 'Any financial red flags?', 'Show subsidiaries'];
+    if (lastUser.includes('director') || lastUser.includes('people') || lastUser.includes('who'))
+      return ['Any PEPs among them?', 'Check political donations', 'Show the ownership structure'];
+    if (lastUser.includes('subsidiary') || lastUser.includes('structure') || lastUser.includes('owns'))
+      return ['Any in tax haven jurisdictions?', 'Show the directors', 'Explain the risk score'];
+    if (lastUser.includes('court') || lastUser.includes('lawsuit') || lastUser.includes('legal'))
+      return ['Any adverse media?', 'What are the main concerns?', 'Recommend next steps'];
+    if (lastUser.includes('recommend') || lastUser.includes('next') || lastUser.includes('action'))
+      return ['Show the full findings', 'Explain the risk breakdown', 'Who are the key people?'];
+    if (lastUser.includes('investor') || lastUser.includes('shareholder'))
+      return ['Show subsidiaries', 'Any FATF jurisdiction flags?', 'What are the financials?'];
+
+    // Default follow-ups
+    return ['Tell me more', 'What should I do next?', 'Any other red flags?'];
+  }
+
   // Render via portal on document.body — bypasses all CSS containment
   if (!mounted) return null;
 
@@ -159,21 +190,26 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
             </div>
           )}
 
-          {messages.length <= 1 && !loading && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
-              {quickActions.map((q, i) => (
-                <button
-                  key={i}
-                  onClick={() => send(q)}
-                  style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', padding: '8px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'all 0.2s' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.25)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)'; }}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Suggestion pills — initial or follow-up */}
+          {!loading && (() => {
+            const pills = messages.length <= 1 ? quickActions : getFollowUps();
+            if (pills.length === 0) return null;
+            return (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
+                {pills.map((q, i) => (
+                  <button
+                    key={`${messages.length}-${i}`}
+                    onClick={() => send(q)}
+                    style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', padding: '8px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'all 0.2s' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.25)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)'; }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
 
           <div ref={bottomRef} />
         </div>
