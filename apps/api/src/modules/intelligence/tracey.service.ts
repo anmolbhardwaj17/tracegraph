@@ -59,6 +59,7 @@ export class TraceyService {
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     const model = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001';
+    this.logger.log(`Tracey using key: ${apiKey ? apiKey.slice(0, 15) + '...' : 'NONE'}, model: ${model}`);
 
     if (!apiKey) {
       return this.fallbackResponse(question, context);
@@ -76,7 +77,7 @@ export class TraceyService {
     try {
       const res = await axios.post(
         'https://openrouter.ai/api/v1/chat/completions',
-        { model, messages, temperature: 0.4, max_tokens: 800 },
+        { model, messages, temperature: 0.4, max_tokens: 500 },
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -136,30 +137,24 @@ export class TraceyService {
     lines.push(`\nNETWORK: ${companies.length} companies, ${people.length} people, ${addresses.length} addresses`);
     const subsidiaries = companies.filter((c) => (c.metadata as any)?.isSubsidiary);
     if (subsidiaries.length > 0) {
-      lines.push(`SUBSIDIARIES (${subsidiaries.length}):`);
-      subsidiaries.slice(0, 20).forEach((s) => {
+      lines.push(`SUBSIDIARIES (${subsidiaries.length}): ${subsidiaries.slice(0, 8).map((s) => {
         const sm = s.metadata as any;
-        lines.push(`  - ${s.label}${sm?.jurisdiction ? ` (${sm.jurisdiction})` : ''}${sm?.ownershipPct ? ` — ${sm.ownershipPct}` : ''}`);
-      });
-      if (subsidiaries.length > 20) lines.push(`  - ...and ${subsidiaries.length - 20} more`);
+        return `${s.label}${sm?.jurisdiction ? ' ('+sm.jurisdiction+')' : ''}`;
+      }).join(', ')}${subsidiaries.length > 8 ? ` ...+${subsidiaries.length - 8} more` : ''}`);
       sources.push('Wikidata / SEC 10-K');
     }
 
     // Addresses / Locations
     if (addresses.length > 0) {
-      lines.push(`\nLOCATIONS (${addresses.length}):`);
-      addresses.forEach((a) => {
+      lines.push(`LOCATIONS (${addresses.length}): ${addresses.slice(0, 5).map((a) => {
         const am = a.metadata as any;
-        const addr = am?.raw?.address || a.label;
-        const geo = am?.geo;
-        const type = am?.raw?.type || am?.enrichmentSource || '';
-        lines.push(`  - ${a.label}: ${addr}${type ? ` (${type})` : ''}${geo ? ` [lat:${geo.lat},lng:${geo.lng}]` : ''}`);
-      });
+        return `${a.label}: ${am?.raw?.address || 'unknown'}`;
+      }).join('; ')}`);
       sources.push('SEC EDGAR / Nominatim');
     }
 
-    // Key people
-    const keyPeople = people.slice(0, 15).map((p) => {
+    // Key people (compact)
+    const keyPeople = people.slice(0, 10).map((p) => {
       const m = p.metadata as any;
       const tags: string[] = [];
       if (m?.isPep) tags.push('PEP');
@@ -198,29 +193,18 @@ export class TraceyService {
       sources.push('Wayback Machine');
     }
 
-    // Findings (top 15)
+    // Findings (compact — title only, top 5)
     const findings = progress.findings || [];
     if (findings.length > 0) {
-      const topFindings = findings
-        .filter((f: any) => f.severity === 'CRITICAL' || f.severity === 'HIGH')
-        .slice(0, 10);
-      const otherCount = findings.length - topFindings.length;
-      lines.push(`\nTOP FINDINGS (${findings.length} total):`);
-      for (const f of topFindings) {
-        lines.push(`- [${f.severity}] ${f.title}`);
-        if (f.description) lines.push(`  ${f.description.slice(0, 150)}`);
-      }
-      if (otherCount > 0) lines.push(`- ...and ${otherCount} more findings (MEDIUM/LOW)`);
+      const top = findings.filter((f: any) => f.severity === 'CRITICAL' || f.severity === 'HIGH').slice(0, 5);
+      lines.push(`\nFINDINGS (${findings.length} total, ${top.length} critical/high): ${top.map((f: any) => `[${f.severity}] ${f.title}`).join('; ')}`);
     }
 
-    // Narrative
+    // Narrative (summary only)
     if (progress.narrative?.executiveSummary) {
-      lines.push(`\nAI NARRATIVE: ${progress.narrative.executiveSummary}`);
+      lines.push(`\nNARRATIVE: ${progress.narrative.executiveSummary.slice(0, 200)}`);
       if (progress.narrative.pepWarnings?.length > 0) {
-        lines.push(`PEP WARNINGS: ${progress.narrative.pepWarnings.join('; ')}`);
-      }
-      if (progress.narrative.recommendations?.length > 0) {
-        lines.push(`RECOMMENDATIONS: ${progress.narrative.recommendations.join('; ')}`);
+        lines.push(`PEP DETAIL: ${progress.narrative.pepWarnings.join('; ')}`);
       }
     }
 
