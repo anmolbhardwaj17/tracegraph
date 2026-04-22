@@ -221,11 +221,11 @@ export default function InvestigationLayout({ children }: { children: React.Reac
             <div className="absolute inset-0 flex items-center justify-center gap-[11px] pt-[1px]">
               <div className="w-[6px] h-[6px] rounded-full bg-[#d4ff00]" style={{
                 boxShadow: '0 0 8px rgba(212,255,0,0.9), 0 0 16px rgba(212,255,0,0.4)',
-                animation: 'blink 5s ease-in-out infinite',
+                animation: 'blink 2.5s ease-in-out infinite, orbLook 4s ease-in-out infinite',
               }} />
               <div className="w-[6px] h-[6px] rounded-full bg-[#d4ff00]" style={{
                 boxShadow: '0 0 8px rgba(212,255,0,0.9), 0 0 16px rgba(212,255,0,0.4)',
-                animation: 'blink 5s ease-in-out infinite 0.1s',
+                animation: 'blink 2.5s ease-in-out infinite 0.1s, orbLook 4s ease-in-out infinite 0.1s',
               }} />
             </div>
           </div>
@@ -237,8 +237,16 @@ export default function InvestigationLayout({ children }: { children: React.Reac
 
           <style jsx>{`
             @keyframes blink {
-              0%, 43%, 47%, 100% { transform: scaleY(1); }
-              45% { transform: scaleY(0.08); }
+              0%,38%,42%,75%,79%,100% { transform: scaleY(1); }
+              40% { transform: scaleY(0.1); }
+              77% { transform: scaleY(0.1); }
+            }
+            @keyframes orbLook {
+              0%,20% { transform: translateX(0); }
+              25%,40% { transform: translateX(2px); }
+              45%,60% { transform: translateX(-1.5px) translateY(0.5px); }
+              65%,80% { transform: translateX(1px) translateY(-0.5px); }
+              85%,100% { transform: translateX(0); }
             }
             @keyframes orbSpin {
               from { transform: rotate(0deg); }

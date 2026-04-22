@@ -169,9 +169,18 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
           {messages.map((msg, i) => (
             <div key={i}>
               {msg.role === 'assistant' ? (
-                <div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  {/* Tracey orb avatar with animated eyes */}
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', position: 'relative', flexShrink: 0, marginTop: 2, background: 'radial-gradient(circle at 38% 32%, rgba(210,255,40,0.45) 0%, rgba(100,160,0,0.15) 35%, #0c0e08 80%)', boxShadow: '0 0 12px rgba(200,255,0,0.1)' }}>
+                    <div style={{ position: 'absolute', top: 3, left: 6, width: 12, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', filter: 'blur(1px)' }} />
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 1 }}>
+                      <div className="tracey-eye" style={{ width: 4, height: 4, borderRadius: '50%', background: '#d4ff00', boxShadow: '0 0 5px rgba(212,255,0,0.8)' }} />
+                      <div className="tracey-eye" style={{ width: 4, height: 4, borderRadius: '50%', background: '#d4ff00', boxShadow: '0 0 5px rgba(212,255,0,0.8)', animationDelay: '0.1s' }} />
+                    </div>
+                  </div>
+                  <div style={{ flex: 1 }}>
                   {i === 0 && (
-                    <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.2em', color: 'rgba(212,255,0,0.35)', textTransform: 'uppercase', marginBottom: 16 }}>Tracey</p>
+                    <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.2em', color: 'rgba(212,255,0,0.35)', textTransform: 'uppercase', marginBottom: 8 }}>Tracey</p>
                   )}
                   <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'rgba(255,255,255,0.65)' }}>
                     {msg.content.split('\n').map((line, j) => (
@@ -185,6 +194,7 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
                   {msg.sources && msg.sources.length > 0 && (
                     <p style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.1)', marginTop: 12, letterSpacing: '0.05em' }}>{msg.sources.join(' · ')}</p>
                   )}
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -197,10 +207,16 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
           ))}
 
           {loading && (
-            <div style={{ display: 'flex', gap: 6, height: 24, alignItems: 'center' }}>
-              {[0, 1, 2].map((i) => (
-                <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(212,255,0,0.4)', animation: `traceyDot 1s ease-in-out ${i * 0.2}s infinite` }} />
-              ))}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              {/* Thinking orb — spins and pulses */}
+              <div className="tracey-thinking" style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', position: 'relative', flexShrink: 0, background: 'radial-gradient(circle at 38% 32%, rgba(210,255,40,0.45) 0%, rgba(100,160,0,0.15) 35%, #0c0e08 80%)', boxShadow: '0 0 20px rgba(200,255,0,0.2)' }}>
+                <div style={{ position: 'absolute', inset: 2, borderRadius: '50%', animation: 'traceyThinkSpin 1.5s linear infinite', background: 'conic-gradient(from 0deg, transparent 0%, rgba(212,255,0,0.2) 30%, transparent 60%)' }} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 1 }}>
+                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#d4ff00', boxShadow: '0 0 5px rgba(212,255,0,0.8)', animation: 'traceyThinkEyes 0.8s ease-in-out infinite' }} />
+                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#d4ff00', boxShadow: '0 0 5px rgba(212,255,0,0.8)', animation: 'traceyThinkEyes 0.8s ease-in-out infinite 0.1s' }} />
+                </div>
+              </div>
+              <span style={{ fontSize: 12, color: 'rgba(212,255,0,0.3)', fontStyle: 'italic' }}>thinking...</span>
             </div>
           )}
 
@@ -254,7 +270,38 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
         </form>
       </div>
 
-      <style>{`@keyframes traceyDot { 0%,100% { opacity:0.3; transform:scale(0.8); } 50% { opacity:1; transform:scale(1.2); } }`}</style>
+      <style>{`
+        .tracey-eye {
+          animation: traceyBlink 2.5s ease-in-out infinite, traceyLook 4s ease-in-out infinite;
+        }
+        @keyframes traceyBlink {
+          0%,38%,42%,75%,79%,100% { transform: scaleY(1); }
+          40% { transform: scaleY(0.1); }
+          77% { transform: scaleY(0.1); }
+        }
+        @keyframes traceyLook {
+          0%,20% { transform: translateX(0); }
+          25%,40% { transform: translateX(1.5px); }
+          45%,60% { transform: translateX(-1px) translateY(0.5px); }
+          65%,80% { transform: translateX(0.5px) translateY(-0.5px); }
+          85%,100% { transform: translateX(0); }
+        }
+        @keyframes traceyThinkSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes traceyThinkEyes {
+          0%,100% { opacity: 0.4; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.1); }
+        }
+        .tracey-thinking {
+          animation: traceyPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes traceyPulse {
+          0%,100% { box-shadow: 0 0 12px rgba(200,255,0,0.15); }
+          50% { box-shadow: 0 0 25px rgba(200,255,0,0.3); }
+        }
+      `}</style>
     </div>
   );
 
