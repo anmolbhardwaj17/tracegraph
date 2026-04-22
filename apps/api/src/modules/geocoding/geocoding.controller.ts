@@ -1,6 +1,8 @@
+import { Public } from '../auth/guards/jwt-auth.guard';
 import { Controller, Get, Query } from '@nestjs/common';
 import { GeocodingService } from './geocoding.service';
 
+@Public()
 @Controller('geocoding')
 export class GeocodingController {
   constructor(private readonly geocoding: GeocodingService) {}

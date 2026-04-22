@@ -1,3 +1,4 @@
+import { Public } from '../auth/guards/jwt-auth.guard';
 import { Controller, Get } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,6 +7,7 @@ import { OffshoreEntity } from '../offshore-leaks/entities/offshore-entity.entit
 import { OffshoreOfficer } from '../offshore-leaks/entities/offshore-officer.entity';
 import { OffshoreIntermediary } from '../offshore-leaks/entities/offshore-intermediary.entity';
 
+@Public()
 @Controller('datasets')
 export class DatasetsController {
   constructor(

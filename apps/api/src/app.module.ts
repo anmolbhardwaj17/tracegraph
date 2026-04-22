@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, Reflector } from '@nestjs/core';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { dataSourceOptions } from './data-source';
 import { CompaniesHouseModule } from './modules/companies-house/companies-house.module';
 import { InvestigationModule } from './modules/investigation/investigation.module';
@@ -56,6 +57,7 @@ import { CircuitBreakerService } from './common/resilience/circuit-breaker.servi
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
     EnrichmentCacheService,
     ApiRateLimiterService,
     CircuitBreakerService,

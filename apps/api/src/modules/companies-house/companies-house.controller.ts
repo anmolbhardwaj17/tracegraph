@@ -1,6 +1,8 @@
+import { Public } from '../auth/guards/jwt-auth.guard';
 import { Controller, Get, Query } from '@nestjs/common';
 import { CompaniesHouseService } from './companies-house.service';
 
+@Public()
 @Controller('companies-house')
 export class CompaniesHouseController {
   constructor(private readonly ch: CompaniesHouseService) {}

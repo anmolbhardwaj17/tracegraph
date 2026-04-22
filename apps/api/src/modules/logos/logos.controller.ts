@@ -1,6 +1,8 @@
+import { Public } from '../auth/guards/jwt-auth.guard';
 import { Controller, Get, Query } from '@nestjs/common';
 import { LogosService } from './logos.service';
 
+@Public()
 @Controller('companies')
 export class LogosController {
   constructor(private readonly logos: LogosService) {}

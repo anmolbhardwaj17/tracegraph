@@ -1,6 +1,8 @@
+import { Public } from '../auth/guards/jwt-auth.guard';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { InsightsService, InsightTopic } from './insights.service';
 
+@Public()
 @Controller('investigations')
 export class InsightsController {
   constructor(private readonly insights: InsightsService) {}

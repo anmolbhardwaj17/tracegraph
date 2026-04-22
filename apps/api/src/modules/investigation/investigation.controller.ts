@@ -1,8 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Post, Query, Res, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { InvestigationService } from './investigation.service';
 import { CreateInvestigationDto } from './dto/create-investigation.dto';
 import { ReportService } from '../report/report.service';
+import { Public } from '../auth/guards/jwt-auth.guard';
+import { AuthService } from '../auth/auth.service';
 
 @ApiTags('Investigations')
 @Controller('investigations')
@@ -10,15 +12,29 @@ export class InvestigationController {
   constructor(
     private readonly service: InvestigationService,
     private readonly reports: ReportService,
+    private readonly auth: AuthService,
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateInvestigationDto) {
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create investigation (requires auth)' })
+  async create(@Body() dto: CreateInvestigationDto, @Req() req: any) {
+    // Check usage limits
+    const userId = req.user?.id;
+    if (userId) {
+      const usage = await this.auth.canInvestigate(userId);
+      if (!usage.allowed) {
+        return { error: 'Investigation limit reached', remaining: 0, limit: usage.limit, upgrade: true };
+      }
+      await this.auth.incrementUsage(userId);
+      await this.auth.audit(userId, 'CREATE_INVESTIGATION', 'investigation', null as any, { query: dto.query, jurisdiction: dto.jurisdiction, tier: dto.tier });
+    }
     const inv = await this.service.create(dto.query, dto.tier || 'STANDARD', dto.jurisdiction || 'gb');
     return { id: inv.id, status: inv.status, tier: inv.tier };
   }
 
   @Get()
+  @Public()
   async list(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -40,6 +56,7 @@ export class InvestigationController {
   }
 
   @Get('stats')
+  @Public()
   async stats() {
     return this.service.stats();
   }
@@ -50,56 +67,67 @@ export class InvestigationController {
   }
 
   @Get(':id')
+  @Public()
   async get(@Param('id') id: string) {
     return this.service.findOne(id);
   }
 
   @Get(':id/meta')
+  @Public()
   async meta(@Param('id') id: string) {
     return this.service.getMeta(id);
   }
 
   @Get(':id/overview')
+  @Public()
   async overview(@Param('id') id: string) {
     return this.service.getOverview(id);
   }
 
   @Get(':id/graph')
+  @Public()
   async graph(@Param('id') id: string) {
     return this.service.graphFor(id);
   }
 
   @Get(':id/findings')
+  @Public()
   async findings(@Param('id') id: string) {
     return this.service.getFindings(id);
   }
 
   @Get(':id/entities')
+  @Public()
   async entities(@Param('id') id: string, @Query('type') type?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
     return this.service.getEntities(id, type, parseInt(page || '1', 10), Math.min(parseInt(limit || '50', 10), 200));
   }
 
   @Get(':id/matches')
+  @Public()
   async matches(@Param('id') id: string) {
     return this.service.getMatches(id);
   }
 
   @Get(':id/ubo')
+  @Public()
   async ubo(@Param('id') id: string) {
     return this.service.getUbo(id);
   }
 
   @Get(':id/locations')
+  @Public()
   async locations(@Param('id') id: string) {
     return this.service.getLocations(id);
   }
 
   @Get(':id/timeline')
+  @Public()
   async timeline(@Param('id') id: string, @Query('page') page?: string, @Query('limit') limit?: string, @Query('fullHistory') fullHistory?: string) {
     return this.service.getTimeline(id, parseInt(page || '1', 10), Math.min(parseInt(limit || '200', 10), 500), fullHistory === 'true');
   }
 
   @Get('benchmarks/current')
+  @Public()
   async benchmarks() {
     return this.service.getBenchmarks();
   }

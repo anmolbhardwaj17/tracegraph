@@ -1,3 +1,4 @@
+import { Public } from '../auth/guards/jwt-auth.guard';
 import { Controller, Get, Query } from '@nestjs/common';
 import { getAllJurisdictions, getJurisdictionChoices, getJurisdiction } from './jurisdiction.registry';
 import { OpenCorporatesProvider } from './providers/opencorporates.provider';
@@ -8,6 +9,7 @@ import { FranceSireneProvider } from './providers/france-sirene.provider';
 import { GermanyNorthdataProvider } from './providers/germany-northdata.provider';
 import { CompanySearchResult } from './data-provider.interface';
 
+@Public()
 @Controller('jurisdictions')
 export class JurisdictionsController {
   private readonly oc = new OpenCorporatesProvider();
