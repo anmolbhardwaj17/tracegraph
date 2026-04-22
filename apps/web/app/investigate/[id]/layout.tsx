@@ -180,24 +180,19 @@ export default function InvestigationLayout({ children }: { children: React.Reac
         </div>
       </header>
 
-      {/* Content + Tracey sidebar flex layout */}
-      <div className="flex min-h-[calc(100vh-140px)]">
-        {/* Main content — shrinks when Tracey is open */}
-        <div className={`flex-1 min-w-0 transition-all duration-300`}>
-          <div className={`mx-auto px-8 py-6 ${traceyOpen ? 'max-w-5xl' : 'max-w-7xl'}`}>
-            {children}
-          </div>
+      {/* Main content — right padding when Tracey is open */}
+      <div className={`transition-all duration-300 ${traceyOpen ? 'mr-[400px]' : ''}`}>
+        <div className="max-w-7xl mx-auto px-8 py-6">
+          {children}
         </div>
-
-        {/* Tracey sidebar — fixed right panel */}
-        {meta?.status === 'COMPLETE' && traceyOpen && (
-          <div className="w-[400px] shrink-0 border-l border-white/5 bg-ink-900/95 backdrop-blur-sm">
-            <div className="sticky top-0 h-screen flex flex-col">
-              <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Tracey sidebar — position fixed so no scroll jump */}
+      {meta?.status === 'COMPLETE' && traceyOpen && (
+        <div className="fixed top-0 right-0 w-[400px] h-screen z-40 border-l border-white/10">
+          <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
+        </div>
+      )}
 
       {/* Glowing orb — bottom right when Tracey is closed */}
       {meta?.status === 'COMPLETE' && !traceyOpen && (

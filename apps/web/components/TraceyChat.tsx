@@ -79,78 +79,99 @@ export function TraceyChat({ investigationId, companyName, embedded, onClose }: 
     'What should I do next?',
   ];
 
-  // Embedded mode — render as sidebar content
+  // Embedded mode — full sidebar panel with gradient
   if (embedded) {
     return (
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-ink-850 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <div className="text-sm font-medium text-ink-50">Tracey</div>
-              <div className="text-[10px] font-mono text-ink-500">Corporate Intelligence Consultant</div>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-ink-500 hover:text-ink-50 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="flex flex-col h-full relative overflow-hidden bg-[#0a0a0f]">
+        {/* Gradient glow — top center */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[300px] rounded-full bg-blue-600/20 blur-[100px] pointer-events-none" />
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[200px] h-[200px] rounded-full bg-violet-500/15 blur-[80px] pointer-events-none" />
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+        {/* Close button — minimal */}
+        <button onClick={onClose} className="absolute top-3 right-3 z-10 text-white/20 hover:text-white/60 transition-colors">
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Messages area */}
+        <div className="flex-1 overflow-y-auto px-5 pt-8 pb-4 space-y-5 relative z-[1]">
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
+              {/* Tracey avatar — only on assistant messages */}
+              {msg.role === 'assistant' && i === 0 && (
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0 mt-1">
+                  <Sparkles className="w-3.5 h-3.5 text-white" />
+                </div>
+              )}
+              {msg.role === 'assistant' && i > 0 && <div className="w-7 shrink-0" />}
+
+              <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-ink-700 text-ink-50'
-                  : 'bg-ink-850 text-ink-200 border border-white/5'
+                  ? 'bg-white/10 text-white/90'
+                  : 'text-white/80'
               }`}>
                 {msg.content.split('\n').map((line, j) => (
                   <p key={j} className={j > 0 ? 'mt-2' : ''}>
                     {line.split('**').map((part, k) =>
-                      k % 2 === 1 ? <strong key={k} className="text-ink-50">{part}</strong> : part
+                      k % 2 === 1 ? <strong key={k} className="text-white font-semibold">{part}</strong> : part
                     )}
                   </p>
                 ))}
                 {msg.sources && msg.sources.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-white/5">
-                    <span className="text-[9px] font-mono text-ink-600">Sources: {msg.sources.join(' · ')}</span>
+                    <span className="text-[9px] font-mono text-white/25">Sources: {msg.sources.join(' · ')}</span>
                   </div>
                 )}
               </div>
             </div>
           ))}
+
           {loading && (
-            <div className="flex justify-start">
-              <div className="bg-ink-850 border border-white/5 rounded-lg px-4 py-3">
-                <div className="flex gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-ink-500 animate-pulse" />
-                  <div className="w-2 h-2 rounded-full bg-ink-500 animate-pulse" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-ink-500 animate-pulse" style={{ animationDelay: '300ms' }} />
-                </div>
+            <div className="flex gap-2">
+              <div className="w-7 shrink-0" />
+              <div className="flex gap-1.5 px-4 py-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/60 animate-pulse" />
+                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '150ms' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           )}
+
+          {/* Quick actions — clean pills */}
           {messages.length <= 1 && !loading && (
-            <div className="space-y-1.5">
+            <div className="flex flex-wrap gap-2 pl-9">
               {quickActions.map((q, i) => (
-                <button key={i} onClick={() => { setInput(q); }} className="block w-full text-left text-xs text-ink-400 hover:text-ink-50 hover:bg-ink-800 px-3 py-2 rounded-sm transition-colors border border-white/5">{q}</button>
+                <button
+                  key={i}
+                  onClick={() => setInput(q)}
+                  className="text-[11px] text-white/40 hover:text-white/80 px-3 py-1.5 rounded-full border border-white/8 hover:border-white/20 hover:bg-white/5 transition-all"
+                >
+                  {q}
+                </button>
               ))}
             </div>
           )}
+
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
-        <div className="px-4 py-3 border-t border-white/5 bg-ink-850 shrink-0">
+        {/* Input — bottom, glass effect */}
+        <div className="px-4 py-4 relative z-[1]">
           <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2">
-            <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask Tracey..." disabled={loading}
-              className="flex-1 px-3 py-2 bg-ink-900 border border-white/10 rounded-sm text-sm text-ink-50 placeholder:text-ink-600 focus:outline-none focus:border-white/20 disabled:opacity-50" />
-            <button type="submit" disabled={loading || !input.trim()} className="px-3 py-2 bg-ink-50 text-ink-900 rounded-sm hover:bg-white transition-colors disabled:opacity-30">
-              <Send className="w-4 h-4" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask Tracey..."
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 bg-white/5 border border-white/8 rounded-full text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/15 disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-30 shrink-0"
+            >
+              <Send className="w-4 h-4 text-white" />
             </button>
           </form>
         </div>
