@@ -128,13 +128,33 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* ROW 2: AI Risk Narrative (if available) */}
+      {/* ROW 2: Tracey's Risk Narrative */}
       {data.narrative && (
-        <div className="border border-white/5 bg-ink-850 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ AI Risk Narrative</div>
-            <div className="text-[10px] font-mono text-ink-600">Generated {data.narrative.generatedAt ? new Date(data.narrative.generatedAt).toLocaleDateString() : ''}</div>
+        <div className="border border-white/5 bg-ink-850 p-6 relative overflow-hidden">
+          {/* Subtle lime glow in top-left corner */}
+          <div className="absolute -top-20 -left-20 w-40 h-40 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,255,0,0.06) 0%, transparent 70%)' }} />
+
+          <div className="flex items-center justify-between mb-5 relative">
+            <div className="flex items-center gap-3">
+              {/* Tracey orb — mini version with blinking eyes */}
+              <div className="relative w-8 h-8 rounded-full shrink-0 overflow-hidden" style={{
+                background: 'radial-gradient(circle at 35% 30%, rgba(210,255,40,0.45) 0%, rgba(100,160,0,0.15) 35%, #0c0e08 80%)',
+                boxShadow: '0 0 15px rgba(200,255,0,0.12)',
+              }}>
+                <div className="absolute top-[3px] left-[6px] w-[10px] h-[4px] rounded-full bg-white/15 blur-[1px]" />
+                <div className="absolute inset-0 flex items-center justify-center gap-[5px] pt-[1px]">
+                  <div className="w-[3px] h-[3px] rounded-full" style={{ background: '#d4ff00', boxShadow: '0 0 4px rgba(212,255,0,0.8)', animation: 'traceyBlink 5s ease-in-out infinite' }} />
+                  <div className="w-[3px] h-[3px] rounded-full" style={{ background: '#d4ff00', boxShadow: '0 0 4px rgba(212,255,0,0.8)', animation: 'traceyBlink 5s ease-in-out infinite 0.1s' }} />
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-medium tracking-[0.15em] uppercase" style={{ color: 'rgba(212,255,0,0.4)' }}>Tracey&apos;s Analysis</div>
+              </div>
+            </div>
+            <div className="text-[10px] font-mono text-ink-600">{data.narrative.generatedAt ? new Date(data.narrative.generatedAt).toLocaleDateString() : ''}</div>
           </div>
+
+          <style>{`@keyframes traceyBlink { 0%,43%,47%,100% { transform: scaleY(1); } 45% { transform: scaleY(0.1); } }`}</style>
 
           {/* Executive Summary */}
           <p className="text-sm text-ink-200 leading-relaxed mb-5">{data.narrative.executiveSummary}</p>
