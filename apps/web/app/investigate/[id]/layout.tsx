@@ -181,34 +181,41 @@ export default function InvestigationLayout({ children }: { children: React.Reac
       </header>
 
       {/* Content + Tracey sidebar flex layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-[calc(100vh-140px)]">
         {/* Main content — shrinks when Tracey is open */}
-        <div className={`flex-1 overflow-y-auto transition-all duration-300 ${traceyOpen ? 'max-w-[calc(100%-400px)]' : ''}`}>
-          <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className={`flex-1 min-w-0 transition-all duration-300`}>
+          <div className={`mx-auto px-8 py-6 ${traceyOpen ? 'max-w-5xl' : 'max-w-7xl'}`}>
             {children}
           </div>
         </div>
 
-        {/* Tracey sidebar — slides in from right */}
+        {/* Tracey sidebar — fixed right panel */}
         {meta?.status === 'COMPLETE' && traceyOpen && (
-          <div className="w-[400px] shrink-0 border-l border-white/5 bg-ink-900 flex flex-col h-[calc(100vh-140px)] sticky top-[140px]">
-            <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
+          <div className="w-[400px] shrink-0 border-l border-white/5 bg-ink-900/95 backdrop-blur-sm">
+            <div className="sticky top-[140px] h-[calc(100vh-140px)] flex flex-col">
+              <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
+            </div>
           </div>
         )}
       </div>
 
-      {/* Tracey toggle button — show when closed */}
+      {/* Glowing orb — bottom right when Tracey is closed */}
       {meta?.status === 'COMPLETE' && !traceyOpen && (
         <button
           onClick={() => setTraceyOpen(true)}
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-ink-800 hover:bg-ink-700 border border-white/10 border-r-0 rounded-l-lg px-2 py-4 transition-colors group"
+          className="fixed bottom-8 right-8 z-50 group"
         >
-          <div className="flex flex-col items-center gap-2">
-            <Sparkles className="w-4 h-4 text-ink-300 group-hover:text-ink-50" />
-            <span className="text-[9px] font-mono text-ink-500 group-hover:text-ink-300 writing-vertical" style={{ writingMode: 'vertical-rl' }}>
-              Ask Tracey
-            </span>
+          {/* Outer glow rings */}
+          <div className="absolute inset-0 w-14 h-14 rounded-full bg-violet-500/20 animate-ping" style={{ animationDuration: '3s' }} />
+          <div className="absolute -inset-1 w-16 h-16 rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-md animate-pulse" style={{ animationDuration: '2s' }} />
+          {/* Orb */}
+          <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-lg shadow-violet-500/30 flex items-center justify-center transition-transform group-hover:scale-110">
+            <Sparkles className="w-5 h-5 text-white" />
           </div>
+          {/* Label on hover */}
+          <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-ink-800 text-ink-200 text-[10px] font-mono px-3 py-1.5 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+            Ask Tracey AI
+          </span>
         </button>
       )}
     </main>
