@@ -22,6 +22,7 @@ import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { BatchModule } from './modules/batch/batch.module';
 import { IndiaModule } from './modules/india/india.module';
 import { IntelligenceModule } from './modules/intelligence/intelligence.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { RedisModule } from './common/redis/redis.module';
 import { EnrichmentCacheService } from './common/cache/enrichment-cache.service';
 import { ApiRateLimiterService } from './common/rate-limiter/api-rate-limiter.service';
@@ -51,6 +52,7 @@ import { CircuitBreakerService } from './common/resilience/circuit-breaker.servi
     BatchModule,
     IndiaModule,
     IntelligenceModule,
+    AuthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

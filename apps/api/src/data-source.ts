@@ -23,6 +23,8 @@ import { ApiKey } from './modules/api-keys/entities/api-key.entity';
 import { BatchScreen } from './modules/batch/entities/batch-screen.entity';
 import { WatchlistAlert } from './modules/watchlist/entities/watchlist-alert.entity';
 import { IndiaCompany } from './modules/india/india-company.entity';
+import { User } from './modules/auth/entities/user.entity';
+import { AuditLog } from './modules/auth/entities/audit-log.entity';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -31,7 +33,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.POSTGRES_USER || 'tracegraph',
   password: process.env.POSTGRES_PASSWORD || 'tracegraph',
   database: process.env.POSTGRES_DB || 'tracegraph',
-  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache, WatchlistItem, WatchlistAlert, ApiKey, BatchScreen, IndiaCompany],
+  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache, WatchlistItem, WatchlistAlert, ApiKey, BatchScreen, IndiaCompany, User, AuditLog],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,
