@@ -79,71 +79,75 @@ export function TraceyChat({ investigationId, companyName, embedded, onClose }: 
     'What should I do next?',
   ];
 
-  // Embedded mode — full sidebar panel with gradient
+  // Embedded mode — modern AI panel
   if (embedded) {
     return (
-      <div className="flex flex-col h-full relative overflow-hidden bg-[#0a0a0f]">
-        {/* Gradient glow — top center */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[300px] rounded-full bg-blue-600/20 blur-[100px] pointer-events-none" />
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[200px] h-[200px] rounded-full bg-violet-500/15 blur-[80px] pointer-events-none" />
+      <div className="flex flex-col h-full relative overflow-hidden" style={{ background: '#06060a' }}>
+        {/* Large bottom-center glow — like the reference */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[30%] w-[500px] h-[500px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(56,100,220,0.35) 0%, rgba(56,100,220,0.12) 35%, rgba(100,60,180,0.06) 55%, transparent 70%)' }} />
+        {/* Secondary warm glow */}
+        <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 w-[250px] h-[250px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(180,140,255,0.15) 0%, transparent 70%)' }} />
+        {/* Top subtle fade */}
+        <div className="absolute top-0 left-0 right-0 h-32 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(6,6,10,0.8), transparent)' }} />
 
-        {/* Close button — minimal */}
-        <button onClick={onClose} className="absolute top-3 right-3 z-10 text-white/20 hover:text-white/60 transition-colors">
-          <X className="w-4 h-4" />
+        {/* Close — top right, very subtle */}
+        <button onClick={onClose} className="absolute top-4 right-4 z-10 w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
+          <X className="w-3.5 h-3.5 text-white/30 hover:text-white/70" />
         </button>
 
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto px-5 pt-8 pb-4 space-y-5 relative z-[1]">
+        {/* Chat content */}
+        <div className="flex-1 overflow-y-auto px-6 pt-6 pb-4 space-y-6 relative z-[1]">
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-              {/* Tracey avatar — only on assistant messages */}
-              {msg.role === 'assistant' && i === 0 && (
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0 mt-1">
-                  <Sparkles className="w-3.5 h-3.5 text-white" />
+            <div key={i}>
+              {msg.role === 'assistant' ? (
+                <div className="space-y-1">
+                  {i === 0 && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 via-violet-500 to-fuchsia-500 flex items-center justify-center">
+                        <Sparkles className="w-3 h-3 text-white" />
+                      </div>
+                      <span className="text-[11px] text-white/30 font-medium tracking-wide">TRACEY</span>
+                    </div>
+                  )}
+                  <div className="text-[13.5px] leading-[1.7] text-white/70 pl-0">
+                    {msg.content.split('\n').map((line, j) => (
+                      <p key={j} className={j > 0 ? 'mt-3' : ''}>
+                        {line.split('**').map((part, k) =>
+                          k % 2 === 1 ? <span key={k} className="text-white/95 font-medium">{part}</span> : part
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                  {msg.sources && msg.sources.length > 0 && (
+                    <p className="text-[9px] font-mono text-white/15 mt-3">{msg.sources.join(' · ')}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <div className="max-w-[80%] text-[13.5px] leading-[1.7] text-white/90 bg-white/[0.07] backdrop-blur-sm rounded-2xl px-4 py-2.5">
+                    {msg.content}
+                  </div>
                 </div>
               )}
-              {msg.role === 'assistant' && i > 0 && <div className="w-7 shrink-0" />}
-
-              <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-white/10 text-white/90'
-                  : 'text-white/80'
-              }`}>
-                {msg.content.split('\n').map((line, j) => (
-                  <p key={j} className={j > 0 ? 'mt-2' : ''}>
-                    {line.split('**').map((part, k) =>
-                      k % 2 === 1 ? <strong key={k} className="text-white font-semibold">{part}</strong> : part
-                    )}
-                  </p>
-                ))}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-white/5">
-                    <span className="text-[9px] font-mono text-white/25">Sources: {msg.sources.join(' · ')}</span>
-                  </div>
-                )}
-              </div>
             </div>
           ))}
 
           {loading && (
-            <div className="flex gap-2">
-              <div className="w-7 shrink-0" />
-              <div className="flex gap-1.5 px-4 py-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/60 animate-pulse" />
-                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '150ms' }} />
-                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/60 animate-pulse" style={{ animationDelay: '300ms' }} />
-              </div>
+            <div className="flex items-center gap-1.5 h-6">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-400/50 animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
+              ))}
             </div>
           )}
 
-          {/* Quick actions — clean pills */}
+          {/* Quick actions */}
           {messages.length <= 1 && !loading && (
-            <div className="flex flex-wrap gap-2 pl-9">
+            <div className="flex flex-wrap gap-2 pt-2">
               {quickActions.map((q, i) => (
                 <button
                   key={i}
                   onClick={() => setInput(q)}
-                  className="text-[11px] text-white/40 hover:text-white/80 px-3 py-1.5 rounded-full border border-white/8 hover:border-white/20 hover:bg-white/5 transition-all"
+                  className="text-[11px] text-white/30 hover:text-white/70 px-3.5 py-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.04] hover:border-white/[0.08] transition-all duration-200"
                 >
                   {q}
                 </button>
@@ -154,24 +158,24 @@ export function TraceyChat({ investigationId, companyName, embedded, onClose }: 
           <div ref={bottomRef} />
         </div>
 
-        {/* Input — bottom, glass effect */}
-        <div className="px-4 py-4 relative z-[1]">
-          <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2">
+        {/* Input bar — glass, bottom */}
+        <div className="px-5 pb-5 pt-2 relative z-[1]">
+          <form onSubmit={(e) => { e.preventDefault(); send(); }} className="relative">
             <input
               ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Tracey..."
+              placeholder="Ask anything about this investigation..."
               disabled={loading}
-              className="flex-1 px-4 py-2.5 bg-white/5 border border-white/8 rounded-full text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/15 disabled:opacity-50"
+              className="w-full pl-4 pr-12 py-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl text-[13px] text-white/90 placeholder:text-white/20 focus:outline-none focus:border-white/[0.12] focus:bg-white/[0.06] disabled:opacity-40 transition-all"
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-30 shrink-0"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center disabled:opacity-20 hover:opacity-90 transition-opacity"
             >
-              <Send className="w-4 h-4 text-white" />
+              <Send className="w-3.5 h-3.5 text-white" />
             </button>
           </form>
         </div>
