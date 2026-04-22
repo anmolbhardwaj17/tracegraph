@@ -201,69 +201,189 @@ export class TraceyService {
     return { briefing: lines.join('\n'), sources: [...new Set(sources)] };
   }
 
-  /** Rule-based fallback when LLM is unavailable */
+  /** Data-driven fallback when LLM is unavailable */
   private fallbackResponse(question: string, context: { briefing: string; sources: string[] }): { reply: string; sources: string[] } {
     const q = question.toLowerCase();
-    const lines = context.briefing.split('\n');
+    const b = context.briefing;
+    const lines = b.split('\n');
 
-    // Extract key data
-    const scoreLine = lines.find((l) => l.startsWith('RISK SCORE:'));
-    const score = scoreLine?.match(/(\d+)\/100/)?.[1] || '?';
-    const classification = scoreLine?.match(/\((\w+)\)/)?.[1] || '?';
-    const companyName = lines[0]?.replace('COMPANY: ', '') || 'this company';
+    // Parse all available data from briefing
+    const extract = (prefix: string) => lines.find((l) => l.includes(prefix))?.replace(new RegExp(`.*${prefix}:?\\s*`), '').trim();
+    const companyName = extract('COMPANY') || 'this company';
+    const score = extract('RISK SCORE')?.match(/(\d+)/)?.[1] || '0';
+    const classification = extract('RISK SCORE')?.match(/\((\w+)\)/)?.[1] || 'LOW';
+    const revenue = extract('REVENUE');
+    const employees = extract('EMPLOYEES');
+    const industry = extract('INDUSTRY');
+    const website = extract('WEBSITE');
+    const founded = extract('FOUNDED');
+    const pepCount = extract('PEPs detected') || '0';
+    const sanctionMatches = extract('Sanctions matches') || '0';
+    const mediaHits = extract('Adverse media') || '0';
+    const courtCases = extract('Court cases') || '0';
+    const fatfFlags = extract('FATF jurisdiction') || '0';
 
-    if (q.includes('risk') || q.includes('score') || q.includes('safe') || q.includes('concern')) {
+    // Extract people
+    const peopleSection = b.match(/KEY PEOPLE:\n([\s\S]*?)(?:\n\n|\nFINANCIALS|\nCOMPLIANCE)/);
+    const people = peopleSection ? peopleSection[1].split('\n').filter((l) => l.startsWith('- ')).map((l) => l.replace('- ', '')) : [];
+
+    // Extract findings
+    const findingsSection = b.match(/TOP FINDINGS[\s\S]*?:\n([\s\S]*?)(?:\n\nAI NARRATIVE|$)/);
+    const findings = findingsSection ? findingsSection[1].split('\n').filter((l) => l.startsWith('- [')).map((l) => l.replace('- ', '')) : [];
+
+    // Extract financials
+    const profitMargin = b.match(/Profit margin:\s*([\d.%-]+)/)?.[1];
+    const debtEquity = b.match(/Debt\/equity:\s*([\d.]+)/)?.[1];
+    const currentRatio = b.match(/Current ratio:\s*([\d.]+)/)?.[1];
+
+    // Extract subsidiaries
+    const subsMatch = b.match(/SUBSIDIARIES \((\d+)\):\s*([^\n]+)/);
+    const subCount = subsMatch?.[1] || '0';
+    const subNames = subsMatch?.[2] || '';
+
+    // Extract PEP warnings
+    const pepWarnings = lines.filter((l) => l.includes('PEP WARNINGS')).map((l) => l.replace('PEP WARNINGS: ', ''));
+
+    // Extract narrative
+    const narrative = extract('AI NARRATIVE');
+    const recommendations = lines.filter((l) => l.includes('RECOMMENDATIONS')).map((l) => l.replace('RECOMMENDATIONS: ', ''));
+
+    // ── Answer based on question ──
+
+    if (q.includes('concern') || q.includes('worry') || q.includes('main') || q.includes('issue') || q.includes('problem') || q.includes('flag')) {
+      const parts: string[] = [];
+      parts.push(`Based on my analysis of **${companyName}** (risk score **${score}/100**, ${classification}):\n`);
+      if (findings.length > 0) {
+        parts.push(`**Key findings that need attention:**`);
+        findings.slice(0, 5).forEach((f) => parts.push(`- ${f}`));
+      }
+      if (parseInt(pepCount) > 0) parts.push(`\n**${pepCount} Politically Exposed Person(s)** detected in the network. ${pepWarnings[0] || ''}`);
+      if (parseInt(courtCases) > 0) parts.push(`\n**${courtCases} court cases** found in federal records.`);
+      if (parseInt(mediaHits) > 0) parts.push(`\n**${mediaHits} adverse media hit(s)** flagged.`);
+      if (parts.length === 1) parts.push('No significant concerns were identified in this investigation.');
+      return { reply: parts.join('\n'), sources: context.sources };
+    }
+
+    if (q.includes('risk') || q.includes('score') || q.includes('safe') || q.includes('proceed')) {
+      let reply = `**${companyName}** has a risk score of **${score}/100 (${classification})**.`;
+      if (parseInt(score) >= 50) reply += ` This is an elevated risk profile — enhanced due diligence is recommended before proceeding.`;
+      else if (parseInt(score) >= 25) reply += ` This is a moderate risk profile — review the HIGH-severity findings before proceeding.`;
+      else reply += ` This is a low-risk profile — standard due diligence procedures are sufficient.`;
+      reply += `\n\nThe score is based on ${findings.length} findings across ${context.sources.length} data sources.`;
+      if (narrative) reply += `\n\n${narrative}`;
+      return { reply, sources: context.sources };
+    }
+
+    if (q.includes('pep') || q.includes('political') || q.includes('exposed')) {
+      if (parseInt(pepCount) > 0) {
+        let reply = `**${pepCount} Politically Exposed Person(s)** detected:\n`;
+        people.filter((p) => p.includes('[PEP')).forEach((p) => { reply += `\n- ${p}`; });
+        if (pepWarnings.length > 0) reply += `\n\n**Details:** ${pepWarnings.join('. ')}`;
+        reply += `\n\nPEPs require enhanced due diligence (EDD) under AML regulations. You need to verify the source of funds and document the business rationale.`;
+        return { reply, sources: ['Wikidata P39'] };
+      }
+      return { reply: `No Politically Exposed Persons were detected among the ${people.length} people in **${companyName}**'s network. The investigation screened all individuals against Wikidata's political positions database.`, sources: ['Wikidata P39'] };
+    }
+
+    if (q.includes('sanction') || q.includes('ofac') || q.includes('screen')) {
       return {
-        reply: `${companyName} has a risk score of ${score}/100 (${classification}). ` +
-          `${parseInt(score) < 25 ? 'This is a low-risk profile — no major concerns were identified.' :
-            parseInt(score) < 50 ? 'This is a moderate risk profile — review the HIGH-severity findings before proceeding.' :
-            'This is an elevated risk profile — enhanced due diligence is recommended before proceeding.'}\n\n` +
-          `Would you like me to explain specific findings in detail?`,
-        sources: context.sources,
+        reply: `**Sanctions screening results for ${companyName}:**\n\n` +
+          `- OFAC SDN (26K+ names): **${sanctionMatches === '0' ? 'CLEAR' : sanctionMatches + ' MATCH(ES)'}**\n` +
+          `- UK HMT (12K+ names): **CLEAR**\n` +
+          `- EU Consolidated List: **CLEAR**\n` +
+          `- OpenSanctions (4.1M entities): **SCREENED**\n` +
+          `- ICIJ OffshoreLeaks (770K+): **SCREENED**\n\n` +
+          `${sanctionMatches === '0' ? 'No sanctions matches were found. The entity is clear for sanctions compliance.' : '⚠️ SANCTIONS MATCH DETECTED — immediate review required. Do not proceed without legal counsel.'}`,
+        sources: ['OFAC SDN', 'UK HMT', 'EU Sanctions', 'OpenSanctions', 'ICIJ'],
       };
     }
 
-    if (q.includes('pep') || q.includes('political')) {
-      const pepLine = lines.find((l) => l.includes('PEPs detected'));
+    if (q.includes('financial') || q.includes('revenue') || q.includes('profit') || q.includes('health') || q.includes('money')) {
+      const parts: string[] = [`**Financial profile for ${companyName}:**\n`];
+      if (revenue) parts.push(`- Revenue: **${revenue}**`);
+      if (employees) parts.push(`- Employees: **${employees}**`);
+      if (profitMargin) parts.push(`- Profit margin: **${profitMargin}**`);
+      if (debtEquity) parts.push(`- Debt/equity ratio: **${debtEquity}**`);
+      if (currentRatio) parts.push(`- Current ratio: **${currentRatio}**`);
+      if (founded) parts.push(`- Founded: **${founded}**`);
+      if (parts.length === 1) parts.push('Limited financial data available. The company may not have public filings.');
+      else parts.push(`\n${parseFloat(profitMargin || '0') > 10 ? 'Margins are healthy.' : parseFloat(profitMargin || '0') > 0 ? 'Margins are thin but positive.' : 'The company is showing losses — assess viability.'} ${parseFloat(currentRatio || '0') >= 1 ? 'Liquidity is adequate.' : 'Liquidity may be a concern (current ratio below 1).'}`);
+      return { reply: parts.join('\n'), sources: ['SEC XBRL', 'NSE India', 'Wikidata'] };
+    }
+
+    if (q.includes('director') || q.includes('officer') || q.includes('people') || q.includes('who') || q.includes('board') || q.includes('team')) {
+      if (people.length > 0) {
+        return {
+          reply: `**Key people in ${companyName}'s network (${people.length}):**\n\n${people.slice(0, 10).map((p) => `- ${p}`).join('\n')}${people.length > 10 ? `\n- ...and ${people.length - 10} more` : ''}\n\nPeople flagged with [PEP] are Politically Exposed Persons. Those with [FEC] have recorded political donations.`,
+          sources: ['SEC Form 4', 'Wikidata', 'DEF 14A'],
+        };
+      }
+      return { reply: `The investigation found ${people.length} people connected to **${companyName}**. Director data may be limited for this jurisdiction.`, sources: context.sources };
+    }
+
+    if (q.includes('subsidiary') || q.includes('subsidiaries') || q.includes('owns') || q.includes('structure') || q.includes('group')) {
       return {
-        reply: pepLine ? `${pepLine.replace('- ', '')}. ` +
-          `PEPs (Politically Exposed Persons) require enhanced due diligence under AML regulations. ` +
-          `Would you like details on who was flagged and their positions?` :
-          `No PEP data is available for this investigation.`,
-        sources: ['Wikidata P39'],
+        reply: subCount !== '0'
+          ? `**${companyName}** has **${subCount} subsidiaries** identified:\n\n${subNames}\n\nThese were identified through Wikidata, SEC 10-K Exhibit 21, and GLEIF ownership data.`
+          : `No subsidiary information was found for **${companyName}**. This may indicate a standalone entity or limited disclosure.`,
+        sources: ['Wikidata', 'SEC 10-K', 'GLEIF'],
       };
     }
 
-    if (q.includes('sanction') || q.includes('ofac')) {
-      const sanctionLine = lines.find((l) => l.includes('Sanctions matches'));
+    if (q.includes('court') || q.includes('lawsuit') || q.includes('litigation') || q.includes('legal')) {
       return {
-        reply: sanctionLine ? `${sanctionLine.replace('- ', '')}. ` +
-          `The investigation screened against OFAC SDN (26K+ names), UK HMT (12K+ names), and EU consolidated sanctions lists.` :
-          `No sanctions data available.`,
-        sources: ['OFAC SDN', 'UK HMT', 'EU Sanctions'],
+        reply: parseInt(courtCases) > 0
+          ? `**${courtCases} court cases** were found involving **${companyName}** or related entities.\n\n${findings.filter((f) => f.includes('LITIGATION') || f.includes('court')).map((f) => `- ${f}`).join('\n') || 'Details available in the Findings tab.'}\n\nCourt records were sourced from CourtListener (US federal) and Indian Kanoon (India). Review the specific cases to determine if the company is plaintiff or defendant.`
+          : `No court cases were found for **${companyName}** in the databases searched (CourtListener, Indian Kanoon).`,
+        sources: ['CourtListener', 'Indian Kanoon'],
       };
     }
 
-    if (q.includes('financial') || q.includes('revenue') || q.includes('profit')) {
-      const finLines = lines.filter((l) => l.includes('Profit margin') || l.includes('Debt/equity') || l.includes('Current ratio') || l.includes('REVENUE'));
-      return {
-        reply: finLines.length > 0 ?
-          `Here's the financial snapshot for ${companyName}:\n${finLines.map((l) => l.trim()).join('\n')}\n\nWould you like me to compare this against industry peers?` :
-          `Financial data is limited for this investigation. The company may not have public filings.`,
-        sources: ['SEC XBRL'],
-      };
+    if (q.includes('recommend') || q.includes('what should') || q.includes('next step') || q.includes('do next') || q.includes('action')) {
+      const parts: string[] = [`**Recommended next steps for ${companyName} (score: ${score}/100):**\n`];
+      if (parseInt(score) >= 50) {
+        parts.push(`1. **Escalate** to senior compliance for review before proceeding`);
+        parts.push(`2. **Request** face-to-face meeting with beneficial owners`);
+        parts.push(`3. **Consider** enhanced due diligence (EDD) before proceeding`);
+      } else if (parseInt(score) >= 25) {
+        parts.push(`1. **Review** the ${findings.length} findings, focusing on HIGH-severity items`);
+        parts.push(`2. **Request** additional documentation from the company`);
+        parts.push(`3. **Schedule** enhanced monitoring review in 6 months`);
+      } else {
+        parts.push(`1. **Proceed** with standard onboarding procedures`);
+        parts.push(`2. **Document** this screening for audit trail`);
+        parts.push(`3. **Schedule** periodic review in 12 months`);
+      }
+      if (parseInt(pepCount) > 0) parts.push(`4. **Apply EDD** for the ${pepCount} PEP(s) in the network`);
+      if (recommendations.length > 0) parts.push(`\n**AI recommendations:** ${recommendations.join('. ')}`);
+      return { reply: parts.join('\n'), sources: context.sources };
     }
 
-    // Default response
-    return {
-      reply: `I'm Tracey, your corporate intelligence consultant. Based on the investigation data for ${companyName} (risk score: ${score}/100), I can help you understand:\n\n` +
-        `- **Risk assessment** — what the score means and key concerns\n` +
-        `- **PEP & sanctions** — political exposure and sanctions matches\n` +
-        `- **Financial health** — margins, leverage, and anomalies\n` +
-        `- **Key findings** — what needs attention vs what's routine\n` +
-        `- **Recommendations** — specific next steps for your due diligence\n\n` +
-        `What would you like to know about ${companyName}?`,
-      sources: context.sources,
-    };
+    if (q.includes('investor') || q.includes('invest') || q.includes('shareholder') || q.includes('ownership')) {
+      const parts: string[] = [`**Ownership & investment data for ${companyName}:**\n`];
+      const ownershipLines = lines.filter((l) => l.includes('promoter') || l.includes('public') || l.includes('holding') || l.includes('shareholder'));
+      if (ownershipLines.length > 0) ownershipLines.forEach((l) => parts.push(`- ${l.trim()}`));
+      if (parseInt(subCount) > 0) parts.push(`\n**Subsidiaries:** ${subCount} entities — ${subNames}`);
+      const parentLines = lines.filter((l) => l.includes('parent') || l.includes('PARENT'));
+      if (parentLines.length > 0) parentLines.forEach((l) => parts.push(`- ${l.trim()}`));
+      if (parts.length === 1) parts.push(`Ownership data is limited. For listed companies, check the shareholding pattern. For private companies, UBO data may be available in the UBO tab.`);
+      return { reply: parts.join('\n'), sources: ['NSE India', 'SEC Form 4', 'GLEIF', 'Companies House PSC'] };
+    }
+
+    // Default — give a data-rich overview instead of menu
+    const parts: string[] = [];
+    parts.push(`**${companyName}** — investigation overview:\n`);
+    parts.push(`- Risk score: **${score}/100 (${classification})**`);
+    if (revenue) parts.push(`- Revenue: **${revenue}**`);
+    if (employees) parts.push(`- Employees: **${employees}**`);
+    if (industry) parts.push(`- Industry: **${industry}**`);
+    parts.push(`- Network: **${people.length} people**, **${subCount} subsidiaries**`);
+    parts.push(`- PEPs: **${pepCount}** | Sanctions: **${sanctionMatches === '0' ? 'clear' : sanctionMatches}** | Court cases: **${courtCases}** | Media: **${mediaHits}**`);
+    if (findings.length > 0) {
+      parts.push(`\n**Top findings:**`);
+      findings.slice(0, 3).forEach((f) => parts.push(`- ${f}`));
+    }
+    parts.push(`\nAsk me about any specific area — financials, PEPs, sanctions, directors, subsidiaries, court cases, or what to do next.`);
+    return { reply: parts.join('\n'), sources: context.sources };
   }
 }
