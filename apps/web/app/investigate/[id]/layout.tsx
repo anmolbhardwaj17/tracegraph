@@ -180,16 +180,17 @@ export default function InvestigationLayout({ children }: { children: React.Reac
         </div>
       </header>
 
-      {/* Main content — right padding when Tracey is open */}
-      <div className={`transition-all duration-300 ${traceyOpen ? 'mr-[400px]' : ''}`}>
-        <div className="max-w-7xl mx-auto px-8 py-6">
-          {children}
-        </div>
+      {/* Main content */}
+      <div className="max-w-7xl mx-auto px-8 py-6">
+        {children}
       </div>
 
-      {/* Tracey sidebar — position fixed so no scroll jump */}
-      {meta?.status === 'COMPLETE' && traceyOpen && (
-        <div className="fixed inset-y-0 right-0 w-[400px] z-40 border-l border-white/10">
+      {/* Tracey sidebar — fixed overlay, does NOT affect content layout */}
+      {meta?.status === 'COMPLETE' && (
+        <div
+          className="fixed inset-y-0 right-0 w-[400px] z-40 border-l border-white/10 transition-transform duration-300"
+          style={{ transform: traceyOpen ? 'translateX(0)' : 'translateX(100%)' }}
+        >
           <div className="h-full">
             <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
           </div>
