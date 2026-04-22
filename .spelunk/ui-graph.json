@@ -1,0 +1,422 @@
+{
+  "$schema": "https://spelunk.dev/schema/v1.json",
+  "version": 1,
+  "appName": "tracegraph",
+  "baseUrl": "http://localhost:3000",
+  "generatedAt": "2026-04-21T22:55:48.858Z",
+  "stats": {
+    "nodeCount": 3,
+    "edgeCount": 7,
+    "pageCount": 2,
+    "modalCount": 1
+  },
+  "nodes": [
+    {
+      "nodeId": "eb2c8df4178073598e714d13999f4a68b5677608",
+      "type": "page",
+      "label": "Enter a company.Uncover everything.",
+      "route": "/",
+      "fingerprint": {
+        "testId": null,
+        "role": null,
+        "accessibleName": "Enter a company.Uncover everything.",
+        "accessibleDescription": null,
+        "tag": "body",
+        "textContent": null,
+        "stableAttrs": {},
+        "domPath": "body",
+        "parentRoute": "/",
+        "hash": "eb2c8df4178073598e714d13999f4a68b5677608"
+      },
+      "firstSeen": "2026-04-21T22:54:19.400Z",
+      "lastSeen": "2026-04-21T22:54:19.400Z",
+      "lastValidated": null,
+      "assertions": [
+        {
+          "type": "exists"
+        },
+        {
+          "type": "visible"
+        },
+        {
+          "type": "min-size",
+          "args": {
+            "width": 8,
+            "height": 8
+          }
+        },
+        {
+          "type": "no-overflow"
+        },
+        {
+          "type": "no-console-error"
+        },
+        {
+          "type": "no-failed-requests"
+        }
+      ],
+      "screenshots": [],
+      "tags": [],
+      "flags": {},
+      "staleRuns": 0,
+      "stale": false
+    },
+    {
+      "nodeId": "ac763abdc76d3f972f8a0abe7c484feae982d472",
+      "type": "modal",
+      "label": "TTraceGraphProductCapabilities|DashboardCompareWatchlistLeaderboardProductCapabi",
+      "route": null,
+      "fingerprint": {
+        "testId": null,
+        "role": null,
+        "accessibleName": "TTraceGraphProductCapabilities|DashboardCompareWatchlistLeaderboardProductCapabi",
+        "accessibleDescription": null,
+        "tag": "body",
+        "textContent": "TTraceGraphProductCapabilities|DashboardCompareWatchlistLeaderboardProductCapabi",
+        "stableAttrs": {},
+        "domPath": "body",
+        "parentRoute": "/",
+        "hash": "ac763abdc76d3f972f8a0abe7c484feae982d472"
+      },
+      "firstSeen": "2026-04-21T22:54:19.945Z",
+      "lastSeen": "2026-04-21T22:55:15.781Z",
+      "lastValidated": null,
+      "assertions": [
+        {
+          "type": "exists"
+        },
+        {
+          "type": "visible"
+        },
+        {
+          "type": "min-size",
+          "args": {
+            "width": 8,
+            "height": 8
+          }
+        }
+      ],
+      "screenshots": [],
+      "tags": [],
+      "flags": {},
+      "staleRuns": 0,
+      "stale": false,
+      "capturedStyles": {
+        "color": "#0a0a0a",
+        "fontFamily": "__Inter_f367f3",
+        "fontSize": 16,
+        "fontWeight": 400
+      }
+    },
+    {
+      "nodeId": "86099e96bce6ade4596c1a2500ac48b18233b979",
+      "type": "page",
+      "label": "Dashboard",
+      "route": "/dashboard",
+      "fingerprint": {
+        "testId": null,
+        "role": null,
+        "accessibleName": "Dashboard",
+        "accessibleDescription": null,
+        "tag": "body",
+        "textContent": null,
+        "stableAttrs": {},
+        "domPath": "body",
+        "parentRoute": "/dashboard",
+        "hash": "86099e96bce6ade4596c1a2500ac48b18233b979"
+      },
+      "firstSeen": "2026-04-21T22:54:24.514Z",
+      "lastSeen": "2026-04-21T22:55:18.713Z",
+      "lastValidated": null,
+      "assertions": [
+        {
+          "type": "exists"
+        },
+        {
+          "type": "visible"
+        },
+        {
+          "type": "min-size",
+          "args": {
+            "width": 8,
+            "height": 8
+          }
+        },
+        {
+          "type": "no-overflow"
+        },
+        {
+          "type": "no-console-error"
+        },
+        {
+          "type": "no-failed-requests"
+        }
+      ],
+      "screenshots": [],
+      "tags": [],
+      "flags": {},
+      "staleRuns": 0,
+      "stale": false
+    }
+  ],
+  "edges": [
+    {
+      "edgeId": "2e68d357c2b8582bde495c2b7f2aba453e4dc9ba",
+      "from": "eb2c8df4178073598e714d13999f4a68b5677608",
+      "to": "ac763abdc76d3f972f8a0abe7c484feae982d472",
+      "action": {
+        "kind": "click",
+        "targetFp": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": null,
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": null,
+          "stableAttrs": {},
+          "domPath": "body>main>header>div>div[1]>button",
+          "parentRoute": "/",
+          "hash": "7b43177412c53a3e794ea4c8d1e1f48b2e48c7a8"
+        }
+      },
+      "trigger": {
+        "fingerprint": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": null,
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": null,
+          "stableAttrs": {},
+          "domPath": "body>main>header>div>div[1]>button",
+          "parentRoute": "/",
+          "hash": "7b43177412c53a3e794ea4c8d1e1f48b2e48c7a8"
+        },
+        "label": "button"
+      },
+      "observedVia": "dom-mutation",
+      "confidence": 1,
+      "firstSeen": "2026-04-21T22:54:19.945Z",
+      "lastSeen": "2026-04-21T22:54:19.945Z",
+      "staleRuns": 0,
+      "stale": false
+    },
+    {
+      "edgeId": "267856fd0846a2a4968f715f93dab5c50cdfce60",
+      "from": "eb2c8df4178073598e714d13999f4a68b5677608",
+      "to": "86099e96bce6ade4596c1a2500ac48b18233b979",
+      "action": {
+        "kind": "navigate",
+        "to": "/dashboard"
+      },
+      "trigger": {
+        "fingerprint": {
+          "testId": null,
+          "role": "link",
+          "accessibleName": "Dashboard",
+          "accessibleDescription": null,
+          "tag": "a",
+          "textContent": "Dashboard",
+          "stableAttrs": {
+            "href": "/dashboard"
+          },
+          "domPath": "body>main>footer>div>div[0]>div[1]>ul>li[0]>a",
+          "parentRoute": "/",
+          "hash": "6044e6b85e6f619e1bf01e318762246ce9bbbfe7"
+        },
+        "label": "Dashboard"
+      },
+      "observedVia": "navigation",
+      "confidence": 1,
+      "firstSeen": "2026-04-21T22:54:24.514Z",
+      "lastSeen": "2026-04-21T22:54:24.514Z",
+      "staleRuns": 0,
+      "stale": false
+    },
+    {
+      "edgeId": "967a595d5aaa67a7f2eaa79a98cf9ae5542225dc",
+      "from": "ac763abdc76d3f972f8a0abe7c484feae982d472",
+      "to": "ac763abdc76d3f972f8a0abe7c484feae982d472",
+      "action": {
+        "kind": "click",
+        "targetFp": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": null,
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": null,
+          "stableAttrs": {},
+          "domPath": "body>main>header>div>div[1]>button",
+          "parentRoute": "/",
+          "hash": "7b43177412c53a3e794ea4c8d1e1f48b2e48c7a8"
+        }
+      },
+      "trigger": {
+        "fingerprint": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": null,
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": null,
+          "stableAttrs": {},
+          "domPath": "body>main>header>div>div[1]>button",
+          "parentRoute": "/",
+          "hash": "7b43177412c53a3e794ea4c8d1e1f48b2e48c7a8"
+        },
+        "label": "button"
+      },
+      "observedVia": "dom-mutation",
+      "confidence": 1,
+      "firstSeen": "2026-04-21T22:54:38.935Z",
+      "lastSeen": "2026-04-21T22:54:38.935Z",
+      "staleRuns": 0,
+      "stale": false
+    },
+    {
+      "edgeId": "25a43838e96422da654f7408ace859fd15555613",
+      "from": "ac763abdc76d3f972f8a0abe7c484feae982d472",
+      "to": "ac763abdc76d3f972f8a0abe7c484feae982d472",
+      "action": {
+        "kind": "click",
+        "targetFp": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": "USTesla",
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": "USTesla",
+          "stableAttrs": {},
+          "domPath": "body>main>section[0]>div[1]>form>div[2]>div>button[4]",
+          "parentRoute": "/",
+          "hash": "bd524ee1d4d1c66916940a5b879ca8847c1407c9"
+        }
+      },
+      "trigger": {
+        "fingerprint": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": "USTesla",
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": "USTesla",
+          "stableAttrs": {},
+          "domPath": "body>main>section[0]>div[1]>form>div[2]>div>button[4]",
+          "parentRoute": "/",
+          "hash": "bd524ee1d4d1c66916940a5b879ca8847c1407c9"
+        },
+        "label": "USTesla"
+      },
+      "observedVia": "dom-mutation",
+      "confidence": 1,
+      "firstSeen": "2026-04-21T22:54:42.789Z",
+      "lastSeen": "2026-04-21T22:54:42.789Z",
+      "staleRuns": 0,
+      "stale": false
+    },
+    {
+      "edgeId": "b1772f5a04036bc99e35a1dcb9a0350dab8ed39b",
+      "from": "ac763abdc76d3f972f8a0abe7c484feae982d472",
+      "to": "86099e96bce6ade4596c1a2500ac48b18233b979",
+      "action": {
+        "kind": "navigate",
+        "to": "/dashboard"
+      },
+      "trigger": {
+        "fingerprint": {
+          "testId": null,
+          "role": "link",
+          "accessibleName": "Dashboard",
+          "accessibleDescription": null,
+          "tag": "a",
+          "textContent": "Dashboard",
+          "stableAttrs": {
+            "href": "/dashboard"
+          },
+          "domPath": "body>main>footer>div>div[0]>div[1]>ul>li[0]>a",
+          "parentRoute": "/",
+          "hash": "6044e6b85e6f619e1bf01e318762246ce9bbbfe7"
+        },
+        "label": "Dashboard"
+      },
+      "observedVia": "navigation",
+      "confidence": 1,
+      "firstSeen": "2026-04-21T22:55:01.261Z",
+      "lastSeen": "2026-04-21T22:55:01.261Z",
+      "staleRuns": 0,
+      "stale": false
+    },
+    {
+      "edgeId": "da1d602c44f03a442df6838e4abb978555afe206",
+      "from": "86099e96bce6ade4596c1a2500ac48b18233b979",
+      "to": "ac763abdc76d3f972f8a0abe7c484feae982d472",
+      "action": {
+        "kind": "click",
+        "targetFp": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": null,
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": null,
+          "stableAttrs": {},
+          "domPath": "body>main>header>div>div[1]>button",
+          "parentRoute": "/dashboard",
+          "hash": "69b64c55d51323c5f293938fa6f3a05c956c9ec8"
+        }
+      },
+      "trigger": {
+        "fingerprint": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": null,
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": null,
+          "stableAttrs": {},
+          "domPath": "body>main>header>div>div[1]>button",
+          "parentRoute": "/dashboard",
+          "hash": "69b64c55d51323c5f293938fa6f3a05c956c9ec8"
+        },
+        "label": "button"
+      },
+      "observedVia": "dom-mutation",
+      "confidence": 1,
+      "firstSeen": "2026-04-21T22:55:15.781Z",
+      "lastSeen": "2026-04-21T22:55:15.781Z",
+      "staleRuns": 0,
+      "stale": false
+    },
+    {
+      "edgeId": "8673af224818c4356d868a61a5a462941558c096",
+      "from": "86099e96bce6ade4596c1a2500ac48b18233b979",
+      "to": "86099e96bce6ade4596c1a2500ac48b18233b979",
+      "action": {
+        "kind": "navigate",
+        "to": "/dashboard"
+      },
+      "trigger": {
+        "fingerprint": {
+          "testId": null,
+          "role": "button",
+          "accessibleName": "View all →",
+          "accessibleDescription": null,
+          "tag": "button",
+          "textContent": "View all →",
+          "stableAttrs": {},
+          "domPath": "body>main>section[1]>div>div[0]>button",
+          "parentRoute": "/dashboard",
+          "hash": "4d8cd64fa953ed3c439c4617994e1466333b2593"
+        },
+        "label": "View all →"
+      },
+      "observedVia": "navigation",
+      "confidence": 1,
+      "firstSeen": "2026-04-21T22:55:18.713Z",
+      "lastSeen": "2026-04-21T22:55:18.713Z",
+      "staleRuns": 0,
+      "stale": false
+    }
+  ]
+}

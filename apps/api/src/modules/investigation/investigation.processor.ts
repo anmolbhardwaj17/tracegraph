@@ -30,6 +30,12 @@ import { NonprofitLookupService } from '../enrichment/nonprofit-lookup.service';
 import { LinkedInIntelligenceService } from '../enrichment/linkedin-intelligence.service';
 import { IndiaIntelligenceService } from '../enrichment/india-intelligence.service';
 import { IndiaSearchService } from '../india/india-search.service';
+import { EntityMergeService } from '../intelligence/entity-merge.service';
+import { GraphAnalyticsService } from '../intelligence/graph-analytics.service';
+import { TemporalAnalysisService as TemporalIntelService } from '../intelligence/temporal-analysis.service';
+import { PeerComparisonService } from '../intelligence/peer-comparison.service';
+import { FilingNlpService } from '../intelligence/filing-nlp.service';
+import { ProactiveCrawlerService } from '../intelligence/proactive-crawler.service';
 import { InvestigationGateway } from './investigation.gateway';
 import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
 import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
@@ -94,6 +100,12 @@ export class InvestigationProcessor extends WorkerHost {
     private readonly linkedinIntel: LinkedInIntelligenceService,
     private readonly indiaIntel: IndiaIntelligenceService,
     private readonly indiaSearch: IndiaSearchService,
+    private readonly entityMerge: EntityMergeService,
+    private readonly graphAnalytics: GraphAnalyticsService,
+    private readonly temporalIntel: TemporalIntelService,
+    private readonly peerComparison: PeerComparisonService,
+    private readonly filingNlp: FilingNlpService,
+    private readonly proactiveCrawler: ProactiveCrawlerService,
     private readonly gateway: InvestigationGateway,
   ) {
     super();
@@ -861,7 +873,43 @@ export class InvestigationProcessor extends WorkerHost {
         this.logger.warn(`[Intelligence] Failed: ${e?.message}`);
       }
 
-      // Step 8: PEP Detection + Adverse Media (run in parallel)
+      // Step 8: Deep Intelligence Analysis (entity merge, graph analytics, temporal, NLP, peer comparison, cross-investigation)
+      try {
+        this.logger.log(`[Deep Intel] Running 6-phase intelligence analysis...`);
+        const [mergeResult, analyticsResult, temporalResult, peerResult, nlpResult, crossResult] = await Promise.all([
+          this.entityMerge.merge(investigationId).catch((e) => { this.logger.warn(`Entity merge failed: ${e?.message}`); return null; }),
+          this.graphAnalytics.analyze(investigationId).catch((e) => { this.logger.warn(`Graph analytics failed: ${e?.message}`); return null; }),
+          this.temporalIntel.analyze(investigationId).catch((e) => { this.logger.warn(`Temporal analysis failed: ${e?.message}`); return null; }),
+          this.peerComparison.benchmark(investigationId).catch((e) => { this.logger.warn(`Peer comparison failed: ${e?.message}`); return null; }),
+          this.filingNlp.analyze(investigationId).catch((e) => { this.logger.warn(`NLP analysis failed: ${e?.message}`); return null; }),
+          this.proactiveCrawler.crossLink(investigationId).catch((e) => { this.logger.warn(`Cross-link failed: ${e?.message}`); return null; }),
+        ]);
+
+        const deepFindings = [
+          ...(mergeResult?.findings || []),
+          ...(analyticsResult?.findings || []),
+          ...(temporalResult?.findings || []),
+          ...(peerResult?.findings || []),
+          ...(nlpResult?.findings || []),
+          ...(crossResult?.findings || []),
+        ];
+        riskResult.findings = [...riskResult.findings, ...deepFindings];
+        const deepBoost = deepFindings.filter((f: any) => f.severity === 'CRITICAL').length * 15
+          + deepFindings.filter((f: any) => f.severity === 'HIGH').length * 6
+          + deepFindings.filter((f: any) => f.severity === 'MEDIUM').length * 2;
+        riskResult.score = Math.min(100, riskResult.score + deepBoost);
+
+        this.logger.log(
+          `[Deep Intel] Done: ${deepFindings.length} findings (merge=${mergeResult?.totalMerged || 0}, ` +
+          `cycles=${analyticsResult?.cycles?.length || 0}, clusters=${temporalResult?.clusters?.length || 0}, ` +
+          `anomalies=${peerResult?.anomalies?.length || 0}, nlp=${nlpResult?.riskLanguage?.length || 0}, ` +
+          `crossLinks=${crossResult?.links?.length || 0}), score now ${riskResult.score}`,
+        );
+      } catch (e: any) {
+        this.logger.warn(`[Deep Intel] Failed: ${e?.message}`);
+      }
+
+      // Step 9: PEP Detection + Adverse Media (run in parallel)
       this.gateway.emitStatusChanged(investigationId, 'PEP_MEDIA');
       this.logger.log(`[PEP+Media] Starting PEP detection and adverse media screening...`);
       let pepResults: any[] = [];
