@@ -82,7 +82,7 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
   ];
 
   return (
-    <div className="flex flex-col h-full relative overflow-hidden" style={{ background: '#08090a' }}>
+    <div className="flex flex-col relative overflow-hidden" style={{ background: '#08090a', height: '100dvh', maxHeight: '100dvh' }}>
       {/* Gradient glow — bottom center, neon lime */}
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[40%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(180,230,0,0.12) 0%, rgba(100,160,0,0.05) 40%, transparent 65%)' }} />
       <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 w-[250px] h-[250px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,255,0,0.08) 0%, transparent 60%)' }} />
@@ -93,7 +93,7 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
       </button>
 
       {/* Chat */}
-      <div className="flex-1 overflow-y-auto px-6 pt-7 pb-4 space-y-6 relative z-[1]">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-7 pb-4 space-y-6 relative z-[1]">
         {messages.map((msg, i) => (
           <div key={i}>
             {msg.role === 'assistant' ? (
@@ -149,8 +149,8 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="px-5 pb-5 pt-2 relative z-[1]">
+      {/* Input — always pinned at bottom */}
+      <div className="shrink-0 px-5 pb-5 pt-2 relative z-[1]">
         <form onSubmit={(e) => { e.preventDefault(); send(); }} className="relative">
           <input
             ref={inputRef}

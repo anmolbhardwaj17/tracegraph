@@ -188,12 +188,10 @@ export default function InvestigationLayout({ children }: { children: React.Reac
       {/* Tracey sidebar — fixed overlay, does NOT affect content layout */}
       {meta?.status === 'COMPLETE' && (
         <div
-          className="fixed inset-y-0 right-0 w-[400px] z-40 border-l border-white/10 transition-transform duration-300"
-          style={{ transform: traceyOpen ? 'translateX(0)' : 'translateX(100%)' }}
+          className="fixed top-0 bottom-0 right-0 w-[400px] z-40 border-l border-white/10 transition-transform duration-300"
+          style={{ transform: traceyOpen ? 'translateX(0)' : 'translateX(100%)', height: '100dvh' }}
         >
-          <div className="h-full">
-            <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
-          </div>
+          <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
         </div>
       )}
 
