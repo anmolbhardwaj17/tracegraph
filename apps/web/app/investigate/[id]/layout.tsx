@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Download, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Download, Eye, EyeOff } from 'lucide-react';
 import { Avatar } from '../../../components/Avatar';
 import { NavBar } from '../../../components/NavBar';
 import { TraceyChat } from '../../../components/TraceyChat';
@@ -200,16 +200,13 @@ export default function InvestigationLayout({ children }: { children: React.Reac
           onClick={() => setTraceyOpen(true)}
           className="fixed bottom-8 right-8 z-50 group"
         >
-          {/* Outer glow rings */}
-          <div className="absolute inset-0 w-14 h-14 rounded-full bg-violet-500/20 animate-ping" style={{ animationDuration: '3s' }} />
-          <div className="absolute -inset-1 w-16 h-16 rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-md animate-pulse" style={{ animationDuration: '2s' }} />
-          {/* Orb */}
-          <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-lg shadow-violet-500/30 flex items-center justify-center transition-transform group-hover:scale-110">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="absolute inset-0 w-14 h-14 rounded-full bg-blue-500/15 animate-ping" style={{ animationDuration: '3s' }} />
+          <div className="absolute -inset-1.5 w-17 h-17 rounded-full bg-gradient-to-br from-blue-500/25 to-violet-500/25 blur-lg animate-pulse" style={{ animationDuration: '2.5s' }} />
+          <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 flex items-center justify-center transition-transform group-hover:scale-110">
+            <span className="text-white font-semibold text-lg">T</span>
           </div>
-          {/* Label on hover */}
-          <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-ink-800 text-ink-200 text-[10px] font-mono px-3 py-1.5 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-            Ask Tracey AI
+          <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-[#12121a] text-white/60 text-[10px] font-mono px-3 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity border border-white/5">
+            Ask Tracey
           </span>
         </button>
       )}
