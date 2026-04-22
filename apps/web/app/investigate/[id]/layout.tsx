@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Download, Eye, EyeOff } from 'lucide-react';
+import { Download, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { Avatar } from '../../../components/Avatar';
 import { NavBar } from '../../../components/NavBar';
 import { TraceyChat } from '../../../components/TraceyChat';
@@ -27,6 +27,7 @@ export default function InvestigationLayout({ children }: { children: React.Reac
   const [meta, setMeta] = useState<any>(null);
   const [watched, setWatched] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [traceyOpen, setTraceyOpen] = useState(false);
 
   // Detect if we're on a tab sub-route or the base page (progress view)
   const pathParts = pathname.split('/');
@@ -179,14 +180,36 @@ export default function InvestigationLayout({ children }: { children: React.Reac
         </div>
       </header>
 
-      {/* Tab content */}
-      <div className="max-w-7xl mx-auto px-8 py-6">
-        {children}
+      {/* Content + Tracey sidebar flex layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main content — shrinks when Tracey is open */}
+        <div className={`flex-1 overflow-y-auto transition-all duration-300 ${traceyOpen ? 'max-w-[calc(100%-400px)]' : ''}`}>
+          <div className="max-w-7xl mx-auto px-8 py-6">
+            {children}
+          </div>
+        </div>
+
+        {/* Tracey sidebar — slides in from right */}
+        {meta?.status === 'COMPLETE' && traceyOpen && (
+          <div className="w-[400px] shrink-0 border-l border-white/5 bg-ink-900 flex flex-col h-[calc(100vh-140px)] sticky top-[140px]">
+            <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
+          </div>
+        )}
       </div>
 
-      {/* Tracey AI Chat */}
-      {meta?.status === 'COMPLETE' && (
-        <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} />
+      {/* Tracey toggle button — show when closed */}
+      {meta?.status === 'COMPLETE' && !traceyOpen && (
+        <button
+          onClick={() => setTraceyOpen(true)}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-ink-800 hover:bg-ink-700 border border-white/10 border-r-0 rounded-l-lg px-2 py-4 transition-colors group"
+        >
+          <div className="flex flex-col items-center gap-2">
+            <Sparkles className="w-4 h-4 text-ink-300 group-hover:text-ink-50" />
+            <span className="text-[9px] font-mono text-ink-500 group-hover:text-ink-300 writing-vertical" style={{ writingMode: 'vertical-rl' }}>
+              Ask Tracey
+            </span>
+          </div>
+        </button>
       )}
     </main>
   );
