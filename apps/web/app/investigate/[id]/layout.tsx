@@ -189,8 +189,10 @@ export default function InvestigationLayout({ children }: { children: React.Reac
 
       {/* Tracey sidebar — position fixed so no scroll jump */}
       {meta?.status === 'COMPLETE' && traceyOpen && (
-        <div className="fixed top-0 right-0 w-[400px] h-screen z-40 border-l border-white/10">
-          <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
+        <div className="fixed inset-y-0 right-0 w-[400px] z-40 border-l border-white/10">
+          <div className="h-full">
+            <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
+          </div>
         </div>
       )}
 
