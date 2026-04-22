@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send } from 'lucide-react';
+import { useAuth } from './AuthProvider';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -9,6 +10,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   sources?: string[];
+  followUps?: string[];
 }
 
 interface Props {
@@ -19,6 +21,7 @@ interface Props {
 }
 
 export function TraceyChat({ investigationId, companyName, onClose }: Props) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,10 +52,11 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
       const res = await fetch(`${API}/api/investigations/${investigationId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, history: messages.slice(-10).map((m) => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({ question, userName: user?.name, history: messages.slice(-10).map((m) => ({ role: m.role, content: m.content })) }),
       });
       const data = await res.json();
       const fullReply = data.reply || 'Sorry, I encountered an issue.';
+      const aiFollowUps: string[] = data.followUps || [];
       setMessages((prev) => [...prev, { role: 'assistant', content: '', sources: data.sources }]);
       const words = fullReply.split(' ');
       for (let w = 0; w < words.length; w++) {
@@ -62,6 +66,16 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
           const updated = [...prev];
           if (updated[updated.length - 1]?.role === 'assistant') {
             updated[updated.length - 1] = { ...updated[updated.length - 1], content: partial };
+          }
+          return updated;
+        });
+      }
+      // Attach AI-generated follow-ups to the completed message
+      if (aiFollowUps.length > 0) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          if (updated[updated.length - 1]?.role === 'assistant') {
+            updated[updated.length - 1] = { ...updated[updated.length - 1], followUps: aiFollowUps };
           }
           return updated;
         });
@@ -190,9 +204,12 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
             </div>
           )}
 
-          {/* Suggestion pills — initial or follow-up */}
+          {/* Suggestion pills — initial or AI-generated follow-ups */}
           {!loading && (() => {
-            const pills = messages.length <= 1 ? quickActions : getFollowUps();
+            // Use AI-generated follow-ups from last assistant message, fall back to hardcoded
+            const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+            const aiPills = lastAssistant?.followUps || [];
+            const pills = messages.length <= 1 ? quickActions : aiPills.length > 0 ? aiPills : getFollowUps();
             if (pills.length === 0) return null;
             return (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>

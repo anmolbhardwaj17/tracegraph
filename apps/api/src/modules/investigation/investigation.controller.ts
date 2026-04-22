@@ -157,8 +157,8 @@ export class InvestigationController {
   @Post(':id/chat')
   @Public()
   @ApiOperation({ summary: 'Chat with Tracey AI about this investigation' })
-  async chat(@Param('id') id: string, @Body() body: { question: string; history?: Array<{ role: 'user' | 'assistant'; content: string }> }) {
-    if (!body.question?.trim()) return { reply: 'Please ask a question about this investigation.', sources: [] };
-    return this.tracey.chat(id, body.question, body.history || []);
+  async chat(@Param('id') id: string, @Body() body: { question: string; userName?: string; history?: Array<{ role: 'user' | 'assistant'; content: string }> }) {
+    if (!body.question?.trim()) return { reply: 'Please ask a question about this investigation.', sources: [], followUps: [] };
+    return this.tracey.chat(id, body.question, body.history || [], body.userName);
   }
 }

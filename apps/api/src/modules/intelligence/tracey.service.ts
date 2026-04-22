@@ -10,31 +10,27 @@ export interface TraceyMessage {
   content: string;
 }
 
-const TRACEY_SYSTEM_PROMPT = `You are Tracey, a senior corporate intelligence consultant working at TraceGraph. You help compliance officers, investigators, and due diligence professionals understand investigation results.
+const TRACEY_SYSTEM_PROMPT = `You are Tracey, a senior corporate intelligence analyst. You talk like a sharp, experienced colleague who has personally reviewed the investigation file and is now briefing the user over coffee.
 
-YOUR PERSONALITY:
-- Professional, concise, and direct
-- You speak like a seasoned compliance consultant — confident but measured
-- You reference specific data from the investigation (names, numbers, dates)
-- You explain the "so what" — not just what the data says, but what it MEANS for the user's decision
-- You proactively point out what matters most and what can be safely ignored
+HOW YOU TALK:
+- Natural and conversational — not robotic or bullet-point-heavy
+- Lead with the insight, not the data. Say "Here's what concerns me about their Luxembourg subsidiary..." not "Finding #3: FATF greylist jurisdiction detected"
+- Use specific names, numbers, and dates from the data. Never be vague when you have specifics.
+- When you don't have data for something, say exactly that: "We don't have that in this investigation. You'd need to check [source] directly."
+- Explain WHY something matters, not just WHAT it is. "Jamie Gorelick was US Deputy Attorney General — that means enhanced due diligence obligations under AML rules" not just "1 PEP detected"
+- You can be opinionated: "Honestly, the 10 court cases look routine for a company this size" or "This is the part that would keep me up at night"
 
-YOUR RULES:
-1. ONLY discuss the investigation data provided in the context. Never make up data.
-2. If asked something outside corporate intelligence (personal questions, flirting, coding, general knowledge), politely redirect: "I'm focused on your investigation. What would you like to know about [company name]?"
-3. If the data doesn't contain an answer, say so clearly: "The investigation data doesn't cover that. You may want to check [specific source]."
-4. Always reference WHERE your information comes from (e.g., "According to the SEC filings...", "The Wikidata enrichment shows...")
-5. When discussing risk, always provide context — a "HIGH" score for a Fortune 500 company means something different than for a small LLC
-6. Keep responses concise — 2-4 paragraphs max unless the user asks for detail
-7. Use bullet points for lists of findings or recommendations
-8. Never say "I think" or "I believe" — say "The data shows" or "Based on the investigation"
+STRICT RULES:
+- ONLY use data from the INVESTIGATION CONTEXT provided. Never fabricate.
+- If asked about dating, coding, weather, or anything non-investigation: "I'm laser-focused on this investigation right now. What aspect of [company] should we dig into?"
+- Address the user by name if provided in the context.
 
-SUGGESTED RESPONSES:
-When user asks vague questions like "what do you think?", proactively highlight:
-- The most important finding and why
-- Any PEP/sanctions flags
-- Financial health summary
-- What action they should take next`;
+RESPONSE FORMAT:
+End every response with exactly 3 follow-up suggestions on a NEW line starting with "FOLLOWUPS:" separated by "|".
+- Make them specific to THIS company's data, not generic
+- Mix: 1 deeper follow-up on current topic, 1 new unexplored area, 1 action-oriented
+- Under 8 words each
+Example: FOLLOWUPS: What about the Luxembourg subsidiary?|Break down the insider trading data|Should I flag this for legal?`;
 
 @Injectable()
 export class TraceyService {
@@ -53,11 +49,12 @@ export class TraceyService {
     investigationId: string,
     question: string,
     history: TraceyMessage[] = [],
-  ): Promise<{ reply: string; sources: string[] }> {
+    userName?: string,
+  ): Promise<{ reply: string; sources: string[]; followUps: string[] }> {
     // Build investigation context
     const context = await this.buildContext(investigationId);
     if (!context) {
-      return { reply: "I can't find this investigation. It may still be processing — please check back once it's complete.", sources: [] };
+      return { reply: "I can't find this investigation. It may still be processing — please check back once it's complete.", sources: [], followUps: [] };
     }
 
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -68,9 +65,10 @@ export class TraceyService {
     }
 
     // Build messages
+    const userCtx = userName ? `\nUSER: The person asking is "${userName}". Address them by first name occasionally.` : '';
     const messages: Array<{ role: string; content: string }> = [
       { role: 'system', content: TRACEY_SYSTEM_PROMPT },
-      { role: 'system', content: `INVESTIGATION CONTEXT:\n${context.briefing}` },
+      { role: 'system', content: `INVESTIGATION CONTEXT:\n${context.briefing}${userCtx}` },
       ...history.slice(-10).map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: question },
     ];
@@ -90,8 +88,18 @@ export class TraceyService {
         },
       );
 
-      const reply = res.data?.choices?.[0]?.message?.content || "I'm having trouble processing that. Could you rephrase your question?";
-      return { reply, sources: context.sources };
+      const raw = res.data?.choices?.[0]?.message?.content || "I'm having trouble processing that. Could you rephrase your question?";
+
+      // Parse follow-ups from response
+      let reply = raw;
+      let followUps: string[] = [];
+      const followUpMatch = raw.match(/FOLLOWUPS:\s*(.+)$/im);
+      if (followUpMatch) {
+        reply = raw.replace(/\n?FOLLOWUPS:.+$/im, '').trim();
+        followUps = followUpMatch[1].split('|').map((s: string) => s.trim()).filter((s: string) => s.length > 3 && s.length < 60).slice(0, 4);
+      }
+
+      return { reply, sources: context.sources, followUps };
     } catch (e: any) {
       this.logger.warn(`Tracey LLM failed: ${e?.message}`);
       return this.fallbackResponse(question, context);
@@ -128,8 +136,26 @@ export class TraceyService {
     lines.push(`\nNETWORK: ${companies.length} companies, ${people.length} people, ${addresses.length} addresses`);
     const subsidiaries = companies.filter((c) => (c.metadata as any)?.isSubsidiary);
     if (subsidiaries.length > 0) {
-      lines.push(`SUBSIDIARIES (${subsidiaries.length}): ${subsidiaries.slice(0, 10).map((s) => s.label).join(', ')}${subsidiaries.length > 10 ? '...' : ''}`);
+      lines.push(`SUBSIDIARIES (${subsidiaries.length}):`);
+      subsidiaries.slice(0, 20).forEach((s) => {
+        const sm = s.metadata as any;
+        lines.push(`  - ${s.label}${sm?.jurisdiction ? ` (${sm.jurisdiction})` : ''}${sm?.ownershipPct ? ` — ${sm.ownershipPct}` : ''}`);
+      });
+      if (subsidiaries.length > 20) lines.push(`  - ...and ${subsidiaries.length - 20} more`);
       sources.push('Wikidata / SEC 10-K');
+    }
+
+    // Addresses / Locations
+    if (addresses.length > 0) {
+      lines.push(`\nLOCATIONS (${addresses.length}):`);
+      addresses.forEach((a) => {
+        const am = a.metadata as any;
+        const addr = am?.raw?.address || a.label;
+        const geo = am?.geo;
+        const type = am?.raw?.type || am?.enrichmentSource || '';
+        lines.push(`  - ${a.label}: ${addr}${type ? ` (${type})` : ''}${geo ? ` [lat:${geo.lat},lng:${geo.lng}]` : ''}`);
+      });
+      sources.push('SEC EDGAR / Nominatim');
     }
 
     // Key people
@@ -202,7 +228,7 @@ export class TraceyService {
   }
 
   /** Data-driven fallback when LLM is unavailable */
-  private fallbackResponse(question: string, context: { briefing: string; sources: string[] }): { reply: string; sources: string[] } {
+  private fallbackResponse(question: string, context: { briefing: string; sources: string[] }): { reply: string; sources: string[]; followUps: string[] } {
     const q = question.toLowerCase();
     const b = context.briefing;
     const lines = b.split('\n');
@@ -261,7 +287,7 @@ export class TraceyService {
       if (parseInt(courtCases) > 0) parts.push(`\n**${courtCases} court cases** found in federal records.`);
       if (parseInt(mediaHits) > 0) parts.push(`\n**${mediaHits} adverse media hit(s)** flagged.`);
       if (parts.length === 1) parts.push('No significant concerns were identified in this investigation.');
-      return { reply: parts.join('\n'), sources: context.sources };
+      return { reply: parts.join('\n'), sources: context.sources, followUps: [] };
     }
 
     if (q.includes('risk') || q.includes('score') || q.includes('safe') || q.includes('proceed')) {
@@ -271,7 +297,7 @@ export class TraceyService {
       else reply += ` This is a low-risk profile — standard due diligence procedures are sufficient.`;
       reply += `\n\nThe score is based on ${findings.length} findings across ${context.sources.length} data sources.`;
       if (narrative) reply += `\n\n${narrative}`;
-      return { reply, sources: context.sources };
+      return { reply, sources: context.sources, followUps: [] };
     }
 
     if (q.includes('pep') || q.includes('political') || q.includes('exposed')) {
@@ -280,9 +306,9 @@ export class TraceyService {
         people.filter((p) => p.includes('[PEP')).forEach((p) => { reply += `\n- ${p}`; });
         if (pepWarnings.length > 0) reply += `\n\n**Details:** ${pepWarnings.join('. ')}`;
         reply += `\n\nPEPs require enhanced due diligence (EDD) under AML regulations. You need to verify the source of funds and document the business rationale.`;
-        return { reply, sources: ['Wikidata P39'] };
+        return { reply, sources: ['Wikidata P39'] , followUps: [] };
       }
-      return { reply: `No Politically Exposed Persons were detected among the ${people.length} people in **${companyName}**'s network. The investigation screened all individuals against Wikidata's political positions database.`, sources: ['Wikidata P39'] };
+      return { reply: `No Politically Exposed Persons were detected among the ${people.length} people in **${companyName}**'s network. The investigation screened all individuals against Wikidata's political positions database.`, sources: ['Wikidata P39'], followUps: [] };
     }
 
     if (q.includes('sanction') || q.includes('ofac') || q.includes('screen')) {
@@ -295,6 +321,7 @@ export class TraceyService {
           `- ICIJ OffshoreLeaks (770K+): **SCREENED**\n\n` +
           `${sanctionMatches === '0' ? 'No sanctions matches were found. The entity is clear for sanctions compliance.' : '⚠️ SANCTIONS MATCH DETECTED — immediate review required. Do not proceed without legal counsel.'}`,
         sources: ['OFAC SDN', 'UK HMT', 'EU Sanctions', 'OpenSanctions', 'ICIJ'],
+        followUps: [],
       };
     }
 
@@ -308,7 +335,7 @@ export class TraceyService {
       if (founded) parts.push(`- Founded: **${founded}**`);
       if (parts.length === 1) parts.push('Limited financial data available. The company may not have public filings.');
       else parts.push(`\n${parseFloat(profitMargin || '0') > 10 ? 'Margins are healthy.' : parseFloat(profitMargin || '0') > 0 ? 'Margins are thin but positive.' : 'The company is showing losses — assess viability.'} ${parseFloat(currentRatio || '0') >= 1 ? 'Liquidity is adequate.' : 'Liquidity may be a concern (current ratio below 1).'}`);
-      return { reply: parts.join('\n'), sources: ['SEC XBRL', 'NSE India', 'Wikidata'] };
+      return { reply: parts.join('\n'), sources: ['SEC XBRL', 'NSE India', 'Wikidata'], followUps: [] };
     }
 
     if (q.includes('director') || q.includes('officer') || q.includes('people') || q.includes('who') || q.includes('board') || q.includes('team')) {
@@ -316,9 +343,10 @@ export class TraceyService {
         return {
           reply: `**Key people in ${companyName}'s network (${people.length}):**\n\n${people.slice(0, 10).map((p) => `- ${p}`).join('\n')}${people.length > 10 ? `\n- ...and ${people.length - 10} more` : ''}\n\nPeople flagged with [PEP] are Politically Exposed Persons. Those with [FEC] have recorded political donations.`,
           sources: ['SEC Form 4', 'Wikidata', 'DEF 14A'],
+          followUps: [],
         };
       }
-      return { reply: `The investigation found ${people.length} people connected to **${companyName}**. Director data may be limited for this jurisdiction.`, sources: context.sources };
+      return { reply: `The investigation found ${people.length} people connected to **${companyName}**. Director data may be limited for this jurisdiction.`, sources: context.sources, followUps: [] };
     }
 
     if (q.includes('subsidiary') || q.includes('subsidiaries') || q.includes('owns') || q.includes('structure') || q.includes('group')) {
@@ -327,6 +355,7 @@ export class TraceyService {
           ? `**${companyName}** has **${subCount} subsidiaries** identified:\n\n${subNames}\n\nThese were identified through Wikidata, SEC 10-K Exhibit 21, and GLEIF ownership data.`
           : `No subsidiary information was found for **${companyName}**. This may indicate a standalone entity or limited disclosure.`,
         sources: ['Wikidata', 'SEC 10-K', 'GLEIF'],
+        followUps: [],
       };
     }
 
@@ -336,6 +365,7 @@ export class TraceyService {
           ? `**${courtCases} court cases** were found involving **${companyName}** or related entities.\n\n${findings.filter((f) => f.includes('LITIGATION') || f.includes('court')).map((f) => `- ${f}`).join('\n') || 'Details available in the Findings tab.'}\n\nCourt records were sourced from CourtListener (US federal) and Indian Kanoon (India). Review the specific cases to determine if the company is plaintiff or defendant.`
           : `No court cases were found for **${companyName}** in the databases searched (CourtListener, Indian Kanoon).`,
         sources: ['CourtListener', 'Indian Kanoon'],
+        followUps: [],
       };
     }
 
@@ -356,7 +386,7 @@ export class TraceyService {
       }
       if (parseInt(pepCount) > 0) parts.push(`4. **Apply EDD** for the ${pepCount} PEP(s) in the network`);
       if (recommendations.length > 0) parts.push(`\n**AI recommendations:** ${recommendations.join('. ')}`);
-      return { reply: parts.join('\n'), sources: context.sources };
+      return { reply: parts.join('\n'), sources: context.sources, followUps: [] };
     }
 
     if (q.includes('investor') || q.includes('invest') || q.includes('shareholder') || q.includes('ownership')) {
@@ -367,7 +397,7 @@ export class TraceyService {
       const parentLines = lines.filter((l) => l.includes('parent') || l.includes('PARENT'));
       if (parentLines.length > 0) parentLines.forEach((l) => parts.push(`- ${l.trim()}`));
       if (parts.length === 1) parts.push(`Ownership data is limited. For listed companies, check the shareholding pattern. For private companies, UBO data may be available in the UBO tab.`);
-      return { reply: parts.join('\n'), sources: ['NSE India', 'SEC Form 4', 'GLEIF', 'Companies House PSC'] };
+      return { reply: parts.join('\n'), sources: ['NSE India', 'SEC Form 4', 'GLEIF', 'Companies House PSC'], followUps: [] };
     }
 
     // Default — give a data-rich overview instead of menu
@@ -384,6 +414,6 @@ export class TraceyService {
       findings.slice(0, 3).forEach((f) => parts.push(`- ${f}`));
     }
     parts.push(`\nAsk me about any specific area — financials, PEPs, sanctions, directors, subsidiaries, court cases, or what to do next.`);
-    return { reply: parts.join('\n'), sources: context.sources };
+    return { reply: parts.join('\n'), sources: context.sources, followUps: [] };
   }
 }
