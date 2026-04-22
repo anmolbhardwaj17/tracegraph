@@ -194,20 +194,61 @@ export default function InvestigationLayout({ children }: { children: React.Reac
         </div>
       )}
 
-      {/* Glowing orb — bottom right when Tracey is closed */}
+      {/* Tracey AI orb — bottom right */}
       {meta?.status === 'COMPLETE' && !traceyOpen && (
         <button
           onClick={() => setTraceyOpen(true)}
           className="fixed bottom-8 right-8 z-50 group"
         >
-          <div className="absolute inset-0 w-14 h-14 rounded-full bg-blue-500/15 animate-ping" style={{ animationDuration: '3s' }} />
-          <div className="absolute -inset-1.5 w-17 h-17 rounded-full bg-gradient-to-br from-blue-500/25 to-violet-500/25 blur-lg animate-pulse" style={{ animationDuration: '2.5s' }} />
-          <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 flex items-center justify-center transition-transform group-hover:scale-110">
-            <span className="text-white font-semibold text-lg">T</span>
+          {/* Outer glow pulse */}
+          <div className="absolute -inset-4 rounded-full animate-pulse" style={{ animationDuration: '3s', background: 'radial-gradient(circle, rgba(200,255,0,0.12) 0%, transparent 70%)' }} />
+          <div className="absolute -inset-2 rounded-full animate-ping opacity-20" style={{ animationDuration: '4s', background: 'radial-gradient(circle, rgba(200,255,0,0.15) 0%, transparent 60%)' }} />
+
+          {/* The orb */}
+          <div className="relative w-[60px] h-[60px] rounded-full transition-transform group-hover:scale-110 overflow-hidden" style={{
+            background: 'radial-gradient(circle at 38% 32%, rgba(210,255,40,0.5) 0%, rgba(140,200,0,0.2) 25%, rgba(60,80,0,0.2) 50%, #0c0e08 85%)',
+            boxShadow: '0 0 35px rgba(200,255,0,0.18), 0 0 70px rgba(200,255,0,0.06), inset 0 -8px 20px rgba(200,255,0,0.08)',
+          }}>
+            {/* Glass highlight — top left crescent */}
+            <div className="absolute top-[6px] left-[10px] w-[22px] h-[10px] rounded-full bg-white/20 blur-[3px] rotate-[-15deg]" />
+
+            {/* Slow rotating inner shimmer */}
+            <div className="absolute inset-[3px] rounded-full" style={{
+              animation: 'orbSpin 10s linear infinite',
+              background: 'conic-gradient(from 0deg, transparent 0%, rgba(200,255,0,0.08) 20%, transparent 40%, rgba(180,255,50,0.06) 60%, transparent 80%, rgba(220,255,0,0.05) 100%)',
+            }} />
+
+            {/* Depth ring — inner shadow */}
+            <div className="absolute inset-[2px] rounded-full" style={{ boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.4), inset 0 -2px 8px rgba(200,255,0,0.05)' }} />
+
+            {/* Eyes */}
+            <div className="absolute inset-0 flex items-center justify-center gap-[11px] pt-[1px]">
+              <div className="w-[6px] h-[6px] rounded-full bg-[#d4ff00]" style={{
+                boxShadow: '0 0 8px rgba(212,255,0,0.9), 0 0 16px rgba(212,255,0,0.4)',
+                animation: 'blink 5s ease-in-out infinite',
+              }} />
+              <div className="w-[6px] h-[6px] rounded-full bg-[#d4ff00]" style={{
+                boxShadow: '0 0 8px rgba(212,255,0,0.9), 0 0 16px rgba(212,255,0,0.4)',
+                animation: 'blink 5s ease-in-out infinite 0.1s',
+              }} />
+            </div>
           </div>
-          <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-[#12121a] text-white/60 text-[10px] font-mono px-3 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity border border-white/5">
+
+          {/* Tooltip */}
+          <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-[#111] text-[#d4ff00]/60 text-[10px] font-mono px-3 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity border border-[#d4ff00]/10 shadow-lg">
             Ask Tracey
           </span>
+
+          <style jsx>{`
+            @keyframes blink {
+              0%, 43%, 47%, 100% { transform: scaleY(1); }
+              45% { transform: scaleY(0.08); }
+            }
+            @keyframes orbSpin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
         </button>
       )}
     </main>

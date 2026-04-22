@@ -82,10 +82,10 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
   ];
 
   return (
-    <div className="flex flex-col h-full relative overflow-hidden" style={{ background: '#07070c' }}>
-      {/* Gradient glow — bottom center, large and warm */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[40%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(50,80,220,0.3) 0%, rgba(80,50,200,0.1) 40%, transparent 65%)' }} />
-      <div className="absolute bottom-[5%] left-1/2 -translate-x-1/2 w-[300px] h-[300px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(140,100,255,0.12) 0%, transparent 60%)' }} />
+    <div className="flex flex-col h-full relative overflow-hidden" style={{ background: '#08090a' }}>
+      {/* Gradient glow — bottom center, neon lime */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[40%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(180,230,0,0.12) 0%, rgba(100,160,0,0.05) 40%, transparent 65%)' }} />
+      <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 w-[250px] h-[250px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,255,0,0.08) 0%, transparent 60%)' }} />
 
       {/* Close button */}
       <button onClick={onClose} className="absolute top-4 right-4 z-10 w-7 h-7 rounded-full bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center transition-colors">
@@ -99,7 +99,7 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
             {msg.role === 'assistant' ? (
               <div>
                 {i === 0 && (
-                  <p className="text-[10px] font-medium tracking-[0.2em] text-white/20 uppercase mb-4">Tracey</p>
+                  <p className="text-[10px] font-medium tracking-[0.2em] uppercase mb-4" style={{ color: 'rgba(212,255,0,0.35)' }}>Tracey</p>
                 )}
                 <div className="text-[13.5px] leading-[1.75] text-white/65">
                   {msg.content.split('\n').map((line, j) => (
@@ -127,7 +127,7 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
         {loading && (
           <div className="flex items-center gap-2 h-6">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-400/40 animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
+              <div key={i} className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ animationDelay: `${i * 200}ms`, background: 'rgba(212,255,0,0.4)' }} />
             ))}
           </div>
         )}
@@ -164,9 +164,10 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center disabled:opacity-15 hover:opacity-90 transition-opacity"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center disabled:opacity-15 hover:opacity-90 transition-opacity"
+            style={{ background: 'linear-gradient(135deg, #c0e800, #7aab00)' }}
           >
-            <Send className="w-3.5 h-3.5 text-white" />
+            <Send className="w-3.5 h-3.5 text-black" />
           </button>
         </form>
       </div>
