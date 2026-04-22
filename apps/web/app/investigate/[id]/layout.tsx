@@ -192,7 +192,7 @@ export default function InvestigationLayout({ children }: { children: React.Reac
         {/* Tracey sidebar — fixed right panel */}
         {meta?.status === 'COMPLETE' && traceyOpen && (
           <div className="w-[400px] shrink-0 border-l border-white/5 bg-ink-900/95 backdrop-blur-sm">
-            <div className="sticky top-[140px] h-[calc(100vh-140px)] flex flex-col">
+            <div className="sticky top-0 h-screen flex flex-col">
               <TraceyChat investigationId={id} companyName={meta?.companyName || meta?.query} embedded onClose={() => setTraceyOpen(false)} />
             </div>
           </div>
