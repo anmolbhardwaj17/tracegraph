@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { useAuth } from '../components/AuthProvider';
 const EncryptedText = dynamic(
   () => import('../components/ui/encrypted-text').then((m) => m.EncryptedText),
   { ssr: false, loading: () => <span className="text-ink-400">Uncover everything.</span> },
@@ -118,18 +119,34 @@ export default function Home() {
     setQuery(hit.title || hit.name || hit.companyNumber);
   }
 
+  const { user, token } = useAuth();
+
   async function startInvestigation(q: string, tier: Tier = 'STANDARD') {
+    // Auth wall — redirect to login if not authenticated
+    if (!user || !token) {
+      router.push(`/auth?redirect=${encodeURIComponent('/')}`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setShowDropdown(false);
     try {
       const res = await fetch(`${API}/api/investigations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ query: q, tier, jurisdiction }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (data.error) {
+        setError(data.upgrade ? `${data.error}. Upgrade to Pro for 50 investigations/month.` : data.error);
+        setLoading(false);
+        return;
+      }
       router.push(`/investigate/${data.id}`);
     } catch (err: any) {
       setError(err.message);
