@@ -183,13 +183,35 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
                     <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.2em', color: 'rgba(212,255,0,0.35)', textTransform: 'uppercase', marginBottom: 8 }}>Tracey</p>
                   )}
                   <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'rgba(255,255,255,0.65)' }}>
-                    {msg.content.split('\n').map((line, j) => (
-                      <p key={j} style={{ marginTop: j > 0 ? 12 : 0 }}>
-                        {line.split('**').map((part, k) =>
-                          k % 2 === 1 ? <span key={k} style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>{part}</span> : part
-                        )}
-                      </p>
-                    ))}
+                    {(() => {
+                      // Split thinking from answer
+                      const thinkMatch = msg.content.match(/<thinking>([\s\S]*?)<\/thinking>/);
+                      const thinking = thinkMatch?.[1]?.trim();
+                      const answer = msg.content.replace(/<thinking>[\s\S]*?<\/thinking>\s*/g, '').trim();
+                      return (
+                        <>
+                          {thinking && (
+                            <details style={{ marginBottom: 12 }}>
+                              <summary style={{ fontSize: 11, color: 'rgba(212,255,0,0.3)', cursor: 'pointer', userSelect: 'none', marginBottom: 6 }}>
+                                Tracey&apos;s reasoning...
+                              </summary>
+                              <div style={{ fontSize: 12, lineHeight: 1.6, color: 'rgba(255,255,255,0.3)', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, borderLeft: '2px solid rgba(212,255,0,0.15)', marginBottom: 8 }}>
+                                {thinking.split('\n').map((line, j) => (
+                                  <p key={j} style={{ marginTop: j > 0 ? 6 : 0 }}>{line}</p>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                          {answer.split('\n').map((line, j) => (
+                            <p key={j} style={{ marginTop: j > 0 ? 12 : 0 }}>
+                              {line.split('**').map((part, k) =>
+                                k % 2 === 1 ? <span key={k} style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>{part}</span> : part
+                              )}
+                            </p>
+                          ))}
+                        </>
+                      );
+                    })()}
                   </div>
                   {msg.sources && msg.sources.length > 0 && (
                     <p style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(255,255,255,0.1)', marginTop: 12, letterSpacing: '0.05em' }}>{msg.sources.join(' · ')}</p>

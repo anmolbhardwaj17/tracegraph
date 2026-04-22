@@ -91,12 +91,40 @@ export class TraceyService {
 
       const raw = res.data?.choices?.[0]?.message?.content || "I'm having trouble processing that. Could you rephrase your question?";
 
+      // Separate thinking from answer
+      let cleaned = raw;
+      let thinking = '';
+
+      // Handle <think>...</think> blocks
+      const thinkMatch = cleaned.match(/<think>([\s\S]*?)<\/think>/i);
+      if (thinkMatch) {
+        thinking = thinkMatch[1].trim();
+        cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+      }
+
+      // Handle models that dump thinking as plain text before the answer
+      if (/^(Okay|Alright|Hmm|Let me think|Looking at|I notice|The user|Wait,)/i.test(cleaned)) {
+        const paragraphs = cleaned.split('\n\n');
+        const answerStart = paragraphs.findIndex((p) =>
+          /^(Hey|Hi |Based|Here|The investigation|Your |So,|Great|#{1,3} |\*\*|Anmol)/i.test(p.trim())
+        );
+        if (answerStart > 0) {
+          thinking = paragraphs.slice(0, answerStart).join('\n\n');
+          cleaned = paragraphs.slice(answerStart).join('\n\n');
+        }
+      }
+
+      // Prefix thinking as a collapsible section if present
+      if (thinking && cleaned.length > 30) {
+        cleaned = `<thinking>${thinking}</thinking>\n\n${cleaned}`;
+      }
+
       // Parse follow-ups from response
-      let reply = raw;
+      let reply = cleaned;
       let followUps: string[] = [];
-      const followUpMatch = raw.match(/FOLLOWUPS:\s*(.+)$/im);
+      const followUpMatch = cleaned.match(/FOLLOWUPS:\s*(.+)$/im);
       if (followUpMatch) {
-        reply = raw.replace(/\n?FOLLOWUPS:.+$/im, '').trim();
+        reply = cleaned.replace(/\n?FOLLOWUPS:.+$/im, '').trim();
         followUps = followUpMatch[1].split('|').map((s: string) => s.trim()).filter((s: string) => s.length > 3 && s.length < 60).slice(0, 4);
       }
 
