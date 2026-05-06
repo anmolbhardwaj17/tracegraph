@@ -1,0 +1,18 @@
+name: Sift PR Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  sift:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: sahilsaleem2907/sift/.github/workflows/sift-review.yml@master
+    with:
+      repository: ${{ github.repository }}
+      pr_number: ${{ github.event.pull_request.number }}
+      before_sha: ${{ github.event.before }}
+      auth_mode: installation_id
+    secrets: inherit
