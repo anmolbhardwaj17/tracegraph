@@ -1,6 +1,11 @@
 # --- builder ---
 FROM node:20-alpine AS builder
 WORKDIR /repo
+
+# Accept build arg so NEXT_PUBLIC_ vars are baked in at build time
+ARG NEXT_PUBLIC_API_URL=http://localhost:7778
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 COPY package.json package-lock.json turbo.json tsconfig.base.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/

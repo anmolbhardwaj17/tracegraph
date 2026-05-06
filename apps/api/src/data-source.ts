@@ -25,6 +25,14 @@ import { WatchlistAlert } from './modules/watchlist/entities/watchlist-alert.ent
 import { IndiaCompany } from './modules/india/india-company.entity';
 import { User } from './modules/auth/entities/user.entity';
 import { AuditLog } from './modules/auth/entities/audit-log.entity';
+import { Person } from './modules/persons/entities/person.entity';
+import { PersonAppointment } from './modules/persons/entities/person-appointment.entity';
+import { InvestigationNote } from './modules/pipeline/entities/investigation-note.entity';
+import { InvestigationActivity } from './modules/pipeline/entities/investigation-activity.entity';
+import { FundingEvent } from './modules/funding/entities/funding-event.entity';
+import { Team } from './modules/teams/entities/team.entity';
+import { TeamMember } from './modules/teams/entities/team-member.entity';
+import { InvestigationComment } from './modules/teams/entities/investigation-comment.entity';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -33,7 +41,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.POSTGRES_USER || 'tracegraph',
   password: process.env.POSTGRES_PASSWORD || 'tracegraph',
   database: process.env.POSTGRES_DB || 'tracegraph',
-  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache, WatchlistItem, WatchlistAlert, ApiKey, BatchScreen, IndiaCompany, User, AuditLog],
+  entities: [Company, Officer, CompanyOfficer, Address, PSC, Investigation, GraphNode, GraphEdge, SanctionsEntity, OffshoreEntity, OffshoreOfficer, OffshoreIntermediary, OffshoreRelationship, EntityMatch, GeocodeCache, LogoCache, WatchlistItem, WatchlistAlert, ApiKey, BatchScreen, IndiaCompany, User, AuditLog, Person, PersonAppointment, InvestigationNote, InvestigationActivity, FundingEvent, Team, TeamMember, InvestigationComment],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
   logging: false,

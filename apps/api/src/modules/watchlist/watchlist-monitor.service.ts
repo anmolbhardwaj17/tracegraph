@@ -52,6 +52,11 @@ export class WatchlistMonitorService {
     return { checked: items.length, alerts: alertCount };
   }
 
+  /** Public wrapper so the scheduler can call per-item checks */
+  async checkCompanyPublic(item: WatchlistItem): Promise<number> {
+    return this.checkCompany(item);
+  }
+
   /** Check a single company for changes */
   private async checkCompany(item: WatchlistItem): Promise<number> {
     // Get the previous investigation

@@ -14,7 +14,14 @@ const CACHE_TTL = 24 * 60 * 60 * 1000;
 function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) return Promise.resolve(hit.data as T);
-  return fn().then((data) => { cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL }); return data; });
+  return fn().then((data) => {
+    // Never cache null or empty arrays — a temporary failure would poison the cache for 24h
+    const isEmpty = data === null || data === undefined || (Array.isArray(data) && (data as any[]).length === 0);
+    if (!isEmpty) {
+      cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL });
+    }
+    return data;
+  });
 }
 
 let lastRequest = 0;

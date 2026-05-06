@@ -109,6 +109,54 @@ export class InvestigationService {
     } catch { return null; }
   }
 
+  /** Aggregate risk stats by industry sector derived from investigation metadata */
+  async getSectorBenchmarks(): Promise<any[]> {
+    const all = await this.investigations.find({ where: { status: 'COMPLETE' } });
+    const bySector: Record<string, { count: number; totalScore: number; totalReadiness: number }> = {};
+
+    for (const inv of all) {
+      const industry = (inv.metadata as any)?.industry || (inv.progress as any)?.companyProfile?.industry;
+      const sector = this.normalizeSector(industry);
+      if (!sector) continue;
+      const score = inv.progress?.riskScore;
+      if (score == null) continue;
+      const findings = inv.progress?.findings || [];
+      const readiness = this.computeAcquisitionReadiness(inv.progress, findings);
+      if (!bySector[sector]) bySector[sector] = { count: 0, totalScore: 0, totalReadiness: 0 };
+      bySector[sector].count++;
+      bySector[sector].totalScore += score;
+      bySector[sector].totalReadiness += readiness;
+    }
+
+    return Object.entries(bySector)
+      .filter(([, v]) => v.count >= 2)
+      .map(([sector, v]) => ({
+        sector,
+        count: v.count,
+        avgRiskScore: Math.round(v.totalScore / v.count),
+        avgAcquisitionReadiness: Math.round(v.totalReadiness / v.count),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  private normalizeSector(industry: string | null | undefined): string | null {
+    if (!industry) return null;
+    const i = industry.toLowerCase();
+    if (i.includes('tech') || i.includes('software') || i.includes('saas') || i.includes('fintech')) return 'Technology';
+    if (i.includes('financ') || i.includes('bank') || i.includes('insurance') || i.includes('invest')) return 'Financial Services';
+    if (i.includes('health') || i.includes('pharma') || i.includes('medic') || i.includes('biotech')) return 'Healthcare';
+    if (i.includes('retail') || i.includes('e-commerce') || i.includes('consumer')) return 'Consumer & Retail';
+    if (i.includes('energy') || i.includes('oil') || i.includes('gas') || i.includes('utilities')) return 'Energy';
+    if (i.includes('real estate') || i.includes('property') || i.includes('construction')) return 'Real Estate';
+    if (i.includes('manufact') || i.includes('industrial') || i.includes('aerospace')) return 'Industrial';
+    if (i.includes('food') || i.includes('beverage') || i.includes('restaurant') || i.includes('hospitality')) return 'Food & Hospitality';
+    if (i.includes('media') || i.includes('entertainment') || i.includes('gaming') || i.includes('content')) return 'Media & Entertainment';
+    if (i.includes('transport') || i.includes('logistics') || i.includes('shipping') || i.includes('aviation')) return 'Transport & Logistics';
+    if (i.includes('educat') || i.includes('edtech') || i.includes('training')) return 'Education';
+    if (i.includes('telecom') || i.includes('wireless') || i.includes('broadband')) return 'Telecommunications';
+    return 'Other';
+  }
+
   async getPercentile(score: number): Promise<number> {
     const all = await this.investigations.find({ where: { status: 'COMPLETE' } });
     const scores = all.map((i) => i.progress?.riskScore).filter((s): s is number => s != null);
@@ -417,6 +465,13 @@ export class InvestigationService {
       regulatoryViolations: inv.progress?.regulatoryViolations || null,
       // Root company enrichment data
       companyProfile: await this.getRootCompanyProfile(id),
+      // Acquisition intelligence
+      acquisitionReadiness: inv.progress?.riskScore != null
+        ? this.computeAcquisitionReadiness(inv.progress, inv.progress?.findings || [])
+        : null,
+      dealVerdict: inv.progress?.riskScore != null
+        ? this.computeDealVerdict(inv.progress, inv.progress?.findings || [])
+        : null,
     };
   }
 
@@ -840,23 +895,36 @@ export class InvestigationService {
 
         // Political
         politicalDonations: progress.politicalDonations?.totalAmount || 0,
+
+        // Acquisition readiness score
+        acquisitionReadiness: this.computeAcquisitionReadiness(progress, findings),
+
+        // Deal verdict
+        dealVerdict: this.computeDealVerdict(progress, findings),
+
+        // Ownership complexity
+        uboChainDepth: (progress.uboChains || []).reduce((max: number, c: any) => Math.max(max, (c.links || []).length), 0),
+        uboChainCount: (progress.uboChains || []).length,
       });
     }
 
-    // Sort by risk score descending
-    companies.sort((a, b) => b.riskScore - a.riskScore);
+    // Sort by acquisition readiness descending (best target first)
+    companies.sort((a, b) => b.acquisitionReadiness - a.acquisitionReadiness);
 
-    // Compute comparison insights
     const scores = companies.map((c) => c.riskScore);
     const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-    const highest = companies[0];
-    const lowest = companies[companies.length - 1];
+    const readinesses = companies.map((c) => c.acquisitionReadiness);
+    const bestTarget = companies[0];
+    const highest = [...companies].sort((a, b) => b.riskScore - a.riskScore)[0];
+    const lowest = [...companies].sort((a, b) => a.riskScore - b.riskScore)[0];
 
     return {
       companies,
       summary: {
         count: companies.length,
         averageRiskScore: avgScore,
+        averageReadiness: readinesses.length > 0 ? Math.round(readinesses.reduce((a, b) => a + b, 0) / readinesses.length) : 0,
+        bestTarget: bestTarget ? { name: bestTarget.companyName, readiness: bestTarget.acquisitionReadiness } : null,
         highestRisk: highest ? { name: highest.companyName, score: highest.riskScore } : null,
         lowestRisk: lowest ? { name: lowest.companyName, score: lowest.riskScore } : null,
         totalPeps: companies.reduce((s, c) => s + c.pepCount, 0),
@@ -864,5 +932,57 @@ export class InvestigationService {
         totalCourtCases: companies.reduce((s, c) => s + c.courtCases, 0),
       },
     };
+  }
+
+  /** Compute acquisition readiness score (0-100, higher = better target) */
+  computeAcquisitionReadiness(progress: any, findings: any[]): number {
+    let score = 85; // start optimistic
+
+    const sanctions = progress.directSanctions?.matches || 0;
+    const peps = progress.pepCount || 0;
+    const criticals = findings.filter((f: any) => f.severity === 'CRITICAL').length;
+    const highs = findings.filter((f: any) => f.severity === 'HIGH').length;
+    const fin = progress.secIntelligence?.financials;
+    const breakdown = progress.scoreBreakdown || {};
+
+    // Deal blockers (steep penalties)
+    if (sanctions > 0) score -= 50; // near-instant deal killer
+    if (criticals > 0) score -= criticals * 12;
+
+    // Significant penalties
+    if (peps > 0) score -= peps * 7;
+    if (highs > 0) score -= highs * 5;
+
+    // Structural complexity (from score breakdown)
+    const structuralPenalty = Math.round(((breakdown.structural || 0) / 40) * 20);
+    const directorPenalty = Math.round(((breakdown.director || 0) / 20) * 12);
+    score -= structuralPenalty + directorPenalty;
+
+    // Financial distress
+    if (fin?.flags?.includes('NEGATIVE_EQUITY')) score -= 15;
+    if (fin?.flags?.includes('HIGH_LEVERAGE')) score -= 8;
+    if (fin?.flags?.includes('NET_LOSS')) score -= 5;
+
+    // Adverse signals
+    if ((progress.adverseMediaCount || 0) > 3) score -= 8;
+    if ((progress.webIntelligence?.courtCases || 0) > 5) score -= 5;
+
+    // Positive signals
+    if (progress.webIntelligence?.websiteExists) score += 5;
+    if (fin?.profitMargin != null && fin.profitMargin > 10) score += 8;
+    if (sanctions === 0 && peps === 0 && criticals === 0) score += 5;
+
+    return Math.max(0, Math.min(100, Math.round(score)));
+  }
+
+  /** Compute M&A deal verdict from risk profile */
+  computeDealVerdict(progress: any, findings: any[]): string {
+    const score = progress.riskScore ?? 0;
+    const sanctions = progress.directSanctions?.matches || 0;
+    const criticals = findings.filter((f: any) => f.severity === 'CRITICAL').length;
+    if (sanctions > 0 || score >= 75 || criticals >= 3) return 'WALK';
+    if (score >= 50 || criticals > 0) return 'CONDITIONS';
+    if (score >= 25) return 'CAUTION';
+    return 'PROCEED';
   }
 }

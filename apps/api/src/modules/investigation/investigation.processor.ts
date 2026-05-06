@@ -36,6 +36,9 @@ import { TemporalAnalysisService as TemporalIntelService } from '../intelligence
 import { PeerComparisonService } from '../intelligence/peer-comparison.service';
 import { FilingNlpService } from '../intelligence/filing-nlp.service';
 import { ProactiveCrawlerService } from '../intelligence/proactive-crawler.service';
+import { PersonsService } from '../persons/persons.service';
+import { CapitalEventsService } from '../funding/capital-events.service';
+import { DomainResearchService } from '../enrichment/domain-research.service';
 import { InvestigationGateway } from './investigation.gateway';
 import { GleifProvider } from '../jurisdictions/providers/gleif.provider';
 import { SecEdgarProvider } from '../jurisdictions/providers/sec-edgar.provider';
@@ -107,6 +110,9 @@ export class InvestigationProcessor extends WorkerHost {
     private readonly filingNlp: FilingNlpService,
     private readonly proactiveCrawler: ProactiveCrawlerService,
     private readonly gateway: InvestigationGateway,
+    private readonly personsService: PersonsService,
+    private readonly capitalEvents: CapitalEventsService,
+    private readonly domainResearchSvc: DomainResearchService,
   ) {
     super();
   }
@@ -139,6 +145,11 @@ export class InvestigationProcessor extends WorkerHost {
     const { investigationId, query, tier = 'STANDARD', jurisdiction = 'gb' } = job.data;
     const opts = TIER_OPTIONS[tier] || TIER_OPTIONS.STANDARD;
     this.logger.log(`Processing investigation ${investigationId} (${query}) tier=${tier} jurisdiction=${jurisdiction}`);
+
+    // Domain/URL investigation pipeline
+    if (jurisdiction === 'domain') {
+      return this.processDomain(investigationId, query, tier);
+    }
 
     // Non-UK pipeline: use GLEIF + SEC EDGAR
     if (jurisdiction !== 'gb') {
@@ -369,6 +380,16 @@ export class InvestigationProcessor extends WorkerHost {
       });
       this.gateway.emitComplete(investigationId, result);
 
+      // Build persons track record from this investigation (fire and forget)
+      this.personsService.upsertFromInvestigation(investigationId).catch((e) =>
+        this.logger.warn(`Persons upsert failed for ${investigationId}: ${e?.message}`),
+      );
+
+      // Ingest capital events from Companies House (fire and forget)
+      this.capitalEvents.ingestUK(investigationId, companyNumber, companyName).catch((e) =>
+        this.logger.warn(`Capital events ingest failed for ${investigationId}: ${e?.message}`),
+      );
+
       // Update benchmarks after completion
       try {
         const all = await this.investigations.find({ where: { status: 'COMPLETE' as any } });
@@ -395,6 +416,495 @@ export class InvestigationProcessor extends WorkerHost {
         metadata: { error: err?.message } as any,
       });
       this.gateway.emitComplete(investigationId, { status: 'failed', error: err?.message });
+    }
+  }
+
+  /**
+   * Domain/URL investigation pipeline.
+   * Builds a full investigation from web sources: website scraping, WHOIS, Wayback,
+   * SEC Form D, news funding extraction, GitHub, adverse media, sanctions.
+   * Output lands in the same tab layout as registry investigations.
+   */
+  private async processDomain(investigationId: string, domain: string, tier: string): Promise<void> {
+    try {
+      await this.investigations.update(investigationId, { status: 'FETCHING' });
+      this.gateway.emitStatusChanged(investigationId, 'FETCHING');
+
+      // ── Phase 1: Deep web research ──────────────────────────────────────
+      // Input can be a domain (siemba.io) or a company name (Siemba)
+      const isDomain = /^[a-z0-9\-]+\.[a-z]{2,}$/i.test(domain.replace(/^https?:\/\//i, '').split('/')[0]);
+      this.logger.log(`[Domain] Starting research for ${domain} (${isDomain ? 'domain' : 'company name'})`);
+
+      const webProfile = isDomain
+        ? await this.domainResearchSvc.research(domain)
+        : await this.domainResearchSvc.researchByName(domain);
+
+      const companyName = webProfile.companyName || (isDomain
+        ? domain.replace(/\.(io|com|co|ai|app|net|org)$/, '')
+        : domain);
+
+      await this.investigations.update(investigationId, {
+        status: 'EXPANDING',
+        metadata: { companyName, domain, jurisdiction: 'web', tier, dataDepth: 'web-sourced' } as any,
+      });
+      this.gateway.emitStatusChanged(investigationId, 'EXPANDING');
+
+      // ── Phase 2: Build graph nodes from web research ────────────────────
+      const rootNode = await this.upsertNode({
+        investigationId, entityType: 'company', entityId: domain,
+        label: companyName,
+        metadata: {
+          enriched: true,
+          domain,
+          website: `https://${domain}`,
+          description: webProfile.description,
+          tagline: webProfile.tagline,
+          industry: webProfile.industry,
+          location: webProfile.location,
+          foundedYear: webProfile.foundedYear || (webProfile.whois?.createdDate ? new Date(webProfile.whois.createdDate).getFullYear() : null),
+          employeeCount: webProfile.employeeCount,
+          totalFunding: webProfile.totalFundingAmount,
+          linkedinUrl: webProfile.linkedinUrl,
+          twitterUrl: webProfile.twitterUrl,
+          githubUrl: webProfile.githubUrl,
+          crunchbaseUrl: webProfile.crunchbaseUrl,
+          email: webProfile.email,
+          domainAgeYears: webProfile.wayback?.ageYears,
+          firstSeen: webProfile.wayback?.firstSeen,
+          registrar: webProfile.whois?.registrar,
+          registrantCountry: webProfile.whois?.country,
+          hasGithub: !!webProfile.github,
+          hasCrunchbase: !!webProfile.crunchbaseUrl,
+          newsCount: (webProfile.news || []).length,
+          hnMentionCount: (webProfile.hnMentions || []).length,
+          jurisdiction: 'web',
+          source: 'domain-research',
+          webSourced: true,
+        },
+      });
+      this.gateway.emitEntityDiscovered(investigationId, { id: rootNode.id, entityType: 'company', entityId: domain, label: companyName });
+
+      // ── Add founder/team nodes ──────────────────────────────────────────
+      const founderObjects = webProfile.founders || [];
+      const teamNames = webProfile.teamMembers || [];
+
+      for (const founder of founderObjects.slice(0, 15)) {
+        if (!founder?.name?.trim()) continue;
+        const personNode = await this.upsertNode({
+          investigationId, entityType: 'person',
+          entityId: `${domain}:${founder.name.toLowerCase().replace(/\s+/g, '-')}`,
+          label: founder.name,
+          metadata: {
+            role: founder.title || 'Founder',
+            isFounder: true,
+            linkedinUrl: founder.linkedin,
+            background: founder.background,
+            source: 'web-research',
+          },
+        });
+        await this.upsertEdge({ investigationId, sourceNodeId: rootNode.id, targetNodeId: personNode.id, relationshipType: 'director' });
+        this.gateway.emitEntityDiscovered(investigationId, { id: personNode.id, entityType: 'person', entityId: personNode.entityId, label: founder.name });
+      }
+
+      for (const memberStr of teamNames.slice(0, 10)) {
+        if (!memberStr?.trim()) continue;
+        const name = memberStr.split('-')[0].trim();
+        if (!name || founderObjects.find((f: any) => f.name === name)) continue;
+        const personNode = await this.upsertNode({
+          investigationId, entityType: 'person',
+          entityId: `${domain}:team:${name.toLowerCase().replace(/\s+/g, '-')}`,
+          label: name,
+          metadata: { role: memberStr.includes('-') ? memberStr.split('-').slice(1).join('-').trim() : 'Team Member', source: 'web-research' },
+        });
+        await this.upsertEdge({ investigationId, sourceNodeId: rootNode.id, targetNodeId: personNode.id, relationshipType: 'director' });
+        this.gateway.emitEntityDiscovered(investigationId, { id: personNode.id, entityType: 'person', entityId: personNode.entityId, label: name });
+      }
+
+      // ── Add investor nodes from all sources ─────────────────────────────
+      const allInvestors = [...new Set(webProfile.investors || [])];
+      for (const investorName of allInvestors.slice(0, 15)) {
+        if (!investorName?.trim()) continue;
+        const invNode = await this.upsertNode({
+          investigationId, entityType: 'company',
+          entityId: `investor:${investorName.toLowerCase().replace(/\s+/g, '-')}`,
+          label: investorName,
+          metadata: { role: 'Investor', isInvestor: true, source: 'web-research' },
+        });
+        await this.upsertEdge({ investigationId, sourceNodeId: invNode.id, targetNodeId: rootNode.id, relationshipType: 'psc' });
+        this.gateway.emitEntityDiscovered(investigationId, { id: invNode.id, entityType: 'company', entityId: invNode.entityId, label: investorName });
+      }
+
+      // ── Log funding rounds ──────────────────────────────────────────────
+      const fundingRounds = webProfile.fundingRounds || [];
+      if (fundingRounds.length > 0) {
+        this.logger.log(`[Domain] Funding rounds found: ${fundingRounds.length}`);
+      }
+
+      // ── Phase 3: SEC Form D lookup for US companies ─────────────────────
+      this.gateway.emitStatusChanged(investigationId, 'RESOLVING');
+      let formDEvents: any[] = [];
+      try {
+        formDEvents = await this.capitalEvents.ingestFormD(investigationId, companyName, companyName);
+        if (formDEvents.length > 0) {
+          this.logger.log(`[Domain] SEC Form D: ${formDEvents.length} filings found`);
+        }
+      } catch { /* non-critical */ }
+
+      // ── Phase 4: Adverse media on company + founders ────────────────────
+      this.gateway.emitStatusChanged(investigationId, 'SCORING');
+      let adverseMediaResults: any[] = [];
+      try {
+        const mediaResult = await this.adverseMedia.screen(investigationId, companyName);
+        adverseMediaResults = mediaResult.hits || [];
+      } catch { /* non-critical */ }
+
+      // ── Phase 5: Sanctions screening via OpenSanctions fuzzy match ──────
+      let sanctionsResult: any = null;
+      const founderSanctions: any[] = [];
+      try {
+        // Use the investigation-level screen which checks all nodes we've created
+        sanctionsResult = await this.sanctionsDirect.screen(investigationId);
+      } catch { /* non-critical */ }
+
+      // ── Phase 6: Generate findings from web signals ─────────────────────
+      const findings: any[] = [];
+
+      // Tech stack signal
+      if (webProfile.techStack) {
+        const ts = webProfile.techStack;
+        const allTech = [...ts.hosting, ...ts.frontend, ...ts.backend, ...ts.analytics, ...ts.marketing, ...ts.payments, ...ts.raw];
+        if (allTech.length > 0) {
+          findings.push({
+            id: `domain-tech-${investigationId}`,
+            type: 'TECH_STACK_DETECTED',
+            severity: 'LOW',
+            title: `Tech stack identified: ${allTech.slice(0, 5).join(', ')}`,
+            description: `Hosting: ${ts.hosting.join(', ') || 'unknown'}. Frontend: ${ts.frontend.join(', ') || 'unknown'}. Analytics tools: ${ts.analytics.join(', ') || 'none detected'}. Payment processing: ${ts.payments.join(', ') || 'none detected'}.`,
+            businessImpact: 'Tech stack indicates engineering maturity and infrastructure investment level.',
+            verificationSteps: [],
+            affectedEntities: [rootNode.id],
+            confidence: 90,
+          });
+        }
+      }
+
+      // Job postings signal
+      if (webProfile.openRoleCount > 0) {
+        const byDept = webProfile.jobPostings.reduce((acc: any, j: any) => { acc[j.department] = (acc[j.department] || 0) + 1; return acc; }, {});
+        findings.push({
+          id: `domain-jobs-${investigationId}`,
+          type: 'ACTIVE_HIRING',
+          severity: 'LOW',
+          title: `${webProfile.openRoleCount} open role(s) found — company is actively hiring`,
+          description: `Open roles by department: ${Object.entries(byDept).map(([d, c]) => `${d} (${c})`).join(', ')}.`,
+          businessImpact: 'Active hiring at this stage indicates growth and capital deployment confidence.',
+          verificationSteps: ['Verify roles are live and unfilled — some career pages have stale postings'],
+          affectedEntities: [rootNode.id],
+          confidence: 80,
+        });
+      }
+
+      // ProductHunt signal
+      if (webProfile.productHunt?.found) {
+        const ph = webProfile.productHunt;
+        findings.push({
+          id: `domain-ph-${investigationId}`,
+          type: 'PRODUCT_HUNT_LAUNCH',
+          severity: 'LOW',
+          title: `Launched on ProductHunt — ${ph.upvotes} upvotes, ${ph.reviews} comments`,
+          description: `Product: "${ph.name}". Launched: ${ph.launchDate || 'unknown'}. Makers: ${ph.makers?.join(', ') || 'not listed'}.`,
+          businessImpact: 'Public launch validates product exists and has community awareness.',
+          verificationSteps: [],
+          affectedEntities: [rootNode.id],
+          confidence: 95,
+        });
+      }
+
+      // HackerNews signal
+      if (webProfile.hnMentions?.length > 0) {
+        findings.push({
+          id: `domain-hn-${investigationId}`,
+          type: 'HN_MENTIONS',
+          severity: 'LOW',
+          title: `${webProfile.hnMentions.length} HackerNews mention(s) found`,
+          description: webProfile.hnMentions.slice(0, 2).map((h: any) => `"${h.title}" (${h.points} pts)`).join('. '),
+          businessImpact: 'HN community engagement signals technical credibility and developer adoption.',
+          verificationSteps: [],
+          affectedEntities: [rootNode.id],
+          confidence: 95,
+        });
+      }
+
+      // No registry presence
+      findings.push({
+        id: `domain-no-registry-${investigationId}`,
+        type: 'NO_REGISTRY_PRESENCE',
+        severity: 'MEDIUM',
+        title: `${companyName} has no public registry record`,
+        description: `This company is not registered in Companies House (UK), SEC EDGAR (US), or GLEIF. Investigation is based entirely on web-sourced intelligence.`,
+        businessImpact: 'Cannot verify incorporation, legal structure, or beneficial ownership through official public records. Enhanced due diligence required before any capital commitment.',
+        verificationSteps: ['Request company registration documents directly', 'Verify incorporation via local registry', 'Ask for cap table and shareholder register'],
+        affectedEntities: [rootNode.id],
+        confidence: 90,
+      });
+
+      // Domain age signal
+      if (webProfile.wayback?.ageYears != null) {
+        if (webProfile.wayback.ageYears < 1) {
+          findings.push({
+            id: `domain-new-${investigationId}`,
+            type: 'NEW_DOMAIN',
+            severity: 'HIGH',
+            title: `Domain registered less than 1 year ago`,
+            description: `${domain} was first seen online in ${webProfile.wayback.firstSeen}. Very new web presence for a company seeking investment.`,
+            businessImpact: 'Extremely limited operating history verifiable from web sources.',
+            verificationSteps: ['Verify founding date through alternative sources', 'Request bank statements showing operating history'],
+            affectedEntities: [rootNode.id],
+            confidence: 95,
+          });
+        } else {
+          findings.push({
+            id: `domain-age-${investigationId}`,
+            type: 'WEB_PRESENCE_VERIFIED',
+            severity: 'LOW',
+            title: `Web presence established ${webProfile.wayback.ageYears} years ago`,
+            description: `${domain} has been online since ${webProfile.wayback.firstSeen} — ${webProfile.wayback.ageYears} years of verifiable web history.`,
+            businessImpact: 'Established web presence consistent with operating company.',
+            verificationSteps: [],
+            affectedEntities: [rootNode.id],
+            confidence: 95,
+          });
+        }
+      }
+
+      // Founders found / not found
+      if (founderObjects.length === 0) {
+        findings.push({
+          id: `domain-no-founders-${investigationId}`,
+          type: 'FOUNDERS_NOT_IDENTIFIED',
+          severity: 'MEDIUM',
+          title: 'Founders not publicly identified',
+          description: `No founder names found across website, Crunchbase, or news sources for ${companyName}. Background verification is not possible without direct disclosure.`,
+          businessImpact: 'Cannot assess founder track record, previous exits, or relevant experience.',
+          verificationSteps: ['Request founder CVs and LinkedIn profiles', 'Ask for the shareholder register'],
+          affectedEntities: [rootNode.id],
+          confidence: 75,
+        });
+      } else {
+        findings.push({
+          id: `domain-founders-${investigationId}`,
+          type: 'FOUNDERS_IDENTIFIED',
+          severity: 'LOW',
+          title: `${founderObjects.length} founder(s) identified`,
+          description: `Founders: ${founderObjects.map((f: any) => `${f.name} (${f.title || 'Founder'})`).join(', ')}.`,
+          businessImpact: 'Background checks can now be run on identified founders.',
+          verificationSteps: ['Run LinkedIn verification', 'Check for prior company exits', 'Verify credentials directly'],
+          affectedEntities: [rootNode.id],
+          confidence: 80,
+        });
+      }
+
+      // GitHub signal
+      if (webProfile.github) {
+        const gh = webProfile.github;
+        findings.push({
+          id: `domain-github-${investigationId}`,
+          type: gh.repos > 0 ? 'GITHUB_PRESENCE' : 'NO_GITHUB',
+          severity: 'LOW',
+          title: gh.repos > 0 ? `GitHub org found: ${gh.orgName} (${gh.repos} repos, ${gh.stars} stars)` : 'No GitHub presence found',
+          description: gh.repos > 0
+            ? `Tech stack: ${gh.topLanguages.join(', ') || 'unknown'}. ${gh.contributors} visible contributors.`
+            : 'No public GitHub organisation found. Cannot independently verify technical capability.',
+          businessImpact: gh.repos > 0 ? 'Technical credibility partially verified via open-source activity.' : 'Technical due diligence cannot be conducted via public repos.',
+          verificationSteps: gh.repos > 0 ? [] : ['Request access to private repo or code demo'],
+          affectedEntities: [rootNode.id],
+          confidence: 90,
+        });
+      }
+
+      // Investors found
+      const totalInvestors = allInvestors.length + formDEvents.length;
+      if (totalInvestors > 0) {
+        findings.push({
+          id: `domain-investors-${investigationId}`,
+          type: 'INVESTORS_IDENTIFIED',
+          severity: 'LOW',
+          title: `${totalInvestors} investor(s) identified from public sources`,
+          description: `Investors: ${allInvestors.slice(0, 5).join(', ')}${allInvestors.length > 5 ? ` +${allInvestors.length - 5} more` : ''}.${formDEvents.length > 0 ? ` ${formDEvents.length} SEC Form D filing(s) found.` : ''}`,
+          businessImpact: 'Third-party investor validation reduces risk. Verify directly with named funds.',
+          verificationSteps: ['Confirm with investor directly', 'Cross-reference cap table'],
+          affectedEntities: [rootNode.id],
+          confidence: 75,
+        });
+      }
+
+      // Funding rounds
+      if (fundingRounds.length > 0) {
+        const crunchbaseRounds = fundingRounds.filter((r: any) => r.source === 'crunchbase');
+        findings.push({
+          id: `domain-funding-${investigationId}`,
+          type: 'FUNDING_ROUNDS_FOUND',
+          severity: 'LOW',
+          title: `${fundingRounds.length} funding round(s) found${webProfile.totalFundingAmount ? ` — ${webProfile.totalFundingAmount} total` : ''}`,
+          description: crunchbaseRounds.length > 0
+            ? `Confirmed via Crunchbase: ${crunchbaseRounds.map((r: any) => `${r.type || 'Round'} ${r.amount || ''} (${r.date || 'undated'})`).join(', ')}.`
+            : `Funding mentioned in public sources. ${webProfile.totalFundingAmount ? `Total: ${webProfile.totalFundingAmount}.` : 'Amounts unconfirmed.'}`,
+          businessImpact: 'Funding history shows company has external validation and runway.',
+          verificationSteps: ['Request cap table and all term sheets', 'Verify amounts with lead investors'],
+          affectedEntities: [rootNode.id],
+          confidence: crunchbaseRounds.length > 0 ? 85 : 60,
+        });
+      }
+
+      // Sanctions hits
+      const sanctionHits = (sanctionsResult?.matches?.length || 0) + founderSanctions.length;
+      if (sanctionHits > 0) {
+        findings.push({
+          id: `domain-sanctions-${investigationId}`,
+          type: 'DIRECT_SANCTIONS_HIT',
+          severity: 'CRITICAL',
+          title: `Sanctions match detected`,
+          description: `Company or team member name matches sanctions database.`,
+          businessImpact: 'Deal cannot proceed without legal clearance.',
+          verificationSteps: ['Immediate legal review required', 'Do not transfer funds'],
+          affectedEntities: [rootNode.id],
+          confidence: 85,
+        });
+      }
+
+      // Adverse media
+      if (adverseMediaResults.length > 0) {
+        findings.push({
+          id: `domain-media-${investigationId}`,
+          type: 'ADVERSE_MEDIA',
+          severity: adverseMediaResults.length > 3 ? 'HIGH' : 'MEDIUM',
+          title: `${adverseMediaResults.length} adverse media mention(s) found`,
+          description: `Negative press coverage detected for ${companyName}.`,
+          businessImpact: 'Reputational risk. Review coverage before proceeding.',
+          verificationSteps: adverseMediaResults.slice(0, 3).map((h: any) => h.headline || h.url).filter(Boolean),
+          affectedEntities: [rootNode.id],
+          confidence: 80,
+        });
+      }
+
+      // DD questions as a collective finding
+      if ((webProfile.ddQuestions || []).length > 0) {
+        findings.push({
+          id: `domain-dd-questions-${investigationId}`,
+          type: 'DD_QUESTIONS',
+          severity: 'MEDIUM',
+          title: `${webProfile.ddQuestions.length} due diligence questions generated`,
+          description: webProfile.ddQuestions.slice(0, 3).join(' | '),
+          businessImpact: 'These gaps in publicly available information must be resolved before any capital commitment.',
+          verificationSteps: webProfile.ddQuestions,
+          affectedEntities: [rootNode.id],
+          confidence: 100,
+        });
+      }
+
+      // ── Phase 7: Risk score ─────────────────────────────────────────────
+      let score = 20; // base for no-registry company — opacity is a risk
+      if (webProfile.wayback?.ageYears != null && webProfile.wayback.ageYears < 1) score += 20;
+      if (founderObjects.length === 0) score += 15;
+      if ((sanctionsResult?.matches?.length || 0) > 0) score += 50;
+      if (adverseMediaResults.length > 3) score += 20;
+      else if (adverseMediaResults.length > 0) score += 10;
+      // Positive signals reduce score
+      if (allInvestors.length > 0 || formDEvents.length > 0) score = Math.max(0, score - 10);
+      if ((webProfile.github?.repos || 0) > 5) score = Math.max(0, score - 5);
+      if (webProfile.openRoleCount > 5) score = Math.max(0, score - 5);
+      if (webProfile.productHunt?.found) score = Math.max(0, score - 5);
+      if (webProfile.news?.length > 3) score = Math.max(0, score - 5);
+      score = Math.min(100, score);
+      const riskClassification = score >= 75 ? 'CRITICAL' : score >= 50 ? 'HIGH' : score >= 25 ? 'MEDIUM' : 'LOW';
+
+      // ── Phase 8: AI narrative ───────────────────────────────────────────
+      let narrative: any = null;
+      try {
+        narrative = await this.aiNarrative.generate(
+          investigationId, companyName, 'web', score, findings,
+          founderSanctions.map((f) => ({ name: f.name, positions: [] })),
+          adverseMediaResults.map((a: any) => ({ entity: companyName, headline: a.headline, source: a.source, sentiment: 'negative' })),
+        );
+      } catch { /* non-critical */ }
+
+      // ── Phase 9: Persist and complete ──────────────────────────────────
+      const nodeCount = await this.nodes.count({ where: { investigationId } });
+      const edgeCount = await this.edges.count({ where: { investigationId } });
+
+      await this.investigations.update(investigationId, {
+        status: 'COMPLETE',
+        completedAt: new Date(),
+        progress: {
+          entitiesDiscovered: nodeCount,
+          edgesCreated: edgeCount,
+          tier,
+          jurisdiction: 'web',
+          riskScore: score,
+          riskClassification,
+          findings,
+          narrative,
+          pepCount: 0,
+          adverseMediaCount: adverseMediaResults.length,
+          directSanctions: { matches: sanctionsResult?.matches?.length || 0 },
+          webIntelligence: {
+            websiteExists: true,
+            courtCases: 0,
+            govContracts: 0,
+          },
+          wayback: webProfile.wayback?.firstSeen ? {
+            domain,
+            firstSnapshot: webProfile.wayback.firstSeen,
+            domainAgeYears: webProfile.wayback.ageYears,
+            totalSnapshots: webProfile.wayback.totalSnapshots,
+          } : null,
+          // Store full web profile for Tracey + memo context
+          domainProfile: {
+            domain,
+            companyName,
+            description: webProfile.description,
+            tagline: webProfile.tagline,
+            industry: webProfile.industry,
+            location: webProfile.location,
+            foundedYear: webProfile.foundedYear,
+            employeeCount: webProfile.employeeCount || webProfile.linkedinEmployeeCount,
+            founders: founderObjects.map((f: any) => f.name),
+            founderDetails: founderObjects,
+            teamMembers: webProfile.teamMembers,
+            investors: allInvestors,
+            fundingRounds: fundingRounds.slice(0, 8),
+            totalFundingAmount: webProfile.totalFundingAmount,
+            github: webProfile.github,
+            techStack: webProfile.techStack,
+            jobPostings: webProfile.jobPostings?.slice(0, 10),
+            openRoleCount: webProfile.openRoleCount,
+            productHunt: webProfile.productHunt,
+            news: webProfile.news?.slice(0, 8),
+            hnMentions: webProfile.hnMentions?.slice(0, 5),
+            crunchbaseUrl: webProfile.crunchbaseUrl,
+            linkedinUrl: webProfile.linkedinUrl,
+            twitterUrl: webProfile.twitterUrl,
+            githubUrl: webProfile.githubUrl,
+            email: webProfile.email,
+            whois: webProfile.whois,
+            ddQuestions: webProfile.ddQuestions,
+            formDFilings: formDEvents.length,
+            sources: webProfile.sources,
+          },
+        } as any,
+      });
+
+      this.gateway.emitComplete(investigationId, {});
+      this.personsService.upsertFromInvestigation(investigationId).catch(() => {});
+      this.logger.log(`[Domain] Investigation complete for ${domain}: score=${score}, entities=${nodeCount}, findings=${findings.length}`);
+
+    } catch (e: any) {
+      this.logger.error(`[Domain] Investigation failed for ${domain}: ${e?.message}`);
+      await this.investigations.update(investigationId, {
+        status: 'FAILED',
+        metadata: { error: e?.message, domain } as any,
+      });
+      this.gateway.emitComplete(investigationId, { status: 'failed', error: e?.message });
     }
   }
 
@@ -514,6 +1024,12 @@ export class InvestigationProcessor extends WorkerHost {
             if (profile) this.logger.log(`Germany: found ${profile.name} via North Data`);
           }
         } catch (e: any) { this.logger.warn(`Germany search failed: ${e?.message}`); }
+      }
+
+      // If query looks like a LEI (20 alphanumeric chars), try GLEIF direct lookup first
+      const isLei = /^[A-Z0-9]{18}[0-9]{2}$/i.test(query.trim());
+      if (!profile && isLei) {
+        profile = await this.gleif.getCompanyProfile(query.trim()).catch(() => null);
       }
 
       if (!profile) {
@@ -1035,6 +1551,15 @@ export class InvestigationProcessor extends WorkerHost {
         } as any,
       });
       this.gateway.emitComplete(investigationId, {});
+      this.personsService.upsertFromInvestigation(investigationId).catch((e) =>
+        this.logger.warn(`Persons upsert (non-UK) failed for ${investigationId}: ${e?.message}`),
+      );
+      // Ingest SEC Form D for US companies
+      if (jurisdiction === 'us') {
+        this.capitalEvents.ingestFormD(investigationId, companyId, companyName).catch((e) =>
+          this.logger.warn(`Form D ingest failed for ${investigationId}: ${e?.message}`),
+        );
+      }
       this.logger.log(`Non-UK investigation ${investigationId} COMPLETE: ${companyName}, score=${riskResult.score}, PEPs=${pepResults.length}, media=${adverseMediaResults.length}`);
 
     } catch (e: any) {

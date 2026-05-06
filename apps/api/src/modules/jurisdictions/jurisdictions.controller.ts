@@ -1,5 +1,5 @@
 import { Public } from '../auth/guards/jwt-auth.guard';
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Post, Body } from '@nestjs/common';
 import { getAllJurisdictions, getJurisdictionChoices, getJurisdiction } from './jurisdiction.registry';
 import { OpenCorporatesProvider } from './providers/opencorporates.provider';
 import { SecEdgarProvider } from './providers/sec-edgar.provider';
@@ -8,6 +8,7 @@ import { IndiaMcaProvider } from './providers/india-mca.provider';
 import { FranceSireneProvider } from './providers/france-sirene.provider';
 import { GermanyNorthdataProvider } from './providers/germany-northdata.provider';
 import { CompanySearchResult } from './data-provider.interface';
+import { DomainResearchService } from '../enrichment/domain-research.service';
 
 @Public()
 @Controller('jurisdictions')
@@ -18,6 +19,7 @@ export class JurisdictionsController {
   private readonly india = new IndiaMcaProvider();
   private readonly france = new FranceSireneProvider();
   private readonly germany = new GermanyNorthdataProvider();
+  constructor(private readonly domainResearch: DomainResearchService) {}
 
   @Get()
   list() {
@@ -105,5 +107,12 @@ export class JurisdictionsController {
         flag: getJurisdiction(r.jurisdiction).flag,
       })),
     };
+  }
+
+  /** POST /api/jurisdictions/domain-research — research a company by its website URL */
+  @Post('domain-research')
+  async researchDomain(@Body() body: { url: string }) {
+    if (!body.url?.trim()) return { error: 'URL required' };
+    return this.domainResearch.research(body.url.trim());
   }
 }

@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "scripts": {
     "build": "next build",
-    "dev": "next dev -p 3000",
+    "dev": "next dev -p 7777",
     "start": "next start",
     "lint": "echo 'no lint'",
     "test": "echo 'no tests'"
   },
   "dependencies": {
     "@next/font": "^14.2.15",
+    "@react-oauth/google": "^0.13.5",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@tracegraph/shared": "*",
@@ -18,6 +19,7 @@
     "clsx": "^2.1.1",
     "cobe": "^2.0.1",
     "d3": "^7.9.0",
+    "geist": "^1.7.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.8.0",
     "motion": "^12.38.0",

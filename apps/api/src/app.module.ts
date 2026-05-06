@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { dataSourceOptions } from './data-source';
@@ -24,6 +25,11 @@ import { BatchModule } from './modules/batch/batch.module';
 import { IndiaModule } from './modules/india/india.module';
 import { IntelligenceModule } from './modules/intelligence/intelligence.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { PersonsModule } from './modules/persons/persons.module';
+import { PipelineModule } from './modules/pipeline/pipeline.module';
+import { FundingModule } from './modules/funding/funding.module';
+import { TeamsModule } from './modules/teams/teams.module';
+import { SetupModule } from './modules/setup/setup.module';
 import { RedisModule } from './common/redis/redis.module';
 import { EnrichmentCacheService } from './common/cache/enrichment-cache.service';
 import { ApiRateLimiterService } from './common/rate-limiter/api-rate-limiter.service';
@@ -32,6 +38,7 @@ import { CircuitBreakerService } from './common/resilience/circuit-breaker.servi
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRoot(dataSourceOptions),
     RedisModule,
@@ -54,6 +61,11 @@ import { CircuitBreakerService } from './common/resilience/circuit-breaker.servi
     IndiaModule,
     IntelligenceModule,
     AuthModule,
+    PersonsModule,
+    PipelineModule,
+    FundingModule,
+    TeamsModule,
+    SetupModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

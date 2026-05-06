@@ -16,6 +16,9 @@ import { EnrichmentModule } from '../enrichment/enrichment.module';
 import { IndiaModule } from '../india/india.module';
 import { IntelligenceModule } from '../intelligence/intelligence.module';
 import { AuthModule } from '../auth/auth.module';
+import { PersonsModule } from '../persons/persons.module';
+import { FundingModule } from '../funding/funding.module';
+import { TeamsModule } from '../teams/teams.module';
 import { EntityMatch } from '../entity-resolution/entities/entity-match.entity';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
@@ -41,6 +44,9 @@ import { GraphEdge } from '../graph/entities/graph-edge.entity';
     IndiaModule,
     IntelligenceModule,
     AuthModule,
+    PersonsModule,
+    FundingModule,
+    TeamsModule,
     forwardRef(() => ReportModule),
   ],
   exports: [InvestigationService],

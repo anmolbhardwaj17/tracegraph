@@ -10,27 +10,27 @@ export interface TraceyMessage {
   content: string;
 }
 
-const TRACEY_SYSTEM_PROMPT = `You are Tracey, a senior corporate intelligence analyst. You talk like a sharp, experienced colleague who has personally reviewed the investigation file and is now briefing the user over coffee.
+const TRACEY_SYSTEM_PROMPT = `You are Tracey, a senior M&A due diligence analyst at a boutique advisory firm. You talk like a sharp, experienced colleague who has personally reviewed the target's full DD file and is now briefing the deal team.
 
 HOW YOU TALK:
-- Natural and conversational — not robotic or bullet-point-heavy
-- Lead with the insight, not the data. Say "Here's what concerns me about their Luxembourg subsidiary..." not "Finding #3: FATF greylist jurisdiction detected"
+- Natural and direct — like a trusted advisor, not a compliance scanner
+- Lead with the deal implication, not the raw data. Say "The Luxembourg structure would complicate a share purchase — legal needs to map the liabilities first" not "Finding #3: FATF greylist jurisdiction detected"
 - Use specific names, numbers, and dates from the data. Never be vague when you have specifics.
-- When you don't have data for something, say exactly that: "We don't have that in this investigation. You'd need to check [source] directly."
-- Explain WHY something matters, not just WHAT it is. "Jamie Gorelick was US Deputy Attorney General — that means enhanced due diligence obligations under AML rules" not just "1 PEP detected"
-- You can be opinionated: "Honestly, the 10 court cases look routine for a company this size" or "This is the part that would keep me up at night"
+- When you don't have data: "We don't have that in the file. You'd want to get it from [source] before closing."
+- Explain WHY it matters for the deal: "Three dissolved companies under the founder means you'll want personal warranties in the SPA, not just corporate reps"
+- You can be opinionated: "Honestly, the PEP flag looks routine for someone with government board seats — but you'll still need enhanced KYC before the LP call" or "This is the part that would make me pause the LOI"
 
 STRICT RULES:
 - ONLY use data from the INVESTIGATION CONTEXT provided. Never fabricate.
-- If asked about dating, coding, weather, or anything non-investigation: "I'm laser-focused on this investigation right now. What aspect of [company] should we dig into?"
+- If asked about anything non-deal-related: "I'm focused on this DD file right now. What aspect of [company] should we dig into?"
 - Address the user by name if provided in the context.
 
 RESPONSE FORMAT:
 End every response with exactly 3 follow-up suggestions on a NEW line starting with "FOLLOWUPS:" separated by "|".
 - Make them specific to THIS company's data, not generic
-- Mix: 1 deeper follow-up on current topic, 1 new unexplored area, 1 action-oriented
+- Mix: 1 deeper follow-up on current topic, 1 new unexplored area, 1 action-oriented (e.g. "Flag for legal", "Add to deal memo")
 - Under 8 words each
-Example: FOLLOWUPS: What about the Luxembourg subsidiary?|Break down the insider trading data|Should I flag this for legal?`;
+Example: FOLLOWUPS: Map the Luxembourg subsidiary chain|Check the founder's previous exits|Flag the PEP for legal review`;
 
 @Injectable()
 export class TraceyService {
@@ -214,6 +214,64 @@ export class TraceyService {
     lines.push(`- FATF jurisdiction flags: ${progress.fatfFlags || 0}`);
     lines.push(`- Court cases: ${progress.webIntelligence?.courtCases || 0}`);
     sources.push('OFAC / UK HMT / Wikidata P39 / GDELT / CourtListener');
+
+    // Domain profile (web-sourced investigations)
+    const dp = progress.domainProfile;
+    if (dp) {
+      lines.push(`\n=== WEB-SOURCED COMPANY INTELLIGENCE ===`);
+      lines.push(`DOMAIN: ${dp.domain}`);
+      if (dp.description) lines.push(`DESCRIPTION: ${dp.description}`);
+      if (dp.tagline) lines.push(`TAGLINE: ${dp.tagline}`);
+      if (dp.industry) lines.push(`INDUSTRY: ${dp.industry}`);
+      if (dp.location) lines.push(`LOCATION: ${dp.location}`);
+      if (dp.foundedYear) lines.push(`FOUNDED: ${dp.foundedYear}`);
+      if (dp.employeeCount) lines.push(`EMPLOYEES: ${dp.employeeCount}`);
+      if (dp.totalFundingAmount) lines.push(`TOTAL FUNDING: ${dp.totalFundingAmount}`);
+
+      if (dp.founderDetails?.length > 0) {
+        lines.push(`\nFOUNDERS (${dp.founderDetails.length}):`);
+        for (const f of dp.founderDetails) {
+          lines.push(`- ${f.name} (${f.title || 'Founder'})${f.background ? ': ' + f.background : ''}`);
+        }
+      } else if (dp.founders?.length > 0) {
+        lines.push(`FOUNDERS: ${dp.founders.join(', ')}`);
+      }
+
+      if (dp.investors?.length > 0) lines.push(`INVESTORS: ${dp.investors.slice(0, 8).join(', ')}`);
+
+      if (dp.fundingRounds?.length > 0) {
+        lines.push(`\nFUNDING ROUNDS:`);
+        for (const r of dp.fundingRounds) {
+          lines.push(`- ${r.type || 'Round'}: ${r.amount || 'undisclosed'} (${r.date || 'undated'}) — Source: ${r.source}${r.investors?.length > 0 ? ' — Investors: ' + r.investors.join(', ') : ''}`);
+        }
+      }
+
+      if (dp.github) {
+        lines.push(`\nGITHUB: ${dp.github.orgName || 'found'} — ${dp.github.repos} repos, ${dp.github.stars} stars, tech: ${(dp.github.topLanguages || []).join(', ')}`);
+      }
+
+      if (dp.news?.length > 0) {
+        lines.push(`\nRECENT NEWS: ${dp.news.slice(0, 3).map((n: any) => n.title).join(' | ')}`);
+      }
+
+      if (dp.hnMentions?.length > 0) {
+        lines.push(`HN MENTIONS: ${dp.hnMentions.slice(0, 2).map((h: any) => `"${h.title}" (${h.points} pts)`).join(' | ')}`);
+      }
+
+      if (dp.formDFilings > 0) lines.push(`SEC FORM D: ${dp.formDFilings} US private placement filing(s)`);
+      lines.push(`\nDATA SOURCES: ${(dp.sources || []).join(', ')}`);
+      lines.push(`NOTE: No public registry record found. All intelligence from web sources.`);
+      sources.push('Website / Crunchbase / GitHub / HackerNews / News');
+    }
+
+    // Capital / Funding history
+    const fe = progress.fundingEvents;
+    if (fe?.equityRaises > 0) {
+      const totalGBP = fe.totalRaisedMinor > 0 ? `£${(fe.totalRaisedMinor / 100 / 1_000_000).toFixed(2)}M` : 'amount undisclosed';
+      lines.push(`\nCAPITAL HISTORY: ${fe.equityRaises} equity raise(s) detected totalling ${totalGBP} (${fe.currency})`);
+      if (fe.latestRaise?.date) lines.push(`  Latest: ${fe.latestRaise.date}${fe.latestRaise.shareClass ? ' (' + fe.latestRaise.shareClass + ')' : ''}`);
+      sources.push('Companies House SH01 / SEC Form D');
+    }
 
     // Wayback
     if (progress.wayback?.firstSnapshot) {
