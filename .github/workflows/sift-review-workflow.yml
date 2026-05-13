@@ -1,9 +1,7 @@
 name: Sift PR Review
-
 on:
   pull_request:
     types: [opened, reopened, synchronize]
-
 jobs:
   sift:
     permissions:
@@ -15,4 +13,10 @@ jobs:
       pr_number: ${{ github.event.pull_request.number }}
       before_sha: ${{ github.event.before }}
       auth_mode: installation_id
-    secrets: inherit
+    secrets:
+      SIFT_IMAGE: ${{ secrets.SIFT_IMAGE }}
+      SIFT_DATABASE_URL: ${{ secrets.SIFT_DATABASE_URL }}
+      SIFT_INSTALLATION_ID: ${{ secrets.SIFT_INSTALLATION_ID }}
+      SIFT_LLM_MODEL: ${{ secrets.SIFT_LLM_MODEL }}
+      SIFT_LLM_API_KEY: ${{ secrets.SIFT_LLM_API_KEY }}
+      SIFT_API_KEY: ${{ secrets.SIFT_API_KEY }}
