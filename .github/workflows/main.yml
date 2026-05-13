@@ -1,0 +1,10 @@
+name: Secret probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          IMG: ${{ secrets.SIFT_IMAGE }}
+        run: |
+          echo "SIFT_IMAGE len=${#IMG}"
