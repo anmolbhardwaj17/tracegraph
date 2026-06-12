@@ -7,7 +7,7 @@ import { Avatar } from '../../../components/Avatar';
 import { NavBar } from '../../../components/NavBar';
 import Link from 'next/link';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 
 export default function InvestigatePage() {

@@ -1,8 +1,9 @@
 'use client';
+import Link from 'next/link';
 import { Avatar } from '../Avatar';
 import { AddressMap } from '../AddressMap';
 
-export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 export function ProximityDot({ score }: { score?: string }) {
   const map: Record<string, string> = {
@@ -36,8 +37,18 @@ export function EntityDetailPanel({ entity, type, onClose }: { entity: any; type
         <Avatar name={entity.label} type={type as any} size={56} />
         <button onClick={onClose} className="text-ink-500 hover:text-ink-50 transition-colors text-lg leading-none">×</button>
       </div>
-      <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500">{type}</div>
-      <h3 className="font-medium text-ink-50 mt-1 break-words">{entity.label}</h3>
+      <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500">{type === 'person' ? 'Director / Officer' : type}</div>
+      <div className="flex items-start justify-between mt-1">
+        <h3 className="font-medium text-ink-50 break-words">{entity.label}</h3>
+        {type === 'person' && meta.personId && (
+          <Link
+            href={`/person/${meta.personId}`}
+            className="text-[9px] font-mono text-[#d4ff00]/50 hover:text-[#d4ff00] transition-colors shrink-0 ml-2 mt-0.5 whitespace-nowrap"
+          >
+            Track record →
+          </Link>
+        )}
+      </div>
 
       <dl className="mt-6 space-y-3 text-sm border-t border-white/5 pt-4">
         {meta.companyProfile && <DetailField label="Profile" value={meta.companyProfile} />}

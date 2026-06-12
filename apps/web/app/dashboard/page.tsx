@@ -6,7 +6,7 @@ import { Avatar } from '../../components/Avatar';
 import { Dropdown } from '../../components/Dropdown';
 import { NavBar } from '../../components/NavBar';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 interface RecentInvestigation {
   id: string;
@@ -79,9 +79,14 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-medium">Dashboard</h1>
             <p className="text-sm text-ink-500 mt-1 font-mono">{recentTotal} investigation{recentTotal === 1 ? '' : 's'}</p>
           </div>
-          <Link href="/" className="px-4 py-2 bg-ink-50 text-ink-900 rounded-sm text-xs font-medium hover:bg-white transition-colors">
-            + New investigation
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/pipeline" className="px-4 py-2 border border-white/10 text-ink-400 rounded-sm text-xs font-mono hover:text-ink-50 hover:border-white/30 transition-colors">
+              View pipeline →
+            </Link>
+            <Link href="/start" className="px-4 py-2 bg-ink-50 text-ink-900 rounded-sm text-xs font-medium hover:bg-white transition-colors">
+              + New investigation
+            </Link>
+          </div>
         </div>
 
         {/* Stats strip */}

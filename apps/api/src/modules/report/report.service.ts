@@ -695,4 +695,126 @@ export class ReportService {
   private checkPageBreak(doc: any, needed: number, companyName: string) {
     if (doc.y + needed > doc.page.height - 60) { doc.addPage(); this.pageHeader(doc, companyName); }
   }
+
+  /** Generate a clean IC acquisition memo PDF from a structured memo object */
+  async generateMemoPdf(memo: any): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 56, bufferPages: true });
+      const chunks: Buffer[] = [];
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const recColor = memo.recommendation === 'WALK' ? C.red : memo.recommendation === 'CONDITIONS' ? C.amber : C.green;
+      const recBg = memo.recommendation === 'WALK' ? '#FEE2E2' : memo.recommendation === 'CONDITIONS' ? '#FEF3C7' : '#D1FAE5';
+
+      // Cover header
+      doc.rect(0, 0, doc.page.width, 110).fill('#0F172A');
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#94A3B8').text('ACQUISITION DUE DILIGENCE MEMO', 56, 32, { characterSpacing: 2 });
+      doc.font('Helvetica-Bold').fontSize(22).fillColor('#F8FAFC').text(memo.companyName, 56, 50);
+      doc.font('Helvetica').fontSize(10).fillColor('#94A3B8').text(`Generated ${new Date(memo.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}   ·   Deal Risk Score: ${memo.riskScore}/100`, 56, 84);
+      doc.y = 130;
+
+      // Recommendation banner
+      doc.rect(56, doc.y, doc.page.width - 112, 36).fill(recBg);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(recColor).text(`RECOMMENDATION: ${memo.recommendation}`, 68, doc.y + 12);
+      doc.y += 52;
+
+      const section = (title: string) => {
+        if (doc.y > doc.page.height - 100) doc.addPage();
+        doc.moveDown(0.6);
+        doc.font('Helvetica-Bold').fontSize(7).fillColor('#64748B').text(title.toUpperCase(), { characterSpacing: 1.5 });
+        doc.moveTo(56, doc.y + 3).lineTo(doc.page.width - 56, doc.y + 3).stroke('#E2E8F0');
+        doc.moveDown(0.5);
+        doc.font('Helvetica').fontSize(10).fillColor('#1E293B');
+      };
+
+      const bullet = (text: string, color = '#1E293B') => {
+        if (doc.y > doc.page.height - 60) doc.addPage();
+        doc.font('Helvetica').fontSize(10).fillColor(color).text(`• ${text}`, { indent: 12 });
+      };
+
+      // Executive Summary
+      section('Executive Summary');
+      doc.text(memo.executiveSummary, { lineGap: 3 });
+
+      // Recommendation Rationale
+      section('Recommendation Rationale');
+      doc.text(memo.recommendationRationale, { lineGap: 3 });
+
+      // Target Overview
+      section('Target Overview');
+      const ov = memo.targetOverview || {};
+      if (ov.description) doc.text(ov.description, { lineGap: 3 });
+      doc.moveDown(0.3);
+      const ovFields = [['Industry', ov.industry], ['Founded', ov.founded], ['Scale', ov.scale], ['Footprint', ov.footprint]];
+      ovFields.filter(([, v]) => v && v !== 'Unknown').forEach(([k, v]) => {
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569').text(`${k}: `, { continued: true });
+        doc.font('Helvetica').fontSize(10).fillColor('#1E293B').text(v as string);
+      });
+
+      // Ownership & Control
+      section('Ownership & Control');
+      const oc = memo.ownershipControl || {};
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569').text(`Complexity: `, { continued: true });
+      doc.font('Helvetica').fontSize(10).fillColor('#1E293B').text(oc.complexityRating || 'Unknown');
+      if (oc.summary) { doc.moveDown(0.3); doc.font('Helvetica').fontSize(10).fillColor('#1E293B').text(oc.summary, { lineGap: 3 }); }
+      (oc.keyPoints || []).forEach((p: string) => bullet(p));
+
+      // Key People
+      if (memo.keyPeople?.length > 0) {
+        section('Key People');
+        memo.keyPeople.forEach((p: any) => {
+          if (doc.y > doc.page.height - 80) doc.addPage();
+          doc.font('Helvetica-Bold').fontSize(10).fillColor('#1E293B').text(`${p.name}`, { continued: true });
+          doc.font('Helvetica').fontSize(9).fillColor('#64748B').text(`  ${p.role}`);
+          if (p.trackRecord) doc.font('Helvetica').fontSize(9.5).fillColor('#334155').text(p.trackRecord, { indent: 12, lineGap: 2 });
+          if (p.flags?.length > 0) {
+            p.flags.forEach((f: string) => {
+              doc.font('Helvetica-Bold').fontSize(8).fillColor(C.red).text(`⚑ ${f}`, { indent: 12 });
+            });
+          }
+          doc.moveDown(0.4);
+        });
+      }
+
+      // Risk Profile
+      section('Risk Profile');
+      const rp = memo.riskProfile || {};
+      if (rp.dealBlockers?.length > 0) {
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(C.red).text('Deal Blockers');
+        rp.dealBlockers.forEach((b: string) => bullet(b, C.red));
+        doc.moveDown(0.3);
+      }
+      if (rp.yellowFlags?.length > 0) {
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(C.amber).text('Yellow Flags');
+        rp.yellowFlags.forEach((f: string) => bullet(f, C.amber));
+        doc.moveDown(0.3);
+      }
+      if (rp.cleanSignals?.length > 0) {
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(C.green).text('Clean Signals');
+        rp.cleanSignals.forEach((s: string) => bullet(s, C.green));
+      }
+
+      // Financial Snapshot
+      section('Financial Snapshot');
+      doc.text(memo.financialSnapshot?.summary || 'No financial data available.', { lineGap: 3 });
+
+      // Next-Step DD Scope
+      section('Recommended DD Scope');
+      (memo.nextStepDDScope || []).forEach((s: string) => bullet(s));
+
+      // Footer
+      const pageCount = (doc.bufferedPageRange().count);
+      for (let i = 0; i < pageCount; i++) {
+        doc.switchToPage(i);
+        doc.font('Helvetica').fontSize(7.5).fillColor('#94A3B8').text(
+          `CONFIDENTIAL — ${memo.companyName} IC Memo · TraceGraph · Page ${i + 1} of ${pageCount}`,
+          56, doc.page.height - 36, { align: 'center', width: doc.page.width - 112 },
+        );
+      }
+
+      doc.end();
+    });
+  }
 }

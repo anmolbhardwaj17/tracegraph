@@ -2,22 +2,31 @@
 import { useEffect, useState } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Download, Eye, EyeOff } from 'lucide-react';
+import { Download, Eye, EyeOff, ChevronDown, StickyNote } from 'lucide-react';
 import { Avatar } from '../../../components/Avatar';
 import { NavBar } from '../../../components/NavBar';
 import { TraceyChat } from '../../../components/TraceyChat';
+import { ShareInvestigation } from '../../../components/ShareInvestigation';
+import { CommentThread } from '../../../components/CommentThread';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const STAGE_LABELS: Record<string, string> = {
+  TARGETING: 'Targeting', INITIAL_SCREEN: 'Initial Screen', MEETING: 'Meeting',
+  DD: 'Due Diligence', IOI: 'IOI', LOI: 'LOI', CLOSING: 'Closing',
+  CLOSED_WON: 'Won ✓', CLOSED_LOST: 'Lost',
+};
+const ALL_STAGES = ['TARGETING','INITIAL_SCREEN','MEETING','DD','IOI','LOI','CLOSING','CLOSED_WON','CLOSED_LOST'];
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
-  { key: 'graph', label: 'Graph' },
-  { key: 'locations', label: 'Locations' },
-  { key: 'ubo', label: 'UBO' },
-  { key: 'timeline', label: 'Timeline' },
+  { key: 'ubo', label: 'Ownership' },
   { key: 'findings', label: 'Findings' },
+  { key: 'timeline', label: 'Timeline' },
+  { key: 'graph', label: 'Network' },
   { key: 'entities', label: 'Entities' },
   { key: 'matches', label: 'Matches' },
+  { key: 'memo', label: 'IC Memo', highlight: true },
 ];
 
 export default function InvestigationLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +37,11 @@ export default function InvestigationLayout({ children }: { children: React.Reac
   const [watched, setWatched] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [traceyOpen, setTraceyOpen] = useState(false);
+  const [dealStage, setDealStage] = useState<string | null>(null);
+  const [showStageMenu, setShowStageMenu] = useState(false);
+  const [showNoteBox, setShowNoteBox] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [noteAdded, setNoteAdded] = useState(false);
 
   // Detect if we're on a tab sub-route or the base page (progress view)
   const pathParts = pathname.split('/');
@@ -48,7 +62,35 @@ export default function InvestigationLayout({ children }: { children: React.Reac
         }
       })
       .catch(() => {});
+    // Load deal stage
+    fetch(`${API}/api/pipeline/${id}/detail`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.dealStage) setDealStage(d.dealStage); })
+      .catch(() => {});
   }, [id, isTabRoute]);
+
+  async function changeStage(stage: string) {
+    setDealStage(stage);
+    setShowStageMenu(false);
+    await fetch(`${API}/api/pipeline/${id}/stage`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage }),
+    });
+  }
+
+  async function submitNote() {
+    if (!noteText.trim()) return;
+    await fetch(`${API}/api/pipeline/${id}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: noteText.trim() }),
+    });
+    setNoteText('');
+    setShowNoteBox(false);
+    setNoteAdded(true);
+    setTimeout(() => setNoteAdded(false), 2000);
+  }
 
   // If on base page (progress/loading), render children without tab chrome
   if (!isTabRoute) {
@@ -73,7 +115,7 @@ export default function InvestigationLayout({ children }: { children: React.Reac
                 meta.tier === 'QUICK' ? 'bg-signal-clean/15 text-signal-clean border-signal-clean/30' :
                 'bg-white/10 text-ink-50 border-white/20'
               }`}>
-                {meta.tier === 'DEEP' ? 'Deep investigation' : meta.tier === 'QUICK' ? 'Quick scan' : 'Standard'}
+                {meta.tier === 'DEEP' ? 'Full DD + Memo' : meta.tier === 'QUICK' ? 'Initial Screen' : 'Standard DD'}
               </span>
             )}
             {meta?.jurisdiction && meta.jurisdiction !== 'gb' && (
@@ -87,7 +129,7 @@ export default function InvestigationLayout({ children }: { children: React.Reac
               </span>
             )}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {meta?.riskScore != null && (
               <div className="flex items-center gap-2">
                 <span className={`text-lg font-medium tabular-nums ${
@@ -98,6 +140,12 @@ export default function InvestigationLayout({ children }: { children: React.Reac
                 }`}>{meta.riskScore}</span>
                 <span className="text-[10px] font-mono text-ink-500">/ 100</span>
               </div>
+            )}
+            {meta?.status === 'COMPLETE' && (
+              <>
+                <ShareInvestigation investigationId={id} />
+                <CommentThread investigationId={id} />
+              </>
             )}
             <button
               onClick={() => {
@@ -169,16 +217,94 @@ export default function InvestigationLayout({ children }: { children: React.Reac
                 key={t.key}
                 href={`/investigate/${id}/${t.key}`}
                 className={`relative py-3 text-xs font-mono uppercase tracking-[0.15em] transition-colors whitespace-nowrap ${
-                  currentTab === t.key ? 'text-ink-50' : 'text-ink-500 hover:text-ink-300'
+                  currentTab === t.key
+                    ? (t as any).highlight ? 'text-[#d4ff00]' : 'text-ink-50'
+                    : (t as any).highlight ? 'text-[#d4ff00]/40 hover:text-[#d4ff00]/80' : 'text-ink-500 hover:text-ink-300'
                 }`}
               >
                 {t.label}
-                {currentTab === t.key && <span className="absolute bottom-0 inset-x-0 h-px bg-ink-50" />}
+                {currentTab === t.key && (
+                  <span className={`absolute bottom-0 inset-x-0 h-px ${(t as any).highlight ? 'bg-[#d4ff00]' : 'bg-ink-50'}`} />
+                )}
               </Link>
             ))}
           </nav>
         </div>
       </header>
+
+      {/* Deal context strip */}
+      {isTabRoute && (
+        <div className="border-b border-white/5 bg-ink-900/60">
+          <div className="max-w-7xl mx-auto px-8 py-2 flex items-center gap-4">
+            {/* Stage selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowStageMenu(v => !v)}
+                className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-ink-500 hover:text-ink-300 transition-colors"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dealStage === 'CLOSED_WON' ? 'bg-signal-clean' : dealStage === 'CLOSED_LOST' ? 'bg-signal-critical' : dealStage ? 'bg-[#d4ff00]' : 'bg-ink-700'}`} />
+                {dealStage ? STAGE_LABELS[dealStage] : 'Add to pipeline'}
+                <ChevronDown size={9} />
+              </button>
+              {showStageMenu && (
+                <div className="absolute left-0 top-full mt-1 z-30 bg-ink-850 border border-white/10 shadow-xl w-44">
+                  {ALL_STAGES.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => changeStage(s)}
+                      className={`w-full text-left px-3 py-2 text-[10px] font-mono hover:bg-white/5 transition-colors ${dealStage === s ? 'text-[#d4ff00]' : 'text-ink-400'}`}
+                    >
+                      {STAGE_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <span className="text-ink-800 text-xs">·</span>
+
+            {/* Notes button */}
+            <button
+              onClick={() => setShowNoteBox(v => !v)}
+              className={`flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider transition-colors ${noteAdded ? 'text-signal-clean' : 'text-ink-600 hover:text-ink-400'}`}
+            >
+              <StickyNote size={10} />
+              {noteAdded ? 'Note saved' : 'Add note'}
+            </button>
+
+            {/* Pipeline link */}
+            <Link
+              href="/pipeline"
+              className="ml-auto text-[9px] font-mono text-ink-700 hover:text-ink-500 transition-colors uppercase tracking-wider"
+            >
+              View pipeline →
+            </Link>
+          </div>
+
+          {/* Note input box */}
+          {showNoteBox && (
+            <div className="max-w-7xl mx-auto px-8 pb-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && submitNote()}
+                  placeholder="Add a deal note... (Enter to save)"
+                  autoFocus
+                  className="flex-1 bg-ink-850 border border-white/10 text-xs text-ink-100 px-3 py-2 focus:outline-none focus:border-white/25 placeholder:text-ink-700"
+                />
+                <button
+                  onClick={submitNote}
+                  className="px-3 py-2 bg-ink-50 text-ink-900 text-[10px] font-mono uppercase tracking-wider hover:bg-white transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main content */}
       <div className="max-w-7xl mx-auto px-8 py-6">

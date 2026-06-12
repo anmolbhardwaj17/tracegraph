@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { GraphVisualization, GraphNode } from '../../../../components/GraphVisualization';
 import { Avatar } from '../../../../components/Avatar';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 export default function GraphPage() {
   const { id } = useParams() as { id: string };

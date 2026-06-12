@@ -3,8 +3,9 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send } from 'lucide-react';
 import { useAuth } from './AuthProvider';
+import { useRouter } from 'next/navigation';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -22,6 +23,7 @@ interface Props {
 
 export function TraceyChat({ investigationId, companyName, onClose }: Props) {
   const { user } = useAuth();
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +39,7 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
     if (messages.length === 0) {
       setMessages([{
         role: 'assistant',
-        content: `I've analyzed the full investigation report for **${companyName || 'this company'}**.\n\nAsk me anything — risk score, findings, PEP flags, financials, or what action to take.`,
+        content: `I've reviewed the full DD file on **${companyName || 'this company'}**.\n\nAsk me anything — deal viability, ownership structure, key people, risk flags, or what to prioritize in your due diligence.`,
       }]);
     }
   }, [companyName]);
@@ -45,6 +47,12 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
   async function send(q?: string) {
     const question = (q || input).trim();
     if (!question || loading) return;
+    // Route memo generation to the memo page
+    if (question.toLowerCase().includes('generate ic memo') || question.toLowerCase().includes('ic memo')) {
+      onClose?.();
+      router.push(`/investigate/${investigationId}/memo`);
+      return;
+    }
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: question }]);
     setLoading(true);
@@ -87,42 +95,40 @@ export function TraceyChat({ investigationId, companyName, onClose }: Props) {
   }
 
   const quickActions = [
-    'What are the main concerns?',
-    'Explain the risk score',
-    'Any PEP or sanctions flags?',
-    'How are the financials?',
-    'What should I do next?',
+    'Is this a viable acquisition target?',
+    'What would block this deal?',
+    'Summarize the ownership structure',
+    "What's the founder's track record?",
+    'What due diligence should I prioritize?',
   ];
 
   // Generate contextual follow-up suggestions based on last question
   function getFollowUps(): string[] {
     if (messages.length < 2) return [];
     const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content.toLowerCase() || '';
-    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')?.content.toLowerCase() || '';
 
-    if (lastUser.includes('concern') || lastUser.includes('main') || lastUser.includes('issue'))
-      return ['Explain the risk score', 'Who are the key people?', 'What should I do next?'];
-    if (lastUser.includes('risk') || lastUser.includes('score'))
-      return ['What are the main findings?', 'Any sanctions matches?', 'How do we compare to peers?'];
-    if (lastUser.includes('pep') || lastUser.includes('political'))
-      return ['Show me the directors', 'Any political donations?', 'What are the sanctions results?'];
-    if (lastUser.includes('sanction') || lastUser.includes('ofac'))
-      return ['Any PEP flags?', 'Show court cases', 'What should I do next?'];
+    if (lastUser.includes('viable') || lastUser.includes('acquisition') || lastUser.includes('target'))
+      return ['What would block this deal?', "Who are the key people?", 'What DD should I prioritize?'];
+    if (lastUser.includes('block') || lastUser.includes('concern') || lastUser.includes('issue'))
+      return ['Summarize the ownership structure', 'Flag risks for legal review', 'Compare deal risk breakdown'];
+    if (lastUser.includes('owner') || lastUser.includes('ubo') || lastUser.includes('structure') || lastUser.includes('control'))
+      return ['Any offshore or tax haven entities?', "Map the founder's other companies", 'What warranties should I negotiate?'];
+    if (lastUser.includes('founder') || lastUser.includes('track record') || lastUser.includes('director'))
+      return ['Any PEPs or sanctions on the team?', 'Check dissolved company history', 'Show co-director relationships'];
+    if (lastUser.includes('pep') || lastUser.includes('political') || lastUser.includes('sanction'))
+      return ['Enhanced KYC implications?', 'Show the full matches tab', 'How close is the sanctions proximity?'];
     if (lastUser.includes('financial') || lastUser.includes('revenue') || lastUser.includes('profit'))
-      return ['How does this compare to peers?', 'Any financial red flags?', 'Show subsidiaries'];
-    if (lastUser.includes('director') || lastUser.includes('people') || lastUser.includes('who'))
-      return ['Any PEPs among them?', 'Check political donations', 'Show the ownership structure'];
-    if (lastUser.includes('subsidiary') || lastUser.includes('structure') || lastUser.includes('owns'))
-      return ['Any in tax haven jurisdictions?', 'Show the directors', 'Explain the risk score'];
-    if (lastUser.includes('court') || lastUser.includes('lawsuit') || lastUser.includes('legal'))
-      return ['Any adverse media?', 'What are the main concerns?', 'Recommend next steps'];
-    if (lastUser.includes('recommend') || lastUser.includes('next') || lastUser.includes('action'))
-      return ['Show the full findings', 'Explain the risk breakdown', 'Who are the key people?'];
-    if (lastUser.includes('investor') || lastUser.includes('shareholder'))
-      return ['Show subsidiaries', 'Any FATF jurisdiction flags?', 'What are the financials?'];
+      return ['Any financial distress signals?', 'Compare to sector peers', 'What do the filed accounts show?'];
+    if (lastUser.includes('due diligence') || lastUser.includes('prioritize') || lastUser.includes('next'))
+      return ['What are the deal blockers?', 'Generate an IC memo', 'What legal DD is needed?'];
+    if (lastUser.includes('court') || lastUser.includes('lawsuit') || lastUser.includes('litigation'))
+      return ['Any adverse media coverage?', 'Pattern across multiple cases?', 'Reps and warranties implications'];
+    if (lastUser.includes('subsidiary') || lastUser.includes('offshore') || lastUser.includes('jurisdiction'))
+      return ['Any FATF greylist jurisdictions?', 'Trace the full ownership chain', 'Complexity for a share purchase?'];
+    if (lastUser.includes('memo') || lastUser.includes('ic') || lastUser.includes('committee'))
+      return ['Add financials section', 'What recommendation would you make?', 'Export as PDF'];
 
-    // Default follow-ups
-    return ['Tell me more', 'What should I do next?', 'Any other red flags?'];
+    return ['What would block this deal?', 'Show the ownership structure', 'What DD should I prioritize?'];
   }
 
   // Render via portal on document.body — bypasses all CSS containment

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { FindingsTab } from '../../../../components/tabs/FindingsTab';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 export default function FindingsPage() {
   const { id } = useParams() as { id: string };

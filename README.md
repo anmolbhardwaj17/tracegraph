@@ -1,237 +1,146 @@
 # TraceGraph
 
-**Open-source corporate intelligence engine.** Enter a company name, get a full risk report with graph visualization, sanctions screening, PEP detection, financial analysis, and AI-powered narrative.
+**Open-source M&A due diligence engine.** Enter an acquisition target, get a complete DD package: ownership chains, sanctions screening, director track records, capital history, an AI-generated IC memo, and an interactive network graph — all from public data.
 
-25+ intelligence sources | US, UK, India | Batch screening | Watchlist monitoring
+Built for mid-market PE, M&A advisors, corporate development teams, and family offices who need bank-grade intelligence without the bank-grade price tag.
 
 ---
 
 ## What it does
 
-1. **Search** any company across US, UK, India, and 20+ jurisdictions
-2. **Expand** the ownership network — directors, subsidiaries, addresses
-3. **Enrich** from 25+ public data sources (SEC, NSE, Wikidata, OFAC, courts, etc.)
-4. **Score** risk using 15+ anomaly detectors
-5. **Generate** an AI-powered risk narrative with actionable recommendations
+- **Ownership & UBO** — traces beneficial ownership through every offshore layer to the real controller
+- **Director track records** — every company a founder has run, outcomes (active/dissolved/acquired), co-director networks
+- **Sanctions & PEP screening** — OFAC, UK HMT, OpenSanctions, EU lists across the full corporate network
+- **Capital history** — UK SH01 allotments and SEC Form D raises surfaced automatically
+- **IC Memo generator** — one-click investment committee memo with deal verdict, risk profile, and next-step DD scope
+- **Deal pipeline** — kanban board to track acquisition targets from sourcing through closing
+- **Tracey AI** — senior M&A analyst built into every investigation, answers in deal language not compliance jargon
+- **Team collaboration** — share investigations, add notes, invite colleagues
+- **Watchlist & alerts** — automated monitoring with email alerts on risk score changes, new sanctions, new litigation
+
+---
+
+## Quick start
+
+### Option 1: Docker (recommended)
+
+```bash
+git clone https://github.com/yourusername/tracegraph
+cd tracegraph
+cp .env.example .env
+# Edit .env — add COMPANIES_HOUSE_API_KEY and OPENROUTER_API_KEY (both free)
+docker-compose up
+```
+
+Open http://localhost:3000 — the app is ready.
+
+> **First run:** migrations run automatically. The setup wizard at `/setup` shows which features are active.
+
+### Option 2: Local development
+
+```bash
+git clone https://github.com/yourusername/tracegraph
+cd tracegraph
+cp .env.example .env
+# Edit .env — add your keys
+npm install
+
+# Start infrastructure
+docker-compose up postgres redis -d
+
+# Start API and web
+npm run dev
+```
+
+API runs on http://localhost:7778, web on http://localhost:3000.
+
+---
+
+## Configuration
+
+Two keys are required for core functionality. Everything else is optional.
+
+| Variable | Required | Where to get | What it unlocks |
+|---|---|---|---|
+| `COMPANIES_HOUSE_API_KEY` | Yes | [developer.company-information.service.gov.uk](https://developer.company-information.service.gov.uk/) | UK company investigations (free) |
+| `OPENROUTER_API_KEY` | Yes | [openrouter.ai/keys](https://openrouter.ai/keys) | Tracey AI chat + IC memo generation (free tier) |
+| `JWT_SECRET` | Yes (prod) | Random string | Auth token signing |
+| `RESEND_API_KEY` | Optional | [resend.com](https://resend.com) | Watchlist email alerts (100/day free) |
+| `OPENCORPORATES_API_KEY` | Optional | [opencorporates.com](https://opencorporates.com/api_accounts/new) | Non-UK company coverage |
+| `GOOGLE_CLIENT_ID` | Optional | Google Cloud Console | Login with Google |
+
+Full list: see `.env.example`
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  Next.js Frontend (port 3000)                            │
-│  Search · Graph Viz · Risk Report · Batch · Compare      │
-├──────────────────────────────────────────────────────────┤
-│  NestJS API (port 4000)                                  │
-│  ┌────────────┐ ┌──────────┐ ┌──────────┐ ┌───────────┐ │
-│  │Investigation│ │Enrichment│ │ Risk     │ │ Report    │ │
-│  │ Processor  │ │ (25+src) │ │ Scoring  │ │ Generator │ │
-│  └─────┬──────┘ └────┬─────┘ └────┬─────┘ └───────────┘ │
-│        │ BullMQ      │            │                      │
-├────────┼─────────────┼────────────┼──────────────────────┤
-│  PostgreSQL    │  Redis      │  Neo4j (optional)         │
-│  (entities +   │  (queue +   │  (graph algorithms)       │
-│   graph nodes) │   cache)    │                           │
-└──────────────────────────────────────────────────────────┘
-```
-
-## Intelligence Sources (25+)
-
-| Source | Data | Jurisdiction |
-|--------|------|-------------|
-| SEC EDGAR | Company profile, Form 4 officers, 10-K, 8-K, DEF 14A | US |
-| SEC XBRL | Revenue, profit margin, debt/equity, current ratio | US |
-| NSE India | Shareholding pattern, financials, announcements | India |
-| Wikidata | HQ, key people, subsidiaries, revenue, industry | All |
-| OFAC SDN | US sanctions (26K+ names) | All |
-| UK HMT | UK sanctions (12K+ names) | All |
-| EU Sanctions | EU consolidated list (via OpenSanctions) | All |
-| OpenSanctions | 4.1M sanctions/PEP/watchlist entities | All |
-| ICIJ OffshoreLeaks | 770K+ offshore entities | All |
-| PEP Detection | Political positions via Wikidata P39 | All |
-| GDELT | Adverse media screening (30+ keywords) | All |
-| CourtListener | US federal court cases | US |
-| Indian Kanoon | Indian court cases | India |
-| FEC | Political donations | US |
-| Wayback Machine | Historical website age analysis | All |
-| FATF | Grey/blacklist jurisdiction risk | All |
-| EPA ECHO | Environmental violations | US |
-| OSHA | Workplace safety violations | US |
-| CFPB | Consumer complaints | US |
-| Address Verification | Virtual office/formation agent detection | All |
-| Website Verification | Domain age, SSL, parked detection | All |
-| Google Patents | Patent portfolio | US |
-| LinkedIn | Employee count, industry (via DuckDuckGo) | All |
-| AI Narrative | LLM-generated risk summary (OpenRouter) | All |
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+
-- Docker and Docker Compose
-- npm 9+
-
-### Setup
-
-```bash
-# Clone
-git clone https://github.com/anmolbhardwaj17/tracegraph.git
-cd tracegraph
-
-# Install dependencies
-npm install
-
-# Start infrastructure (PostgreSQL, Redis, Neo4j)
-docker compose up -d postgres redis neo4j
-
-# Copy environment file
-cp .env.example .env
-# Edit .env with your keys (see Environment Variables below)
-
-# Run database migrations
-cd apps/api && npm run migration:run
-
-# Start both servers (from root)
-cd ../.. && npm run dev
-```
-
-### Access
-- **Frontend:** http://localhost:3000
-- **API:** http://localhost:4000
-- **Swagger Docs:** http://localhost:4000/api/docs
-
-## API Endpoints
-
-### Investigations
-```bash
-# Create investigation
-POST /api/investigations
-{ "query": "Amazon", "jurisdiction": "us", "tier": "STANDARD" }
-
-# Get results
-GET /api/investigations/:id
-
-# Get overview (score, intelligence, narrative)
-GET /api/investigations/:id/overview
-
-# Compare investigations
-GET /api/investigations/compare?ids=id1,id2
-
-# Export PDF
-POST /api/investigations/:id/export
-```
-
-### Batch Screening
-```bash
-# Screen up to 500 companies
-POST /api/batch
-{ "companies": ["Apple", "Microsoft", "Tesla"], "tier": "QUICK", "jurisdiction": "us" }
-
-# Check results
-GET /api/batch/:id
-```
-
-### Watchlist
-```bash
-# Add to watchlist
-POST /api/watchlist
-{ "companyNumber": "00445790", "companyName": "Tesco PLC" }
-
-# Trigger monitoring
-POST /api/watchlist/monitor
-
-# Get alerts
-GET /api/watchlist/alerts/list
-```
-
-## Environment Variables
-
-```bash
-# Required
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5433
-POSTGRES_USER=tracegraph
-POSTGRES_PASSWORD=tracegraph
-POSTGRES_DB=tracegraph
-REDIS_HOST=localhost
-REDIS_PORT=6379
-PORT=4000
-
-# Optional
-COMPANIES_HOUSE_API_KEY=     # UK Companies House (free — get at developer.company-information.service.gov.uk)
-OPENROUTER_API_KEY=          # AI narrative (OpenRouter)
-OPENROUTER_MODEL=google/gemini-2.0-flash-001
-NEXT_PUBLIC_API_URL=http://localhost:4000
-```
-
-## Investigation Tiers
-
-| Tier | Depth | Max Nodes | Sources | Typical Time |
-|------|-------|-----------|---------|-------------|
-| QUICK | 1 hop | 200 | Basic profile | 30s - 2min |
-| STANDARD | 2 hops | 1,000 | All 25+ | 2 - 5min |
-| DEEP | 3 hops | 5,000 | All, no filtering | 10 - 30min |
-
-## India Data
-
-Indian company investigations use three data layers:
-1. **NSE India API** — live stock data for listed companies (shareholding, financials)
-2. **Tofler + DuckDuckGo** — company profiles for any Indian company
-3. **Local MCA database** — auto-populates as companies are investigated
-
-Optional bulk import from MCA:
-```bash
-# Download CSVs from mca.gov.in > Data & Reports > Company/LLP Information
-# Place in apps/api/data/india/
-cd apps/api && npm run ingest:india
-```
-
-## Tech Stack
-
-- **Backend:** NestJS + TypeScript
-- **Frontend:** Next.js 14 + React 18 + Tailwind CSS
-- **Database:** PostgreSQL 16
-- **Cache/Queue:** Redis 7 + BullMQ
-- **Graph Viz:** D3.js force-directed layout
-- **Monorepo:** Turborepo
-
-## Project Structure
-
-```
 tracegraph/
 ├── apps/
-│   ├── api/                     # NestJS backend
-│   │   └── src/
-│   │       ├── modules/
-│   │       │   ├── investigation/   # Pipeline orchestrator
-│   │       │   ├── enrichment/      # 25+ intelligence services
-│   │       │   ├── graph/           # Graph construction
-│   │       │   ├── anomaly/         # 15+ risk detectors
-│   │       │   ├── batch/           # Batch screening
-│   │       │   ├── watchlist/       # Monitoring + alerts
-│   │       │   ├── india/           # MCA data + search
-│   │       │   └── report/          # PDF generation
-│   │       └── common/
-│   │           ├── redis/           # Redis cache
-│   │           ├── cache/           # Enrichment cache
-│   │           ├── rate-limiter/    # API rate coordination
-│   │           └── resilience/      # Circuit breakers
-│   └── web/                     # Next.js frontend
-│       ├── app/
-│       │   ├── page.tsx             # Landing + search
-│       │   ├── investigate/[id]/    # Investigation results
-│       │   ├── compare/             # Side-by-side comparison
-│       │   └── dashboard/           # Investigation list
-│       └── components/
-│           ├── GraphVisualization.tsx
-│           ├── ProgressView.tsx
-│           └── Insights.tsx
-├── packages/shared/             # Shared types
+│   ├── api/          NestJS backend — 25+ enrichment modules, BullMQ pipeline
+│   └── web/          Next.js frontend — investigation UI, graph, pipeline
+├── packages/
+│   └── shared/       Shared TypeScript types
 ├── docker-compose.yml
 └── .env.example
 ```
 
+**Stack:** NestJS · Next.js · PostgreSQL 16 · Redis 7 · Turborepo
+
+**Data sources:** Companies House (UK) · SEC EDGAR (US) · OpenSanctions · ICIJ OffshoreLeaks · OFAC · UK HMT · Wikidata · CourtListener · GDELT · Wayback Machine · GLEIF · OpenCorporates · India MCA · France SIRENE · Germany NorthData
+
+---
+
+## Investigation tiers
+
+| Tier | Time | Entities | Sources | Best for |
+|---|---|---|---|---|
+| **Initial Screen** (free) | 30s–2min | Up to 200 | Companies House only | First look at a target |
+| **Standard DD** | 2–10min | Up to 1,000 | All sources + full anomaly detection | Standard pre-LOI DD |
+| **Full DD + Memo** | 10–45min | Up to 5,000 | Enhanced resolution + extra signals | Full acquisition DD, IC memo included |
+
+---
+
+## Self-hosting notes
+
+- **Neo4j is optional** — start without it: `docker-compose up` (without `--profile graph`)
+- **Migrations run automatically** on startup — no manual step needed
+- **Setup wizard** at `/setup` shows which features are active based on your env vars
+- **Port:** API on 7778, Web on 3000, Postgres on 5433 (host) → 5432 (container)
+- **Sensitive data:** all investigation data stays in your PostgreSQL instance
+
+---
+
+## Development
+
+```bash
+# Run all tests
+npm run test
+
+# Type-check
+npx tsc --noEmit --project apps/api/tsconfig.json
+npx tsc --noEmit --project apps/web/tsconfig.json
+
+# Run a specific migration manually (if needed)
+cd apps/api && npx typeorm-ts-node-commonjs migration:run -d src/data-source.ts
+```
+
+---
+
+## Releasing
+
+Tag a commit to trigger Docker image publish to GitHub Container Registry:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Images published to `ghcr.io/yourusername/tracegraph-api:v1.0.0` and `ghcr.io/yourusername/tracegraph-web:v1.0.0`.
+
+---
+
 ## License
 
-MIT
+MIT — use it, fork it, self-host it.

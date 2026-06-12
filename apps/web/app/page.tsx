@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useAuth } from '../components/AuthProvider';
+import { Avatar } from '../components/Avatar';
 const EncryptedText = dynamic(
   () => import('../components/ui/encrypted-text').then((m) => m.EncryptedText),
   { ssr: false, loading: () => <span className="text-ink-400">Uncover everything.</span> },
 );
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 interface SearchHit {
   companyNumber: string;
@@ -37,8 +38,8 @@ export default function Home() {
   const [searching, setSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
-  const [selectedHit, setSelectedHit] = useState<SearchHit | null>(null);
-  const [jurisdiction, setJurisdiction] = useState('gb');
+  const [jurisdiction, setJurisdiction] = useState('all');
+  const [searchMode, setSearchMode] = useState<'company' | 'person'>('company');
   const debounceRef = useRef<any>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -77,16 +78,13 @@ export default function Home() {
 
   // Clear tier picker when search text is removed
   useEffect(() => {
-    if (!query.trim() && selectedHit) {
-      setSelectedHit(null);
-    }
   }, [query]);
 
-  // Debounced live search for non-numeric queries
+  // Unified global search — searches everywhere at once
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = query.trim();
-    if (!trimmed || (jurisdiction === 'gb' && COMPANY_NUMBER_RE.test(trimmed)) || trimmed.length < 2) {
+    if (!trimmed || trimmed.length < 2) {
       setHits([]);
       setShowDropdown(false);
       return;
@@ -94,13 +92,44 @@ export default function Home() {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const searchUrl = jurisdiction === 'gb'
-          ? `${API}/api/companies-house/search?q=${encodeURIComponent(trimmed)}`
-          : `${API}/api/jurisdictions/search?q=${encodeURIComponent(trimmed)}&jurisdiction=${jurisdiction}`;
-        const res = await fetch(searchUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        setHits(data.items || []);
+        if (searchMode === 'person') {
+          const res = await fetch(`${API}/api/persons/search?q=${encodeURIComponent(trimmed)}&limit=8`);
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          setHits((data.items || []).map((p: any) => ({
+            companyNumber: p.id, title: p.canonicalName, name: p.canonicalName,
+            status: [p.nationality, p.dobYear ? `b. ${p.dobYear}` : null].filter(Boolean).join(' · '),
+            source: 'persons',
+          })));
+          setShowDropdown(true);
+          setActiveIdx(-1);
+          setSearching(false);
+          return;
+        }
+
+        // Parallel search: Companies House + Global registries simultaneously
+        const isUkNumber = COMPANY_NUMBER_RE.test(trimmed);
+        const searches = isUkNumber
+          ? [fetch(`${API}/api/companies-house/search?q=${encodeURIComponent(trimmed)}`).then(r => r.json()).catch(() => ({ items: [] }))]
+          : [
+              fetch(`${API}/api/companies-house/search?q=${encodeURIComponent(trimmed)}`).then(r => r.json()).catch(() => ({ items: [] })),
+              fetch(`${API}/api/jurisdictions/search?q=${encodeURIComponent(trimmed)}&jurisdiction=all`).then(r => r.json()).catch(() => ({ items: [] })),
+            ];
+
+        const results = await Promise.all(searches);
+        // Merge, tag UK results, deduplicate by companyNumber
+        const seen = new Set<string>();
+        const merged: SearchHit[] = [];
+        for (const result of results) {
+          for (const item of (result.items || [])) {
+            const key = item.companyNumber || item.title;
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(item);
+            }
+          }
+        }
+        setHits(merged.slice(0, 12));
         setShowDropdown(true);
         setActiveIdx(-1);
       } catch {
@@ -108,70 +137,56 @@ export default function Home() {
       } finally {
         setSearching(false);
       }
-    }, 250);
+    }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, jurisdiction]);
+  }, [query, searchMode]);
 
   function pickCompany(hit: SearchHit) {
-    setSelectedHit(hit);
-    setShowDropdown(false);
-    setHits([]);
-    setQuery(hit.title || hit.name || hit.companyNumber);
+    if (searchMode === 'person' || (hit as any).source === 'persons') {
+      router.push(`/person/${hit.companyNumber}`);
+      return;
+    }
+    // Domain/web research hit
+    if ((hit as any).source === 'domain') {
+      const name = hit.name || hit.companyNumber.replace(/^(domain:|web:)/, '');
+      router.push(`/start?company=${encodeURIComponent(name)}&name=${encodeURIComponent(name)}&jurisdiction=domain`);
+      return;
+    }
+    // Company hit — go straight to /start with company pre-filled
+    const detectedJurisdiction = hit.jurisdiction || 'gb';
+    const params = new URLSearchParams({
+      company: hit.companyNumber,
+      name: hit.title || hit.name || hit.companyNumber,
+      jurisdiction: detectedJurisdiction,
+    });
+    router.push(`/start?${params.toString()}`);
   }
 
   const { user, token } = useAuth();
 
-  async function startInvestigation(q: string, tier: Tier = 'STANDARD') {
-    // Auth wall — redirect to login if not authenticated
-    if (!user || !token) {
-      router.push(`/auth?redirect=${encodeURIComponent('/')}`);
-      return;
-    }
 
-    setLoading(true);
-    setError(null);
-    setShowDropdown(false);
-    try {
-      const res = await fetch(`${API}/api/investigations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ query: q, tier, jurisdiction }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data.error) {
-        setError(data.upgrade ? `${data.error}. Upgrade to Pro for 50 investigations/month.` : data.error);
-        setLoading(false);
-        return;
-      }
-      router.push(`/investigate/${data.id}`);
-    } catch (err: any) {
-      setError(err.message);
-      setLoading(false);
-    }
-  }
-
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = query.trim();
     if (!trimmed) return;
+
+    // Keyboard-selected dropdown item
     if (activeIdx >= 0 && hits[activeIdx]) {
       pickCompany(hits[activeIdx]);
       return;
     }
-    if (jurisdiction === 'gb' && COMPANY_NUMBER_RE.test(trimmed)) {
-      // Direct number → fabricate a hit so the tier picker still appears
-      setSelectedHit({ companyNumber: trimmed, title: trimmed });
-      setShowDropdown(false);
-      return;
-    }
+    // First dropdown result
     if (hits[0]) {
       pickCompany(hits[0]);
       return;
     }
+    // Direct UK company number typed — go to /start
+    if (COMPANY_NUMBER_RE.test(trimmed)) {
+      router.push(`/start?company=${encodeURIComponent(trimmed)}&name=${encodeURIComponent(trimmed)}&jurisdiction=gb`);
+      return;
+    }
+    // Anything else — go to /start with query as name
+    router.push(`/start?company=${encodeURIComponent(trimmed)}&name=${encodeURIComponent(trimmed)}&jurisdiction=all`);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -202,9 +217,9 @@ export default function Home() {
             <a href="#capabilities" className="hover:text-ink-50 transition-colors">Capabilities</a>
             <span className="text-ink-700">|</span>
             <a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a>
+            <a href="/pipeline" className="hover:text-ink-50 transition-colors">Pipeline</a>
             <a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a>
-            <a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a>
-            <a href="/leaderboard" className="hover:text-ink-50 transition-colors">Leaderboard</a>
+            <a href="/watchlist" className="hover:text-ink-50 transition-colors">Monitor</a>
             <ThemeToggle />
           </nav>
           {/* Mobile hamburger */}
@@ -212,59 +227,49 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative pt-48 pb-32 px-8 max-w-6xl mx-auto">
-        {/* Dot grid background */}
+      {/* Hero — 90vh, centered */}
+      <section className="relative min-h-[90vh] flex flex-col overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
 
-        <div className="relative">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-8 reveal">
-            / 001 · Corporate intelligence engine
+        {/* Center content */}
+        <div className="relative flex-1 flex flex-col items-center justify-center text-center max-w-4xl mx-auto px-8 py-24">
+
+          {/* Live label — dot only, no orb */}
+          <div className="flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-8 reveal">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#d4ff00] animate-pulse shrink-0" style={{ animationDuration: '2s' }} />
+            Live · M&A due diligence engine
           </div>
 
-          <h1 className="text-[clamp(2.25rem,5vw,4.5rem)] leading-[1] tracking-tight font-medium text-ink-50 reveal reveal-delay-1">
-            Enter a company.
+          <h1 className="text-[clamp(2rem,3.5vw,2.75rem)] leading-[1.1] tracking-[-0.04em] font-semibold text-ink-50 reveal reveal-delay-1">
+            Know who you're dealing with.
             <br />
-            <span className="text-ink-400">
-              <EncryptedText
-                text="Uncover everything."
-                revealDelayMs={60}
-                flipDelayMs={40}
-                className="text-ink-400"
-                encryptedClassName="text-ink-600"
-              />
+            <span className="text-ink-50 font-semibold">
+              <EncryptedText text="Before you commit." revealDelayMs={60} flipDelayMs={40}
+                className="text-ink-50" encryptedClassName="text-ink-600" />
             </span>
           </h1>
 
-          <p className="mt-10 text-lg text-ink-300 max-w-xl leading-relaxed reveal reveal-delay-2">
-            Trace ownership chains, detect shell networks, screen sanctions across 145+ jurisdictions - from public data, in minutes.
+          <p className="mt-6 text-base text-ink-500 max-w-lg mx-auto leading-relaxed tracking-[-0.01em] reveal reveal-delay-2">
+            Ownership chains, director track records, sanctions screening, IC memo — the full DD picture on any company, in minutes.
           </p>
 
-          <div className="mt-6 flex items-center gap-6 text-xs font-mono text-ink-500 reveal reveal-delay-2 flex-wrap">
-            <CountUp end={235} suffix="M+" label="companies searchable" />
-            <span className="text-ink-700">·</span>
-            <CountUp end={4.1} suffix="M" label="sanctions entities" decimals={1} />
-            <span className="text-ink-700">·</span>
-            <CountUp end={770} suffix="K+" label="offshore records" />
-            <span className="text-ink-700">·</span>
-            <CountUp end={145} suffix="+" label="jurisdictions" />
-          </div>
-
         {/* Search */}
-        <form onSubmit={submit} className="mt-12 max-w-2xl reveal reveal-delay-3 relative">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-mono text-ink-500 uppercase tracking-wider">Jurisdiction</span>
-            {[
-              { value: 'gb', label: 'UK', flag: 'GB' },
-              { value: 'us', label: 'US', flag: 'US' },
-              { value: 'de', label: 'DE', flag: 'DE' },
-              { value: 'fr', label: 'FR', flag: 'FR' },
-              { value: 'all', label: 'All', flag: '' },
-            ].map((j) => (
-              <button key={j.value} onClick={() => setJurisdiction(j.value)}
-                className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-sm border transition-colors ${
-                  jurisdiction === j.value ? 'bg-white/10 text-ink-50 border-white/30' : 'bg-ink-850 text-ink-400 border-white/10 hover:border-white/30'
-                }`}>{j.label}</button>
+        <form onSubmit={submit} className="mt-10 w-full max-w-2xl reveal reveal-delay-3 relative">
+          {/* Mode toggle */}
+          <div className="flex items-center gap-1 mb-3 justify-center">
+            {(['company', 'person'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => { setSearchMode(mode); setQuery(''); setHits([]); }}
+                className={`text-[10px] font-mono uppercase tracking-[0.15em] px-3 py-1.5 rounded-sm transition-colors ${
+                  searchMode === mode
+                    ? 'bg-white/10 text-ink-50'
+                    : 'text-ink-600 hover:text-ink-400'
+                }`}
+              >
+                {mode === 'company' ? '/ Company' : '/ Director'}
+              </button>
             ))}
           </div>
           <div className="relative group">
@@ -275,7 +280,7 @@ export default function Home() {
               onKeyDown={handleKeyDown}
               onFocus={() => hits.length > 0 && setShowDropdown(true)}
               onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-              placeholder={jurisdiction === 'gb' ? 'Enter a UK company name or number...' : jurisdiction === 'all' ? 'Search companies worldwide...' : `Search ${jurisdiction.toUpperCase()} companies...`}
+              placeholder={searchMode === 'person' ? 'Search directors & founders by name...' : 'Search any company globally — UK, US, India, EU and more...'}
               autoComplete="off"
               className="w-full px-6 py-5 pr-48 text-lg rounded-sm bg-ink-850 border border-white/10 text-ink-50 placeholder:text-ink-500 focus:outline-none focus:border-white/30 transition-colors"
             />
@@ -295,7 +300,7 @@ export default function Home() {
                 {searching && hits.length === 0 && (
                   <div className="px-5 py-4 text-xs font-mono text-ink-500 flex items-center gap-2">
                     <span className="inline-block w-3 h-3 border border-ink-500 border-t-ink-50 rounded-full animate-spin" />
-                    {jurisdiction === 'gb' ? 'searching companies house...' : 'searching global registries...'}
+                    {'searching global registries...'}
                   </div>
                 )}
                 {hits.map((h, i) => (
@@ -310,6 +315,8 @@ export default function Home() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
+                        {/* Jurisdiction flag */}
+                        {(h as any).flag && <span className="text-sm shrink-0">{(h as any).flag}</span>}
                         <span className="text-sm text-ink-50 truncate">{h.title || h.name}</span>
                         {(h as any).ticker && (
                           <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-signal-clean/10 text-signal-clean border border-signal-clean/20 shrink-0">
@@ -339,171 +346,130 @@ export default function Home() {
             )}
           </div>
           {error && <p className="text-signal-critical text-sm mt-3">{error}</p>}
-          {!selectedHit && (
-            <div className="mt-4 space-y-2">
-              <p className="text-xs text-ink-500 font-mono">Try a company →</p>
-              <div className="flex flex-wrap gap-2">
+          {searchMode === 'company' && (
+            <>
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-4">
                 {[
-                  { name: 'Amazon', flag: 'US', j: 'us' },
-                  { name: 'Tesco PLC', flag: 'GB', j: 'gb' },
-                  { name: 'Reliance Industries', flag: 'IN', j: 'in' },
-                  { name: 'Apple', flag: 'US', j: 'us' },
-                  { name: 'Tesla', flag: 'US', j: 'us' },
-                ].map((demo) => (
-                  <button
-                    key={demo.name}
-                    onClick={() => { setQuery(demo.name); setJurisdiction(demo.j); }}
-                    className="text-[11px] font-mono px-3 py-1.5 border border-white/10 text-ink-400 hover:text-ink-50 hover:border-white/20 transition-colors rounded-sm"
-                  >
-                    <span className="mr-1.5">{demo.flag}</span>{demo.name}
+                  { name: 'Boohoo Group', flag: '🇬🇧' },
+                  { name: 'Deliveroo', flag: '🇬🇧' },
+                  { name: 'Tesco PLC', flag: '🇬🇧' },
+                  { name: 'OakNorth Bank', flag: '🇬🇧' },
+                  { name: 'Revolut', flag: '🇬🇧' },
+                ].map((d) => (
+                  <button key={d.name} onClick={() => setQuery(d.name)} type="button"
+                    className="text-[11px] font-mono text-ink-500 hover:text-ink-200 transition-colors">
+                    {d.flag} {d.name}
                   </button>
                 ))}
               </div>
-            </div>
+              <p className="text-[10px] font-mono text-ink-600 mt-3">Initial screen free · No card required</p>
+            </>
+          )}
+          {searchMode === 'person' && (
+            <p className="text-[10px] font-mono text-ink-600 mt-4">Search directors, founders, and officers across all investigated companies</p>
           )}
         </form>
+        </div>
 
-        {/* Tier picker */}
-        {selectedHit && (
-          <div className="mt-10 reveal max-w-4xl">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Selected company</div>
-                <div className="mt-1 text-xl font-medium text-ink-50">{selectedHit.title}</div>
-                <div className="text-xs font-mono text-ink-500 mt-0.5">{selectedHit.companyNumber}{selectedHit.status ? ` · ${selectedHit.status}` : ''}</div>
-              </div>
-              <button
-                onClick={() => { setSelectedHit(null); setQuery(''); }}
-                className="text-xs font-mono text-ink-500 hover:text-ink-50 transition-colors"
-              >
-                ← change
-              </button>
-            </div>
-
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Choose research depth</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5">
-              <TierCard
-                tier="QUICK"
-                badge="FREE"
-                title="Quick scan"
-                eta="30s · 2 min"
-                bullets={[
-                  'Target + direct directors',
-                  'Max 200 entities',
-                  'Companies House only',
-                  'Basic profile, no scoring',
-                ]}
-                onClick={() => startInvestigation(selectedHit.companyNumber, 'QUICK')}
-                disabled={loading}
-              />
-              <TierCard
-                tier="STANDARD"
-                badge="DEFAULT"
-                title="Standard"
-                eta="2 · 10 min"
-                recommended
-                bullets={[
-                  'Depth 2 with smart filtering',
-                  'Max 1,000 entities',
-                  'All sources matched',
-                  'Full anomaly detection',
-                ]}
-                onClick={() => startInvestigation(selectedHit.companyNumber, 'STANDARD')}
-                disabled={loading}
-              />
-              <TierCard
-                tier="DEEP"
-                badge="PREMIUM"
-                title="Deep investigation"
-                eta="10 · 45 min"
-                premium
-                bullets={[
-                  'Depth 3, no filtering',
-                  'Max 5,000 entities',
-                  'Enhanced entity resolution',
-                  'Extra detection signals',
-                ]}
-                onClick={() => startInvestigation(selectedHit.companyNumber, 'DEEP')}
-                disabled={loading}
-              />
+        {/* Stats + scroll indicator — pinned to bottom */}
+        <div className="relative pb-6 flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center gap-6 text-xs font-mono text-ink-600 flex-wrap px-8">
+            <CountUp end={235} suffix="M+" label="companies searchable" />
+            <span className="text-ink-800">·</span>
+            <CountUp end={4.1} suffix="M" label="sanctions entities" decimals={1} />
+            <span className="text-ink-800">·</span>
+            <CountUp end={770} suffix="K+" label="offshore records" />
+            <span className="text-ink-800">·</span>
+            <CountUp end={145} suffix="+" label="jurisdictions" />
+          </div>
+          <div className="flex flex-col items-center gap-1 pointer-events-none">
+            <span className="text-[9px] font-mono text-ink-700 uppercase tracking-[0.2em]">scroll</span>
+            <div className="relative w-px h-8 bg-ink-800 overflow-hidden">
+              <div className="scroll-dot absolute inset-x-0 top-0 h-3 rounded-full" style={{ background: '#d4ff00' }} />
             </div>
           </div>
-        )}
         </div>
       </section>
+
+      {/* No tier picker here — selecting a company goes to /start */}
 
       {/* Recent investigations showcase */}
       <RecentInvestigations />
 
-      {/* Beyond the report - feature strip */}
+      {/* 002 — Everything you get */}
       <section className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 002 · Beyond the report
-          </div>
+        <div className="max-w-6xl mx-auto px-8 py-24 text-center">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-6 scroll-slide-in">/ 002 · Everything you get</div>
+          <h2 className="text-[clamp(2rem,3.5vw,2.75rem)] font-medium tracking-tight text-ink-50 leading-[1.1] mb-4 reveal">Bank-grade DD. Minus the bank-grade price tag.</h2>
+          <p className="text-sm text-ink-400 leading-relaxed max-w-xl mx-auto mb-16 reveal reveal-delay-1">The intelligence mid-market PE and M&A teams run manually for 20 hours a deal. Automated, in minutes.</p>
           <div className="overflow-hidden -mx-8">
             <FeatureCarousel>
-              <FeatureStrip label="Live expansion" description="Watch your network grow in real time" visual="sonar" />
-              <FeatureStrip label="Graph explorer" description="Filter by type, search entities, trace paths" visual="graph" />
-              <FeatureStrip label="Ownership chains" description="Trace UBO through corporate layers" visual="ownership" />
-              <FeatureStrip label="Intelligence report" description="Professional PDF with verdict, findings, methodology" visual="pdf" />
-              <FeatureStrip label="Compare" description="Side-by-side risk analysis of two companies" visual="compare" />
-              <FeatureStrip label="Monitor" description="Track risk score changes over time" visual="monitor" />
-              <FeatureStrip label="Verify" description="One-click links to source data for every finding" visual="verify" />
-              <FeatureStrip label="Leaderboard" description="UK's riskiest companies ranked by risk score" visual="leaderboard" />
+              <FeatureStrip label="Ownership chains" description="Follow control through every offshore layer to the real beneficial owner" visual="ownership" />
+              <FeatureStrip label="IC memo generator" description="One-click acquisition memo: verdict, ownership, key people, deal blockers" visual="pdf" />
+              <FeatureStrip label="Director track record" description="Every company a founder has run — active, dissolved, or acquired" visual="graph" />
+              <FeatureStrip label="Deal comparison" description="Two acquisition targets side-by-side across 16+ DD dimensions" visual="compare" />
+              <FeatureStrip label="Live expansion" description="Watch the corporate network build in real time as connections are crawled" visual="sonar" />
+              <FeatureStrip label="Portfolio monitor" description="Get alerted when a target or portfolio company's risk score changes" visual="monitor" />
+              <FeatureStrip label="Verified sources" description="Every finding links back to its original source document" visual="verify" />
+              <FeatureStrip label="Sanctions screening" description="OFAC, UK HMT, OpenSanctions — checked against the full network, not just the target" visual="leaderboard" />
             </FeatureCarousel>
           </div>
         </div>
       </section>
 
-      {/* What it detects - merged capabilities */}
+      {/* 003 — What it detects (investigation board) */}
       <section id="capabilities" className="border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-4 scroll-slide-in">
-            / 003 · What it detects
-          </div>
-          <p className="text-sm text-ink-400 mb-12 max-w-2xl">
-            25+ intelligence sources across US, UK, and India. OFAC + UK HMT + EU sanctions (50K+ names), SEC EDGAR, NSE India, Wikidata, court records, political donations, and more.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
-            <Capability title="Direct sanctions screening" body="Screen against OFAC SDN (26K), UK HMT (12K), EU consolidated list, OpenSanctions (4.1M), and ICIJ OffshoreLeaks (770K+)." color="#FF4D4D" icon="shell" />
-            <Capability title="PEP + political donations" body="Detect politically exposed persons via Wikidata. Track FEC campaign contributions by key officers. Map political connections." color="#FF8A3D" icon="shield" />
-            <Capability title="Financial intelligence" body="SEC XBRL financials: profit margin, debt/equity, current ratio. NSE India: shareholding patterns, quarterly results. Distress flags." color="#5EE6A1" icon="file" />
-            <Capability title="Court cases + adverse media" body="CourtListener (US), Indian Kanoon (India) for litigation. GDELT news screening with 30+ adverse keywords." color="#F5C518" icon="chain" />
-            <Capability title="Corporate events + insider trading" body="SEC 8-K material events, Form 4 insider buy/sell signals, 10-K self-disclosed risk factors, officer departures." color="#60A5FA" icon="network" />
-            <Capability title="Web + address verification" body="Website existence, domain age (Wayback Machine), virtual office detection, formation agent addresses, FATF jurisdiction risk." color="#FF4D4D" icon="ban" />
+        <div className="max-w-6xl mx-auto px-8 py-24 text-center">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-6 scroll-slide-in">/ 003 · What it detects</div>
+          <h2 className="text-[clamp(2rem,3.5vw,2.75rem)] font-medium tracking-tight text-ink-50 leading-[1.1] mb-4 reveal">Finds what the data room doesn't include.</h2>
+          <p className="text-sm text-ink-400 leading-relaxed max-w-xl mx-auto mb-4 reveal reveal-delay-1">Shell networks, sanctions exposure, offshore layers, founder history — buried in public records, surfaced automatically before you sign.</p>
+          <p className="text-[11px] font-mono text-ink-600 mb-12 reveal reveal-delay-2">Here's what surfaces in a real DD run.</p>
+          <BlueprintExpand />
+        </div>
+      </section>
+
+      {/* 004 — Use cases */}
+      <section id="usecases" className="border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-8 py-24 text-center">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-6 scroll-slide-in">/ 004 · Built for due diligence</div>
+          <h2 className="text-[clamp(2rem,3.5vw,2.75rem)] font-medium tracking-tight text-ink-50 leading-[1.1] mb-4 reveal">Know before you sign.</h2>
+          <p className="text-sm text-ink-400 leading-relaxed max-w-xl mx-auto mb-12 reveal reveal-delay-1">Acquisition target, co-investor, or counterparty — TraceGraph surfaces what the filings don't say.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid text-left">
+            <Approach n="001" title="Acquisition DD" body="Trace ownership to the real beneficiary, audit founder track records, and surface hidden liabilities before the LOI is signed." icon="invest" color="#F5C518" />
+            <Approach n="002" title="Target screening" body="Screen a pipeline of acquisition candidates in minutes. Get a deal risk score and IC memo for every target before the first meeting." icon="vendor" color="#5EE6A1" />
+            <Approach n="003" title="Portfolio monitoring" body="Watch for risk score changes, new sanctions exposure, and director changes across your portfolio and deal pipeline." icon="compliance" color="#60A5FA" />
           </div>
         </div>
       </section>
 
-      {/* Use cases */}
-      <section id="usecases" className="border-t border-white/5">
+      {/* 005 — Meet Tracey */}
+      <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-12 scroll-slide-in">
-            / 004 · Built for due diligence
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-400 mb-6 scroll-slide-in">/ 005 · Meet Tracey</div>
+          <p className="text-sm text-ink-500 mb-14 max-w-lg">Once your investigation completes, you're not alone with the data.</p>
+
+          {/* Orb centred via 3-col grid */}
+          <div className="grid grid-cols-3 items-center mb-24">
+            <div className="flex justify-end pr-10">
+              <span className="text-3xl font-medium tracking-tight text-ink-600">Meet</span>
+            </div>
+            <div className="flex justify-center">
+              <TraceyOrb />
+            </div>
+            <div className="flex justify-start pl-10">
+              <span className="text-3xl font-medium tracking-tight text-ink-600">Tracey.</span>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 stagger-grid">
-            <Approach
-              n="001"
-              title="Vendor screening"
-              body="Map director networks, verify corporate legitimacy, and assess risk exposure before signing contracts."
-              icon="vendor"
-              color="#5EE6A1"
-            />
-            <Approach
-              n="002"
-              title="Investment due diligence"
-              body="Trace ownership structures, check founder histories, and identify hidden risks before committing capital."
-              icon="invest"
-              color="#F5C518"
-            />
-            <Approach
-              n="003"
-              title="Compliance & KYB"
-              body="Automated sanctions screening, UBO resolution, and continuous risk monitoring for regulated onboarding workflows."
-              icon="compliance"
-              color="#60A5FA"
-            />
+
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="text-[clamp(2rem,3.5vw,2.75rem)] font-medium tracking-tight text-ink-50 leading-[1.1] mb-5">Your M&A analyst, available on every deal.</h2>
+            <p className="text-sm text-ink-400 leading-relaxed">Ask anything about the target — ownership structure, founder track record, deal blockers, what to scope in legal DD. Tracey knows the full file and answers like a senior advisor, not a search engine.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 border border-white/5 text-left">
+            <Capability title="Knows the full DD file" body="Every entity, ownership chain, finding, and risk signal — Tracey has full context from the moment results are ready." color="#5EE6A1" icon="network" />
+            <Capability title="Every answer is cited" body="No hallucinations. Every claim links directly to the source data that supports it." color="#F5C518" icon="file" />
+            <Capability title="Speaks like a deal advisor" body="Complex offshore structures and legal jargon translated into deal implications: what it means for your SPA, your warranties, your timeline." color="#60A5FA" icon="shell" />
           </div>
         </div>
       </section>
@@ -511,16 +477,14 @@ export default function Home() {
       {/* CTA */}
       <section className="border-t border-white/5">
         <div className="max-w-6xl mx-auto px-8 py-24 text-center">
-          <h2 className="text-2xl font-medium tracking-tight text-ink-50 mb-4">Start an investigation</h2>
-          <p className="text-sm text-ink-400 mb-10">Search any company across US, UK, India, and 20+ jurisdictions.</p>
+          <h2 className="text-2xl font-medium tracking-tight text-ink-50 mb-4">Ready to investigate?</h2>
+          <p className="text-sm text-ink-400 mb-2">Your first investigation is free. No card, no account needed to start.</p>
+          <p className="text-[11px] font-mono text-ink-600 mb-10">Quick scan free · Standard from $29/mo · Deep investigation from $79/mo</p>
           <button
-            onClick={() => {
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-              setTimeout(() => searchRef.current?.focus(), 400);
-            }}
+            onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setTimeout(() => searchRef.current?.focus(), 400); }}
             className="px-8 py-4 bg-ink-50 text-ink-900 rounded-sm font-medium text-sm hover:bg-white transition-all group/btn"
           >
-            <span>Search a company <span className="inline-block transition-transform group-hover/btn:translate-x-1">→</span></span>
+            <span>Start free — no card required <span className="inline-block transition-transform group-hover/btn:translate-x-1">→</span></span>
           </button>
         </div>
       </section>
@@ -537,7 +501,7 @@ export default function Home() {
                 <span className="text-sm tracking-tight text-ink-50">TraceGraph</span>
               </div>
               <p className="text-xs text-ink-400 leading-relaxed">
-                Every company tells a story - we read between the filings.
+                M&A due diligence for the rest of us. Open-source, self-hostable.
               </p>
             </div>
 
@@ -546,9 +510,10 @@ export default function Home() {
               <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-4">Product</div>
               <ul className="space-y-2.5 text-xs text-ink-400">
                 <li><a href="/dashboard" className="hover:text-ink-50 transition-colors">Dashboard</a></li>
-                <li><a href="/compare" className="hover:text-ink-50 transition-colors">Compare</a></li>
-                <li><a href="/watchlist" className="hover:text-ink-50 transition-colors">Watchlist</a></li>
-                <li><a href="/leaderboard" className="hover:text-ink-50 transition-colors">Leaderboard</a></li>
+                <li><a href="/pipeline" className="hover:text-ink-50 transition-colors">Deal Pipeline</a></li>
+                <li><a href="/compare" className="hover:text-ink-50 transition-colors">Compare targets</a></li>
+                <li><a href="/watchlist" className="hover:text-ink-50 transition-colors">Monitor</a></li>
+                <li><a href="/team" className="hover:text-ink-50 transition-colors">Team</a></li>
               </ul>
             </div>
 
@@ -556,7 +521,9 @@ export default function Home() {
             <div>
               <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-ink-500 mb-4">Resources</div>
               <ul className="space-y-2.5 text-xs text-ink-400">
-                <li><a href="#" className="hover:text-ink-50 transition-colors">GitHub</a></li>
+                <li><a href="https://github.com" className="hover:text-ink-50 transition-colors">GitHub</a></li>
+                <li><a href="/setup" className="hover:text-ink-50 transition-colors">Self-host setup</a></li>
+                <li><a href="/api/docs" className="hover:text-ink-50 transition-colors">API docs</a></li>
               </ul>
             </div>
 
@@ -1244,6 +1211,177 @@ function FeatureVisual({ type }: { type: string }) {
   );
 }
 
+/** Tracey orb — cursor-tracking eyes */
+function TraceyOrb() {
+  const orbRef = useRef<HTMLDivElement>(null);
+  const [eyeOffset, setEyeOffset] = useState({ x: 0, y: 0 });
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      const orb = orbRef.current;
+      if (!orb) return;
+      const rect = orb.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const angle = Math.atan2(dy, dx);
+      setEyeOffset({ x: Math.cos(angle) * 5, y: Math.sin(angle) * 4 });
+    }
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => window.removeEventListener('mousemove', onMove);
+  }, []);
+
+  const eyeStyle = (delayMs: number): React.CSSProperties => ({
+    width: 16, height: 16,
+    borderRadius: hovered ? '50% 50% 0 0' : '50%',
+    background: '#d4ff00',
+    boxShadow: hovered ? '0 0 24px rgba(212,255,0,1), 0 0 48px rgba(212,255,0,0.6)' : '0 0 20px rgba(212,255,0,0.95), 0 0 40px rgba(212,255,0,0.4)',
+    transform: `translate(${eyeOffset.x}px, ${hovered ? eyeOffset.y - 2 : eyeOffset.y}px)`,
+    transition: hovered ? 'border-radius 0.15s ease, transform 0.15s ease' : 'border-radius 0.15s ease, transform 0.06s linear',
+    animation: hovered ? undefined : `tdBlink 2.5s ease-in-out ${delayMs}ms infinite`,
+  });
+
+  return (
+    <div ref={orbRef} className="relative flex items-center justify-center shrink-0 cursor-none" style={{ width: 180, height: 180 }}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      <div className="absolute rounded-full pointer-events-none" style={{ inset: -28, animation: 'tdPulse 3s ease-in-out infinite', background: 'radial-gradient(circle, rgba(200,255,0,0.09) 0%, transparent 70%)' }} />
+      <div className="relative rounded-full overflow-hidden" style={{
+        width: 180, height: 180,
+        background: 'radial-gradient(circle at 38% 32%, rgba(210,255,40,0.55) 0%, rgba(140,200,0,0.22) 25%, rgba(60,80,0,0.22) 50%, #0c0e08 85%)',
+        boxShadow: hovered ? '0 0 90px rgba(200,255,0,0.3)' : '0 0 70px rgba(200,255,0,0.2)',
+        transition: 'box-shadow 0.3s',
+      }}>
+        <div className="absolute top-[18px] left-[28px] w-[62px] h-[26px] rounded-full bg-white/20 blur-[7px]" style={{ transform: 'rotate(-15deg)' }} />
+        <div className="absolute inset-[5px] rounded-full" style={{ animation: 'tdOrbSpin 10s linear infinite', background: 'conic-gradient(from 0deg, transparent 0%, rgba(200,255,0,0.08) 20%, transparent 40%)' }} />
+        <div className="absolute inset-[3px] rounded-full" style={{ boxShadow: 'inset 0 10px 28px rgba(0,0,0,0.45)' }} />
+        <div className="absolute inset-0 flex items-center justify-center gap-[32px] pt-[2px]">
+          <div style={eyeStyle(0)} />
+          <div style={eyeStyle(100)} />
+        </div>
+      </div>
+      {hovered && <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-mono text-[#d4ff00]/50 whitespace-nowrap" style={{ animation: 'tdMsgIn 0.2s ease both' }}>hi there :)</div>}
+      <style jsx>{`
+        @keyframes tdBlink { 0%,38%,42%,75%,79%,100% { transform: translate(var(--ex,0px),var(--ey,0px)) scaleY(1); } 40% { transform: scaleY(0.08); } 77% { transform: scaleY(0.08); } }
+        @keyframes tdOrbSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes tdPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+        @keyframes tdMsgIn { from { opacity: 0; transform: translateX(-50%) translateY(4px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+      `}</style>
+    </div>
+  );
+}
+
+/** Investigation board — scroll-expand wrapper */
+function BlueprintExpand() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => setExpanded(e.isIntersecting), { threshold: 0.2 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{ transition: 'margin 0.7s cubic-bezier(0.4,0,0.2,1)', marginLeft: expanded ? 'calc(-48vw + 50%)' : 0, marginRight: expanded ? 'calc(-48vw + 50%)' : 0 }}>
+      <BlueprintCapabilities expanded={expanded} />
+    </div>
+  );
+}
+
+/** Dark blueprint investigation board */
+function BlueprintCapabilities({ expanded = false }: { expanded?: boolean }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [companyHovered, setCompanyHovered] = useState(false);
+  const COMPANY: [number, number] = [50, 50];
+  const ITEMS: { title: string; body: string; color: string; icon: React.ReactNode; pos: { top: string; left?: string; right?: string }; rotate: number; pin: [number, number]; cp: [number, number] }[] = [
+    { title: 'Sanctions screening', body: 'Know if a company or its directors appear on OFAC, UK HMT, EU, or OpenSanctions — 4.1M+ entries checked.', color: '#FF4D4D', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round" /></svg>, pos: { top: '7%', left: '5%' }, rotate: -3, pin: [12, 7], cp: [-8, -5] },
+    { title: 'Political exposure', body: 'Identify PEPs, map government connections, and surface campaign donation ties to key officers.', color: '#FF8A3D', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" /><path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>, pos: { top: '6%', left: '31%' }, rotate: 2, pin: [41, 6], cp: [0, -12] },
+    { title: 'Financial health', body: "Spot distress before it's public — margins, debt, dormant accounts, and inflated director networks.", color: '#5EE6A1', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round" /><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" /></svg>, pos: { top: '7%', right: '5%' }, rotate: -1.5, pin: [88, 7], cp: [8, -5] },
+    { title: 'Litigation & media', body: 'Surface court cases, regulatory actions, and adverse news flagged across 30+ keywords globally.', color: '#F5C518', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4"><path d="M9 17H7A5 5 0 017 7h2M15 7h2a5 5 0 010 10h-2M8 12h8" strokeLinecap="round" /></svg>, pos: { top: '68%', left: '5%' }, rotate: 2.5, pin: [12, 68], cp: [-6, 8] },
+    { title: 'Insider activity', body: 'Detect insider trading signals, director departures, material events, and self-disclosed risk factors.', color: '#60A5FA', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4"><circle cx="12" cy="5" r="3" /><circle cx="5" cy="19" r="3" /><circle cx="19" cy="19" r="3" /><path d="M12 8v4M8.5 16.5L10.5 13M15.5 16.5l-2-3.5" /></svg>, pos: { top: '71%', left: '31%' }, rotate: -2, pin: [41, 71], cp: [0, 10] },
+    { title: 'Address & web', body: 'Flag virtual offices, high-risk jurisdictions, formation agent addresses, and suspicious domains.', color: '#A78BFA', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4"><circle cx="12" cy="12" r="10" /><path d="M4.93 4.93l14.14 14.14" /></svg>, pos: { top: '68%', right: '5%' }, rotate: 1.5, pin: [88, 68], cp: [6, 8] },
+  ];
+  const STICKIES = [
+    { text: 'OFAC SDN\n26K names', top: '28%', left: '7%', rotate: -7, color: '#fef08a' },
+    { text: 'PEP match\nconfirmed ✓', top: '22%', left: '39%', rotate: 5, color: '#fde68a' },
+    { text: 'Q4 deficit\n↑ 34%', top: '26%', right: '18%', rotate: -4, color: '#fef08a' },
+    { text: 'Court file\n#2847-B', top: '58%', left: '23%', rotate: 6, color: '#fde68a' },
+    { text: 'Insider sell\nForm 4', top: '62%', left: '41%', rotate: -6, color: '#fef08a' },
+    { text: 'Virtual addr\nflagged', top: '56%', right: '19%', rotate: 4, color: '#fde68a' },
+  ];
+  return (
+    <div style={{
+      padding: 14,
+      borderRadius: expanded ? 0 : 28,
+      transition: 'border-radius 0.7s cubic-bezier(0.4,0,0.2,1)',
+      background: `linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 40%, rgba(255,255,255,0.04) 60%, transparent 100%), linear-gradient(105deg, #3a3a3a 0%, #1a1a1a 20%, #2e2e2e 40%, #111 55%, #333 70%, #1c1c1c 85%, #2a2a2a 100%)`,
+      boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 24px 80px rgba(0,0,0,0.7)',
+    }}>
+    <div style={{ height: 692, borderRadius: expanded ? 0 : 16, background: '#0f0f0f', transition: 'border-radius 0.7s', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
+      {/* Blueprint grid */}
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: `linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)`, backgroundSize: '44px 44px' }} />
+      {/* Subtle center lift */}
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(255,255,255,0.02) 0%, transparent 70%)' }} />
+      <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 1100 }}>
+        {ITEMS.map((item, i) => {
+          const isH = hovered === i;
+          return (
+            <div key={i} style={{ position: 'absolute', top: item.pos.top, left: item.pos.left, right: item.pos.right, width: 210, zIndex: isH ? 50 : i + 2, transform: `rotate(${isH ? 0 : item.rotate}deg) scale(${isH ? 1.03 : 1})`, transformOrigin: 'center center', transition: 'transform 0.38s cubic-bezier(0.2,0.8,0.2,1), border-radius 0.38s, box-shadow 0.3s', borderRadius: isH ? 14 : 8, border: '1px solid rgba(0,0,0,0.07)', background: '#FAFAF8', boxShadow: isH ? '0 14px 40px rgba(0,0,0,0.35)' : '0 6px 20px rgba(0,0,0,0.3)', cursor: 'default' }} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+              <div style={{ padding: '15px 16px 16px' }}>
+                <div style={{ width: 28, height: 28, marginBottom: 10, borderRadius: 5, backgroundColor: `${item.color}20`, color: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</div>
+                <h3 style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a', marginBottom: 5, letterSpacing: '-0.01em', lineHeight: 1.3 }}>{item.title}</h3>
+                <p style={{ fontSize: 10.5, lineHeight: 1.6, color: '#555' }}>{item.body}</p>
+              </div>
+            </div>
+          );
+        })}
+        {STICKIES.map((s, i) => (
+          <div key={i} style={{ position: 'absolute', top: s.top, left: s.left, right: s.right, width: 100, zIndex: 8, transform: `rotate(${s.rotate}deg)`, background: s.color, borderRadius: 2, padding: '8px 10px', boxShadow: '0 4px 12px rgba(0,0,0,0.25)', fontFamily: 'monospace', fontSize: 10, lineHeight: 1.5, color: '#5c3d0a', whiteSpace: 'pre-line', pointerEvents: 'none' }}>{s.text}</div>
+        ))}
+        <div onMouseEnter={() => setCompanyHovered(true)} onMouseLeave={() => setCompanyHovered(false)} style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) rotate(${companyHovered ? 0 : -0.8}deg) scale(${companyHovered ? 1.03 : 1})`, transition: 'transform 0.3s cubic-bezier(0.2,0.8,0.2,1)', width: 210, zIndex: companyHovered ? 55 : 40, borderRadius: 6, border: '1px solid rgba(0,0,0,0.1)', background: '#FEF08A', boxShadow: companyHovered ? '0 18px 56px rgba(0,0,0,0.45)' : '0 10px 40px rgba(0,0,0,0.35)', cursor: 'default' }}>
+          <div style={{ padding: '14px 16px 16px' }}>
+            <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#B45309', letterSpacing: '0.18em', marginBottom: 8 }}>● UNDER INVESTIGATION</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1917', marginBottom: 3, letterSpacing: '-0.02em' }}>Meridian Holdings Ltd</div>
+            <div style={{ fontSize: 9, fontFamily: 'monospace', color: '#78350F', marginBottom: 12, opacity: 0.7 }}>#UK04829371 · Active · Est. 2019</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[{ label: 'RISK', value: '72', color: '#DC2626' }, { label: 'DIRECTORS', value: '14', color: '#1C1917' }, { label: 'FLAGS', value: '6', color: '#B45309' }].map(({ label, value, color }) => (
+                <div key={label} style={{ flex: 1, borderRadius: 4, padding: '5px 6px', background: 'rgba(0,0,0,0.07)', border: '1px solid rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontSize: 8, color: '#78350F', fontFamily: 'monospace', marginBottom: 2 }}>{label}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 35, pointerEvents: 'none' }} viewBox="0 0 1100 692" preserveAspectRatio="xMidYMid meet" aria-hidden>
+          <defs><filter id="thread-tex" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="turbulence" baseFrequency="0.035" numOctaves="3" seed="5" result="noise" /><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" /></filter></defs>
+          <g filter="url(#thread-tex)">
+            {ITEMS.map((item, i) => {
+              const W = 1100, H = 692, cardW = 210;
+              const leftPx = item.pos.left ? parseFloat(item.pos.left) / 100 * W : W - parseFloat(item.pos.right!) / 100 * W - cardW;
+              const ax = leftPx + cardW / 2, ay = parseFloat(item.pos.top) / 100 * H;
+              const bx = 550, by = Math.round(H / 2 - 62);
+              return (
+                <g key={i}>
+                  <line x1={ax} y1={ay} x2={bx} y2={by} stroke="#440000" strokeWidth="3" strokeOpacity="0.18" strokeLinecap="round" />
+                  <line x1={ax} y1={ay} x2={bx} y2={by} stroke="#CC2200" strokeWidth="1.8" strokeOpacity="0.65" strokeLinecap="round" />
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+        {ITEMS.map((item, i) => (
+          <div key={i} style={{ position: 'absolute', top: `calc(${item.pos.top} - 9px)`, left: item.pos.left ? `calc(${item.pos.left} + 96px)` : undefined, right: item.pos.right ? `calc(${item.pos.right} + 96px)` : undefined, width: 18, height: 18, borderRadius: '50%', zIndex: 60, pointerEvents: 'none', background: 'radial-gradient(circle at 38% 32%, #ff7070 0%, #cc1100 55%, #880000 100%)', boxShadow: '0 3px 8px rgba(0,0,0,0.6)' }} />
+        ))}
+        <div style={{ position: 'absolute', top: 'calc(50% - 62px)', left: 'calc(50% - 9px)', width: 18, height: 18, borderRadius: '50%', zIndex: 60, pointerEvents: 'none', background: 'radial-gradient(circle at 38% 32%, #ff7070 0%, #cc1100 55%, #880000 100%)', boxShadow: '0 3px 8px rgba(0,0,0,0.6)' }} />
+      </div>
+    </div>
+    </div>
+  );
+}
+
 function RiskPill({ score }: { score: number }) {
   const color =
     score >= 60 ? 'bg-signal-critical/15 text-signal-critical border-signal-critical/30' :
@@ -1299,17 +1437,15 @@ function RecentInvestigations() {
                 onClick={() => router.push(`/investigate/${inv.id}/overview`)}
                 className="bg-ink-900 hover:bg-ink-850 transition-colors p-6 text-left group"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-mono text-ink-500 uppercase">
-                    {inv.jurisdiction?.toUpperCase() || 'GB'}
-                  </span>
+                <div className="flex items-center justify-between mb-4">
+                  <Avatar name={inv.companyName || inv.query} type="company" size={36} />
                   <span className={`text-2xl font-medium tabular-nums ${sc}`}>{score}</span>
                 </div>
                 <div className="text-sm font-medium text-ink-100 group-hover:text-ink-50 transition-colors mb-1 truncate">
                   {inv.companyName || inv.query}
                 </div>
                 <div className="text-[10px] font-mono text-ink-600">
-                  {cls} · {inv.findingsCount || '?'} findings
+                  {cls} · {inv.findingsCount || '?'} findings · {inv.jurisdiction?.toUpperCase() || 'GB'}
                 </div>
               </button>
             );

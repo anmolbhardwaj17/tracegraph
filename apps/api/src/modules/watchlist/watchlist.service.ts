@@ -38,6 +38,10 @@ export class WatchlistService {
     await this.repo.remove(item);
   }
 
+  async setFrequency(companyNumber: string, frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'MANUAL'): Promise<void> {
+    await this.repo.update({ companyNumber }, { checkFrequency: frequency } as any);
+  }
+
   async updateAfterInvestigation(companyNumber: string, investigationId: string, riskScore: number): Promise<void> {
     const item = await this.repo.findOne({ where: { companyNumber } });
     if (!item) return;

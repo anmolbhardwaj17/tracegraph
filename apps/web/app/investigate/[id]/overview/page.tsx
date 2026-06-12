@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { Insights } from '../../../../components/Insights';
 import { NetworkGlobe } from '../../../../components/NetworkGlobe';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 export default function OverviewPage() {
   const { id } = useParams() as { id: string };
@@ -16,8 +16,9 @@ export default function OverviewPage() {
       fetch(`${API}/api/investigations/${id}/overview`).then((r) => r.json()),
       fetch(`${API}/api/investigations/${id}/locations`).then((r) => r.json()).catch(() => null),
       fetch(`${API}/api/investigations/${id}/matches`).then((r) => r.json()).catch(() => null),
+      fetch(`${API}/api/investigations/${id}/funding`).then((r) => r.json()).catch(() => null),
     ])
-      .then(([overview, locations, matchData]) => {
+      .then(([overview, locations, matchData, fundingData]) => {
         const addresses = locations?.addresses || [];
         const jurisdictions = new Set<string>();
         for (const a of addresses) {
@@ -36,6 +37,7 @@ export default function OverviewPage() {
           addressCount: addresses.length,
           jurisdictionCount: jurisdictions.size,
           sanctionsMatches: (matchData?.matches || []).length,
+          fundingEvents: fundingData?.events || [],
           riskyEntityCount: riskyEntities.size,
         });
       })
@@ -68,8 +70,31 @@ export default function OverviewPage() {
   const topActions = findings.filter((f: any) => f.severity === 'CRITICAL' || f.severity === 'HIGH').slice(0, 3);
   const remainingFindings = findings.filter((f: any) => !topActions.includes(f));
 
+  // Acquisition readiness score from API (computed server-side)
+  const readiness: number | null = data.acquisitionReadiness ?? null;
+  const readinessLabel = readiness == null ? null : readiness >= 70 ? 'Strong target' : readiness >= 50 ? 'Viable target' : readiness >= 30 ? 'Caution advised' : 'Not recommended';
+  const readinessColor = readiness == null ? 'text-ink-500' : readiness >= 70 ? 'text-signal-clean' : readiness >= 50 ? 'text-signal-medium' : readiness >= 30 ? 'text-signal-high' : 'text-signal-critical';
+
+  // Deal verdict derived from risk score
+  const verdict = score >= 75
+    ? { label: 'DO NOT PROCEED WITHOUT LEGAL REVIEW', color: 'text-signal-critical', border: 'border-signal-critical/30', bg: 'bg-signal-critical/5', dot: 'bg-signal-critical' }
+    : score >= 50
+    ? { label: 'ENHANCED DUE DILIGENCE REQUIRED', color: 'text-signal-high', border: 'border-signal-high/30', bg: 'bg-signal-high/5', dot: 'bg-signal-high' }
+    : score >= 25
+    ? { label: 'PROCEED WITH CAUTION', color: 'text-signal-medium', border: 'border-signal-medium/30', bg: 'bg-signal-medium/5', dot: 'bg-signal-medium' }
+    : { label: 'PROCEED', color: 'text-signal-clean', border: 'border-signal-clean/30', bg: 'bg-signal-clean/5', dot: 'bg-signal-clean' };
+
   return (
     <div className="space-y-8">
+      {/* Deal Verdict — top of every report */}
+      <div className={`flex items-center justify-between px-5 py-3.5 border ${verdict.border} ${verdict.bg}`}>
+        <div className="flex items-center gap-3">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${verdict.dot}`} />
+          <span className={`text-xs font-mono font-medium tracking-[0.15em] ${verdict.color}`}>{verdict.label}</span>
+        </div>
+        <span className="text-[10px] font-mono text-ink-500 uppercase tracking-wider">Deal verdict · {findings.length} finding{findings.length !== 1 ? 's' : ''}</span>
+      </div>
+
       {/* ROW 1: Score gauge (narrow) + Network numbers (wide) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Score gauge */}
@@ -84,8 +109,17 @@ export default function OverviewPage() {
             </div>
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">{data.targetCompany}'s risk profile</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-1">Deal risk score</div>
             <div className={`text-xl font-medium ${scoreColor}`}>{classification}</div>
+
+            {readiness != null && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <div className="text-[9px] font-mono uppercase tracking-wider text-ink-600 mb-0.5">Acquisition readiness</div>
+                <div className={`text-2xl font-medium tabular-nums ${readinessColor}`}>{readiness}</div>
+                <div className={`text-[10px] font-mono mt-0.5 ${readinessColor}`}>{readinessLabel}</div>
+              </div>
+            )}
+
             {data.percentile != null && data.benchmarks?.totalInvestigations >= 3 && (
               <div className="mt-3">
                 <div className="text-xs text-ink-400">Higher than {data.percentile}% of investigated companies</div>
@@ -106,11 +140,11 @@ export default function OverviewPage() {
 
         {/* Network numbers */}
         <div className="lg:col-span-8 border border-white/5 bg-ink-850 p-6">
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">{data.targetCompany}'s network</div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-5">Target network</div>
           <div className="grid grid-cols-4 gap-6">
             <div>
               <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.people || 0}</div>
-              <div className="text-[10px] font-mono text-ink-500 mt-1">directors & officers</div>
+              <div className="text-[10px] font-mono text-ink-500 mt-1">key people</div>
             </div>
             <div>
               <div className="text-3xl font-medium text-ink-50 tabular-nums">{data.counts?.companies || 0}</div>
@@ -217,6 +251,11 @@ export default function OverviewPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Capital History */}
+      {data.fundingEvents?.length > 0 && (
+        <CapitalHistory events={data.fundingEvents} />
       )}
 
       {/* ROW 2c: Intelligence Dashboard */}
@@ -401,17 +440,17 @@ export default function OverviewPage() {
         if (redFlags.length === 0) return null;
         return (
           <div className="border border-white/5 bg-ink-850 p-6">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Intelligence red flags ({redFlags.length})</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Deal-critical signals ({redFlags.length})</div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {redFlags.slice(0, 9).map((f: any, i: number) => {
                 const typeLabels: Record<string, string> = {
-                  PEP_DETECTED: 'PEP', DIRECT_SANCTIONS_HIT: 'SANCTIONS', ADVERSE_MEDIA: 'MEDIA',
-                  INSIDER_SELLING: 'INSIDER', MATERIAL_EVENT: '8-K', SELF_DISCLOSED_RISK: '10-K RISK',
-                  FINANCIAL_DISTRESS: 'FINANCIAL', LITIGATION: 'COURT', EPA_VIOLATION: 'EPA',
-                  OSHA_VIOLATION: 'OSHA', NO_WEB_PRESENCE: 'WEB', PARKED_WEBSITE: 'WEB',
-                  WEBSITE_AGE_MISMATCH: 'WAYBACK', NO_WEB_HISTORY: 'WAYBACK', VIRTUAL_OFFICE_ADDRESS: 'ADDRESS',
-                  FORMATION_AGENT_ADDRESS: 'ADDRESS', POLITICAL_DONOR: 'FEC', POLITICAL_NETWORK: 'FEC',
-                  NEW_DOMAIN: 'DOMAIN',
+                  PEP_DETECTED: 'PEP', DIRECT_SANCTIONS_HIT: 'SANCTIONS', ADVERSE_MEDIA: 'ADVERSE MEDIA',
+                  INSIDER_SELLING: 'INSIDER TRADE', MATERIAL_EVENT: 'MATERIAL EVENT', SELF_DISCLOSED_RISK: 'DISCLOSED RISK',
+                  FINANCIAL_DISTRESS: 'FINANCIAL', LITIGATION: 'LITIGATION', EPA_VIOLATION: 'ENV. VIOLATION',
+                  OSHA_VIOLATION: 'LABOR VIOLATION', NO_WEB_PRESENCE: 'NO WEB PRESENCE', PARKED_WEBSITE: 'PARKED SITE',
+                  WEBSITE_AGE_MISMATCH: 'WEB HISTORY', NO_WEB_HISTORY: 'NO WEB HISTORY', VIRTUAL_OFFICE_ADDRESS: 'VIRTUAL OFFICE',
+                  FORMATION_AGENT_ADDRESS: 'SHELL ADDRESS', POLITICAL_DONOR: 'POLITICAL DONOR', POLITICAL_NETWORK: 'POLITICAL NETWORK',
+                  NEW_DOMAIN: 'NEW DOMAIN',
                 };
                 return (
                   <div key={i} className="flex items-start gap-2 p-3 border border-white/5 rounded-sm">
@@ -436,7 +475,7 @@ export default function OverviewPage() {
       {/* ROW 4: Top 3 actions */}
       {topActions.length > 0 && (
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Immediate attention required</div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">/ Deal blockers & critical flags</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {topActions.map((f: any, i: number) => (
               <div key={i} className="border border-white/5 bg-ink-850 p-5">
@@ -471,7 +510,7 @@ export default function OverviewPage() {
       {remainingFindings.length > 0 && (
         <div className="border border-white/5 bg-ink-850 p-6">
           <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500 mb-4">
-            Key risk signals in {data.targetCompany}'s network ({remainingFindings.length})
+            Additional risk signals ({remainingFindings.length})
           </div>
           <div className="space-y-2">
             {remainingFindings.slice(0, 10).map((f: any, i: number) => (
@@ -491,6 +530,72 @@ export default function OverviewPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const EVENT_TYPE_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
+  EQUITY_RAISE:     { label: 'Equity raise',      color: 'text-signal-clean',  dot: 'bg-signal-clean' },
+  FORM_D_RAISE:     { label: 'SEC Form D raise',  color: 'text-signal-clean',  dot: 'bg-signal-clean' },
+  DEBT_FACILITY:    { label: 'Debt facility',     color: 'text-signal-medium', dot: 'bg-signal-medium' },
+  CHARGE_CREATED:   { label: 'Charge registered', color: 'text-signal-high',   dot: 'bg-signal-high' },
+  CHARGE_SATISFIED: { label: 'Charge satisfied',  color: 'text-ink-400',        dot: 'bg-ink-600' },
+  CAPITAL_REDUCTION:{ label: 'Capital reduction', color: 'text-signal-medium', dot: 'bg-signal-medium' },
+  SHARE_CLASS_CHANGE:{ label: 'Share class change',color: 'text-ink-400',       dot: 'bg-ink-600' },
+};
+
+function formatAmount(amountMinor: number | null, currency: string): string {
+  if (!amountMinor || amountMinor <= 0) return '';
+  const amount = amountMinor / 100;
+  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£';
+  if (amount >= 1_000_000) return `${symbol}${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `${symbol}${(amount / 1_000).toFixed(0)}K`;
+  return `${symbol}${amount.toFixed(0)}`;
+}
+
+function CapitalHistory({ events }: { events: any[] }) {
+  const equityEvents = events.filter((e) => e.eventType === 'EQUITY_RAISE' || e.eventType === 'FORM_D_RAISE');
+  const totalRaised = equityEvents.reduce((sum, e) => sum + (e.amountMinor || 0), 0);
+
+  return (
+    <div className="border border-white/5 bg-ink-850 p-6">
+      <div className="flex items-center justify-between mb-5">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-500">/ Capital history</div>
+        {totalRaised > 0 && (
+          <div className="text-[10px] font-mono text-ink-500">
+            Total equity raised: <span className="text-signal-clean font-medium">{formatAmount(totalRaised, events[0]?.currency || 'GBP')}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-0">
+        {events.slice(0, 12).map((event: any, i: number) => {
+          const cfg = EVENT_TYPE_CONFIG[event.eventType] || { label: event.eventType, color: 'text-ink-400', dot: 'bg-ink-600' };
+          return (
+            <div key={i} className="flex items-center gap-4 py-3 border-b border-white/5 last:border-b-0">
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+              <div className="w-28 shrink-0 text-[10px] font-mono text-ink-600">
+                {event.eventDate ? new Date(event.eventDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '—'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
+                {event.shareClass && <span className="text-[10px] font-mono text-ink-600 ml-2">{event.shareClass}</span>}
+              </div>
+              {event.amountMinor > 0 && (
+                <div className="text-sm font-medium text-ink-100 shrink-0 tabular-nums">
+                  {formatAmount(event.amountMinor, event.currency)}
+                </div>
+              )}
+              <div className="text-[9px] font-mono text-ink-700 shrink-0 uppercase">
+                {event.source === 'companies-house' ? 'CH' : event.source === 'sec-edgar-form-d' ? 'SEC' : event.source}
+              </div>
+            </div>
+          );
+        })}
+        {events.length > 12 && (
+          <div className="pt-3 text-[10px] font-mono text-ink-600">+ {events.length - 12} more capital events</div>
+        )}
+      </div>
     </div>
   );
 }

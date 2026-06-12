@@ -7,8 +7,29 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { dataSourceOptions } from './data-source';
+import { DataSource } from 'typeorm';
+
+async function runMigrations(): Promise<void> {
+  const ds = new DataSource(dataSourceOptions);
+  try {
+    await ds.initialize();
+    const pending = await ds.showMigrations();
+    if (pending) {
+      console.log('[migrations] Running pending migrations...');
+      await ds.runMigrations({ transaction: 'each' });
+      console.log('[migrations] Done.');
+    }
+  } catch (e: any) {
+    console.error('[migrations] Failed:', e?.message);
+    throw e;
+  } finally {
+    await ds.destroy();
+  }
+}
 
 async function bootstrap() {
+  await runMigrations();
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
   app.enableCors({ origin: true });
@@ -25,7 +46,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT || 4000;
+  const port = process.env.PORT || 7778;
   await app.listen(port);
   console.log(`API listening on http://localhost:${port}`);
   if (!process.env.COMPANIES_HOUSE_API_KEY) {

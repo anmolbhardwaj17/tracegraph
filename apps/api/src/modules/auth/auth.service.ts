@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import { User } from './entities/user.entity';
 import { AuditLog } from './entities/audit-log.entity';
 
@@ -59,15 +60,41 @@ export class AuthService {
     return { user: this.sanitize(user), accessToken };
   }
 
-  /** Google OAuth login/signup (placeholder — needs Google client ID) */
+  /** Google OAuth login/signup — verifies Google ID token and creates/finds user */
   async googleAuth(idToken: string): Promise<{ user: any; accessToken: string }> {
-    // TODO: Verify idToken with Google's API when GOOGLE_CLIENT_ID is set
-    // const ticket = await googleClient.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID });
-    // const payload = ticket.getPayload();
-    // For now, return an error directing the user to set up Google OAuth
-    throw new UnauthorizedException(
-      'Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env',
-    );
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) throw new UnauthorizedException('Google OAuth not configured. Add GOOGLE_CLIENT_ID to .env');
+
+    try {
+      const client = new OAuth2Client(clientId);
+      const ticket = await client.verifyIdToken({ idToken, audience: clientId });
+      const payload = ticket.getPayload();
+      if (!payload?.email) throw new UnauthorizedException('Invalid Google token — no email in payload');
+
+      const { email, name, sub: googleId, picture: avatarUrl } = payload;
+
+      // Find existing user by Google ID or email
+      let user = await this.users.findOne({ where: { googleId } }) ||
+                 await this.users.findOne({ where: { email: email! } });
+
+      if (user) {
+        if (!user.googleId) await this.users.update(user.id, { googleId, avatarUrl: avatarUrl || user.avatarUrl } as any);
+        await this.users.update(user.id, { lastLoginAt: new Date() } as any);
+      } else {
+        user = await this.users.save({
+          email: email!, googleId, name: name || email!.split('@')[0],
+          avatarUrl: avatarUrl || null, plan: 'pro',
+          investigationLimit: 50, investigationCount: 0, lastLoginAt: new Date(),
+        } as any);
+      }
+
+      const accessToken = this.jwt.sign({ sub: user!.id, email: user!.email, role: user!.role });
+      return { user: this.sanitize(user!), accessToken };
+    } catch (e: any) {
+      if (e instanceof UnauthorizedException) throw e;
+      this.logger.warn(`Google auth failed: ${e?.message}`);
+      throw new UnauthorizedException('Google authentication failed. Please try again.');
+    }
   }
 
   /** Get user by ID */

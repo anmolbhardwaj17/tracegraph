@@ -62,7 +62,7 @@ function companyDomains(name: string): string[] {
 }
 
 export function Avatar({ name, type = 'person', size = 40 }: Props) {
-  const initials = name
+  const initials = (name || '?')
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -119,7 +119,7 @@ export function Avatar({ name, type = 'person', size = 40 }: Props) {
   );
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 const logoLocalCache = new Map<string, string | null>();
 
 async function fetchLogoUrl(name: string): Promise<string | null> {

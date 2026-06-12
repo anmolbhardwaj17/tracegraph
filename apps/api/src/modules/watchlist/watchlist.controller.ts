@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { WatchlistService } from './watchlist.service';
 import { WatchlistMonitorService } from './watchlist-monitor.service';
+import { WatchlistSchedulerService } from './watchlist-scheduler.service';
 
 @ApiTags('Watchlist & Monitoring')
 @Controller('api/watchlist')
@@ -9,6 +10,7 @@ export class WatchlistController {
   constructor(
     private readonly svc: WatchlistService,
     private readonly monitor: WatchlistMonitorService,
+    private readonly scheduler: WatchlistSchedulerService,
   ) {}
 
   @Get()
@@ -65,5 +67,20 @@ export class WatchlistController {
   @Post('monitor')
   async runMonitoring() {
     return this.monitor.runMonitoring();
+  }
+
+  /** PUT /api/watchlist/:companyNumber/frequency — set check frequency */
+  @Put(':companyNumber/frequency')
+  async setFrequency(
+    @Param('companyNumber') companyNumber: string,
+    @Body() body: { frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'MANUAL' },
+  ) {
+    return this.svc.setFrequency(companyNumber, body.frequency);
+  }
+
+  /** POST /api/watchlist/:companyNumber/check-now — trigger immediate check */
+  @Post(':companyNumber/check-now')
+  async checkNow(@Param('companyNumber') companyNumber: string) {
+    return this.scheduler.triggerCheck(companyNumber);
   }
 }

@@ -9,7 +9,7 @@ const SwimLaneTimeline = dynamic(
   { ssr: false },
 );
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7778';
 
 const SEV_DOT: Record<string, string> = { critical: 'bg-signal-critical', warning: 'bg-signal-medium', info: 'bg-ink-500' };
 
@@ -21,20 +21,52 @@ export default function TimelinePage() {
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
 
+  const [fundingEvents, setFundingEvents] = useState<any[]>([]);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
       fetch(`${API}/api/investigations/${id}/timeline?limit=200&fullHistory=true`).then((r) => r.json()),
       fetch(`${API}/api/investigations/${id}/meta`).then((r) => r.json()),
+      fetch(`${API}/api/investigations/${id}/funding`).then((r) => r.json()).catch(() => ({ events: [] })),
     ])
-      .then(([tl, m]) => { setData(tl); setMeta(m); })
+      .then(([tl, m, fd]) => {
+        setData(tl);
+        setMeta(m);
+        setFundingEvents(fd?.events || []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Convert funding events to timeline event format
+  const fundingTimelineEvents = fundingEvents
+    .filter((e: any) => e.eventDate)
+    .map((e: any) => ({
+      type: e.eventType,
+      date: e.eventDate,
+      title: e.eventType === 'EQUITY_RAISE' ? 'Equity raise — allotment of shares' :
+             e.eventType === 'FORM_D_RAISE' ? 'Private placement (SEC Form D)' :
+             e.eventType === 'CHARGE_CREATED' ? 'Charge / debt facility registered' :
+             e.eventType === 'CHARGE_SATISFIED' ? 'Charge satisfied' :
+             e.eventType === 'CAPITAL_REDUCTION' ? 'Capital reduction' : e.eventType,
+      description: e.amountMinor > 0
+        ? `Amount: ${e.currency === 'USD' ? '$' : '£'}${(e.amountMinor / 100 / 1000).toFixed(0)}K${e.shareClass ? ' — ' + e.shareClass : ''}`
+        : e.shareClass || '',
+      severity: e.eventType === 'CHARGE_CREATED' ? 'warning' : 'info',
+      source: e.source,
+      isFundingEvent: true,
+    }));
+
   const events = data?.events || [];
   const targetName = data?.targetCompany || meta?.companyName || 'This company';
-  const filtered = filter === 'all' ? events : events.filter((e: any) => e.severity === filter);
+  // Merge funding timeline events into main events
+  const allEvents = [...events, ...fundingTimelineEvents].sort((a, b) => {
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+  const filtered = filter === 'all' ? allEvents : allEvents.filter((e: any) => e.severity === filter);
 
   // CHANGE 1: Narrative summary
   const narrative = useMemo(() => {

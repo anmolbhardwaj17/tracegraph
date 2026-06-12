@@ -17,6 +17,7 @@ import { PatentSearchService } from './patent-search.service';
 import { NonprofitLookupService } from './nonprofit-lookup.service';
 import { LinkedInIntelligenceService } from './linkedin-intelligence.service';
 import { IndiaIntelligenceService } from './india-intelligence.service';
+import { DomainResearchService } from './domain-research.service';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 import { GraphEdge } from '../graph/entities/graph-edge.entity';
 import { GeocodingModule } from '../geocoding/geocoding.module';
@@ -30,6 +31,7 @@ const services = [
   PatentSearchService, NonprofitLookupService,
   LinkedInIntelligenceService,
   IndiaIntelligenceService,
+  DomainResearchService,
 ];
 
 @Module({

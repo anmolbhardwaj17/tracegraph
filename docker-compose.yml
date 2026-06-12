@@ -10,6 +10,8 @@ services:
       - "5433:5432"
     volumes:
       - tracegraph_pg:/var/lib/postgresql/data
+    networks:
+      - tracegraph
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tracegraph"]
       interval: 5s
@@ -17,20 +19,25 @@ services:
       retries: 10
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: tracegraph-redis
     ports:
       - "6379:6379"
     volumes:
       - tracegraph_redis:/data
+    networks:
+      - tracegraph
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  # Neo4j is optional — only needed for advanced graph algorithms.
+  # Start with: docker-compose --profile graph up
   neo4j:
     image: neo4j:5-community
+    profiles: ["graph"]
     container_name: tracegraph-neo4j
     environment:
       NEO4J_AUTH: neo4j/tracegraph
@@ -40,11 +47,8 @@ services:
       - "7687:7687"
     volumes:
       - tracegraph_neo4j:/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 >/dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+    networks:
+      - tracegraph
 
   api:
     build:
@@ -59,42 +63,51 @@ services:
       POSTGRES_DB: tracegraph
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      PORT: 7778
+      JWT_SECRET: ${JWT_SECRET:-tracegraph-dev-secret-change-in-production}
       COMPANIES_HOUSE_API_KEY: ${COMPANIES_HOUSE_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.0-flash-001}
-      PORT: 4000
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      ADMIN_ALERT_EMAIL: ${ADMIN_ALERT_EMAIL:-}
+      APP_URL: ${APP_URL:-http://localhost:3000}
     ports:
-      - "4000:4000"
+      - "7778:7778"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - tracegraph
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/investigations >/dev/null 2>&1 || exit 1"]
-      interval: 30s
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7778/api/investigations/stats >/dev/null 2>&1 || exit 1"]
+      interval: 20s
       timeout: 5s
-      retries: 3
-      start_period: 20s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        # NEXT_PUBLIC_ vars are baked at build time — must be reachable from the user's browser
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:7778}
     container_name: tracegraph-web
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:4000
     ports:
       - "3000:3000"
     depends_on:
       api:
-        condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+        condition: service_healthy
+    networks:
+      - tracegraph
+    restart: unless-stopped
+
+networks:
+  tracegraph:
+    driver: bridge
 
 volumes:
   tracegraph_pg:
