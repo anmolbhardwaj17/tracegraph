@@ -67,6 +67,12 @@ describe('RiskScoringService integration', () => {
     const stubFilingHealth = { analyze: jest.fn().mockResolvedValue({ healthCount: 0, regressedCount: 0, cyclingCount: 0, phoenixPairs: [] }) };
     const stubDisqualified = { checkAll: jest.fn().mockResolvedValue([]) };
     const stubJurisdiction = { tagAll: jest.fn().mockResolvedValue({ tagged: 0, high: 0, medium: 0, chainsBoosted: 0 }) };
+    const stubCompanyAge = { detect: jest.fn().mockResolvedValue({ shelfPurchases: [], brandNewWithCharges: [], massFormationEvents: [], filingGapRevivals: [] }) };
+    const stubCrossDir = { analyze: jest.fn().mockResolvedValue({ sameSicConflicts: [], incestuousNetworks: [], dualSidedDirectors: [] }) };
+    const stubOpacity = { scoreAll: jest.fn().mockResolvedValue({ scored: 0, opaque: 0 }) };
+    const stubVelocity = { scoreAll: jest.fn().mockResolvedValue({ scored: 0, flagged: 0 }) };
+    const stubDistress = { analyze: jest.fn().mockResolvedValue({ analyzed: 0, distressed: 0 }) };
+    const stubCrossInv = { detect: jest.fn().mockResolvedValue([]) };
     const svc = new RiskScoringService(
       nodesRepo as any,
       edgesRepo as any,
@@ -81,13 +87,20 @@ describe('RiskScoringService integration', () => {
       stubDirector as any,
       stubFilingHealth as any,
       stubDisqualified as any,
-      stubJurisdiction as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any,
+      stubJurisdiction as any,
+      stubCompanyAge as any,
+      stubCrossDir as any,
+      stubOpacity as any,
+      stubVelocity as any,
+      stubDistress as any,
+      stubCrossInv as any,
     );
 
     const result = await svc.run('inv');
 
     // All analyzers fired
-    expect(stubAnomaly.scoreShellCompanies).toHaveBeenCalledWith('inv');
+    // No root company number on this investigation, so none is passed for the PSC parent discount
+    expect(stubAnomaly.scoreShellCompanies).toHaveBeenCalledWith('inv', undefined);
     expect(stubAddr.analyze).toHaveBeenCalledWith('inv');
     expect(stubCycle.detect).toHaveBeenCalledWith('inv');
     expect(stubComm.detect).toHaveBeenCalledWith('inv');

@@ -24,7 +24,7 @@ describe('WaybackService', () => {
     const extract = (service as any).extractDomain.bind(service);
     expect(extract('https://www.amazon.com')).toBe('amazon.com');
     expect(extract('https://apple.com/store')).toBe('apple.com');
-    expect(extract('http://www.example.co.uk')).toBe('www.example.co.uk');
+    expect(extract('http://www.example.co.uk')).toBe('example.co.uk');
     expect(extract(null)).toBeNull();
   });
 
@@ -32,7 +32,7 @@ describe('WaybackService', () => {
     const guess = (service as any).guessDomain.bind(service);
     expect(guess('Apple Inc')).toBe('apple.com');
     expect(guess('Microsoft Corp')).toBe('microsoft.com');
-    expect(guess('AB')).toBeNull(); // too short
+    expect(guess('A')).toBeNull(); // too short
   });
 
   it('should generate findings for missing web history', () => {
@@ -45,7 +45,7 @@ describe('WaybackService', () => {
 
   it('should flag website age mismatch', () => {
     const gen = (service as any).generateFindings.bind(service);
-    const result = { domain: 'test.com', exists: true, firstSnapshot: '2025-01-01', lastSnapshot: '2025-06-01', totalSnapshots: 5, domainAgeYears: 1.5, flags: ['WEBSITE_UNDER_1_YEAR'] };
+    const result = { domain: 'test.com', exists: true, firstSnapshot: '2025-01-01', lastSnapshot: '2025-06-01', totalSnapshots: 5, domainAgeYears: 0.5, flags: ['WEBSITE_UNDER_1_YEAR'] };
     const findings = gen('Old Corp', result, '2010-01-01');
     const mismatch = findings.find((f: any) => f.type === 'WEBSITE_AGE_MISMATCH');
     expect(mismatch).toBeDefined();

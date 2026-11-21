@@ -3,6 +3,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { SanctionsDirectService } from './sanctions-direct.service';
 import { GraphNode } from '../graph/entities/graph-node.entity';
 
+// Never hit the real OFAC / UK HMT / EU endpoints from tests: simulate the
+// lists being unreachable so the suite runs offline and fast.
+jest.mock('axios', () => ({
+  __esModule: true,
+  default: { get: jest.fn().mockRejectedValue(new Error('network disabled in tests')) },
+}));
+
 describe('SanctionsDirectService', () => {
   let service: SanctionsDirectService;
 
@@ -36,8 +43,8 @@ describe('SanctionsDirectService', () => {
     ]);
     mockNodeRepo.findOne.mockResolvedValue(null);
 
-    // This will try to load OFAC/UK HMT lists — may timeout in test
-    // The test validates the service doesn't crash, not that it matches
+    // Lists are unreachable (axios is mocked above); the service must still
+    // return a well-formed result rather than throw.
     const result = await service.screen('test-inv-id');
 
     expect(result).toBeDefined();
@@ -45,7 +52,7 @@ describe('SanctionsDirectService', () => {
     expect(result.findings).toBeDefined();
     expect(Array.isArray(result.matches)).toBe(true);
     expect(Array.isArray(result.findings)).toBe(true);
-  }, 60000); // 60s timeout for list download
+  });
 
   it('should handle empty entity list', async () => {
     mockNodeRepo.find.mockResolvedValue([]);
