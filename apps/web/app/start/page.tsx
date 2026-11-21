@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../components/AuthProvider';
 import { NavBar } from '../../components/NavBar';
@@ -17,7 +17,16 @@ interface Hit {
   source?: string; address?: string;
 }
 
+// useSearchParams() needs a Suspense boundary for `next build` to prerender this page.
 export default function StartPage() {
+  return (
+    <Suspense fallback={null}>
+      <StartPageContent />
+    </Suspense>
+  );
+}
+
+function StartPageContent() {
   const router = useRouter();
   const sp = useSearchParams();
   const { user, token, loading: authLoading } = useAuth();
